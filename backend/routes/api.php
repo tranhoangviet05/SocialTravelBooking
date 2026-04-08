@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Auth\AuthController;
 
+use App\Http\Controllers\General\LocationController;
+use App\Http\Controllers\General\CategoryController;
+use App\Http\Controllers\General\ServiceController;
+
 // ========================
 // ROUTE CÔNG KHAI (không cần đăng nhập)
 // ========================
@@ -24,6 +28,17 @@ Route::get('/ping', fn() => response()->json([
     'message' => 'Social Travel Booking API đang chạy!',
     'timestamp' => now()->toISOString(),
 ]));
+
+// Địa điểm & Danh mục (vaitro/hanhdong/chucnang)
+Route::get('/general/get/locations', [LocationController::class, 'index']);
+Route::get('/general/get/locations/{id}', [LocationController::class, 'show']);
+Route::get('/general/get/categories', [CategoryController::class, 'index']);
+Route::get('/general/get/categories/{slug}', [CategoryController::class, 'show']);
+
+// Dịch vụ đồ du lịch (vaitro/hanhdong/chucnang)
+Route::get('/general/get/services', [ServiceController::class, 'index']);
+Route::get('/general/get/services/detail/{slug}', [ServiceController::class, 'show']);
+Route::get('/general/get/services/latest', [ServiceController::class, 'latest']);
 
 // ========================
 // ROUTE BẢO VỆ (yêu cầu Firebase Auth)
@@ -50,4 +65,4 @@ Route::middleware('firebase.auth')->group(function () {
     // Route::apiResource('bookings', BookingController::class);
     // ===========================================================
 });
-
+

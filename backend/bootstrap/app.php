@@ -3,7 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Middlewave\FirebaseAuthMiddleware;
+use App\Http\Middleware\FirebaseAuthMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(

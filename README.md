@@ -31,32 +31,54 @@
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 📁 Cấu trúc thư mục chi tiết
 
+### 1. Backend (Laravel 12 REST API)
+Hệ thống được xây dựng theo kiến trúc phân lớp chuyên nghiệp.
 ```
-SocialTravelBooking/
-├── backend/              # Laravel 12 REST API
-│   ├── app/
-│   ├── routes/api.php
-│   ├── Dockerfile
-│   ├── .env.example
-│   └── firebase-service-account.json  # ⚠️ KHÔNG commit
-│
-├── frontend_web/         # React 19 + Vite
-│   ├── src/
-│   │   ├── firebase/     # Firebase config & services
-│   │   └── hooks/        # Custom hooks (useAuth, ...)
-│   ├── Dockerfile
-│   └── .env.example
-│
-├── mobile_app/           # Flutter (Android & iOS)
-│   └── lib/
-│       ├── core/services/  # AuthService, FirestoreService
-│       └── firebase_options.dart
-│
-├── docker-compose.yml    # Chạy toàn bộ stack bằng Docker
-├── firestore_schema.js   # Seed dữ liệu mẫu Firestore
-└── README.md
+backend/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   │   ├── Auth/           # Đăng nhập & Đồng bộ người dùng Firebase
+│   │   │   ├── Admin/          # Quản lý hệ thống (Phê duyệt tour, quản lý user)
+│   │   │   ├── Provider/       # Chức năng dành cho Nhà cung cấp (Đăng tour, xem booking)
+│   │   │   ├── Tourist/        # Chức năng dành cho Khách du lịch
+│   │   │   └── General/        # API công khai (Lấy danh sách địa điểm, tìm kiếm tour)
+│   │   ├── Middleware/         # FirebaseAuthMiddleware: Kiểm tra Token từ mobile/web
+│   │   └── Requests/           # Validation Layer: Kiểm tra tính hợp lệ của dữ liệu gửi lên
+│   ├── Services/               # Business Logic: Nơi xử lý các nghiệp vụ phức tạp
+│   ├── Models/                 # Eloquent Models: Định nghĩa cấu trúc bảng Database
+│   └── Providers/              # Nơi cấu hình và khởi tạo các dịch vụ hệ thống
+├── database/migrations/         # Lịch sử thay đổi cấu trúc bảng PostgreSQL
+├── routes/api.php              # Lộ trình API (Endpoint) theo chuẩn vaitro/hanhdong/chucnang
+└── .env                        # Chứa các mã bảo mật (DB, Firebase, Gemini API)
+```
+
+### 2. Frontend Web (React 19 + Tailwind v4)
+Ứng dụng web dùng cho quản trị viên và giao diện khách hàng trên máy tính.
+```
+frontend_web/src/
+├── api/                        # Chứa các cấu hình Axios để gọi API Backend
+├── components/                 # Các thành phần giao diện dùng chung (Button, Card, Modal)
+├── firebase/                   # Cấu hình kết nối Firebase Authentication & Firestore
+├── hooks/                      # Custom Hooks (useAuth, useFetchData...)
+├── pages/                      # Giao diện các trang chính (Home, Explore, Management)
+├── utils/                      # Các hàm tiện ích (Format tiền tệ, xử lý ngày tháng)
+├── App.jsx                     # File điều hướng (Routing) chính của ứng dụng
+└── main.jsx                    # Điểm vào (Entry point) của dự án React
+```
+
+### 3. Mobile App (Flutter)
+Ứng dụng di động dành cho khách du lịch trên Android & iOS.
+```
+mobile_app/lib/
+├── core/                       # Chứa các dịch vụ cốt lõi (AuthService, APIClient)
+├── features/                   # Chia thư mục theo tính năng (Login, Home, Booking...)
+├── models/                     # Định nghĩa các đối tượng dữ liệu (User, Tour, Location)
+├── widgets/                    # Các UI Widgets dùng lại nhiều lần trong App
+├── main.dart                   # Điểm khởi chạy của ứng dụng Flutter
+└── firebase_options.dart       # Cấu hình Firebase dành riêng cho nền tảng di động
 ```
 
 ---

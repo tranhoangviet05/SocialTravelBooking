@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Header = ({ onLoginClick }) => {
     const { currentUser, logout } = useAuth();
@@ -62,19 +62,19 @@ const Header = ({ onLoginClick }) => {
                                 onClick={() => setShowDropdown(!showDropdown)}
                                 className="flex items-center gap-2 cursor-pointer group"
                             >
-                                {currentUser.photoURL ? (
+                                {currentUser.photoURL || currentUser.avatar_url ? (
                                     <img
-                                        src={currentUser.photoURL}
+                                        src={currentUser.photoURL || currentUser.avatar_url}
                                         alt="Avatar"
                                         className="w-9 h-9 rounded-full object-cover border-2 border-sky-200 group-hover:border-sky-400 transition-all"
                                     />
                                 ) : (
                                     <div className="w-9 h-9 rounded-full bg-sky-900 flex items-center justify-center text-white text-sm font-bold">
-                                        {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
+                                        {(currentUser.displayName || currentUser.display_name || currentUser.email || '?')[0].toUpperCase()}
                                     </div>
                                 )}
                                 <span className="hidden lg:block text-sm font-semibold text-slate-700 max-w-[120px] truncate group-hover:text-sky-900 transition-colors">
-                                    {currentUser.displayName || currentUser.email?.split('@')[0]}
+                                    {currentUser.displayName || currentUser.display_name || currentUser.email?.split('@')[0]}
                                 </span>
                                 <ChevronDown size={16} className={`text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -85,7 +85,7 @@ const Header = ({ onLoginClick }) => {
                                     {/* User info */}
                                     <div className="px-4 py-3 border-b border-gray-100">
                                         <p className="text-sm font-bold text-slate-900 truncate">
-                                            {currentUser.displayName || 'Người dùng'}
+                                            {currentUser.displayName || currentUser.display_name || 'Người dùng'}
                                         </p>
                                         <p className="text-xs text-gray-400 truncate">
                                             {currentUser.email}

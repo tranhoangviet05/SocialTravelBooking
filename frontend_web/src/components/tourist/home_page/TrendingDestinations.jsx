@@ -1,7 +1,7 @@
 import React from 'react';
-import dnBg from '../../assets/images/dn_bg.jpg';
-import quynhonBg from '../../assets/images/quynhon_bg.jpg';
-import hueBg from '../../assets/images/hue_bg.jpg';
+import dnBg from '../../../assets/images/dn_bg.jpg';
+import quynhonBg from '../../../assets/images/quynhon_bg.jpg';
+import hueBg from '../../../assets/images/hue_bg.jpg';
 
 const TrendingDestinations = () => {
     const destinations = [

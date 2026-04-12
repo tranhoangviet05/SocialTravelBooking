@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MapPin, Calendar, Users, Search, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Compass } from 'lucide-react';
-import { COLORS } from '../../utils/colors';
+import { COLORS } from '../../../utils/colors';
 
 const HeroBanner = () => {
     const [searchTab, setSearchTab] = useState('stay');

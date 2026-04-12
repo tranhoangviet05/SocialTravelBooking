@@ -26,10 +26,14 @@ class AuthController extends Controller
     {
         try {
             // Lấy thông tin từ Middleware FirebaseAuthMiddleware
+            // Ưu tiên displayName từ request body (Email/Password signup)
+            // Fallback sang token claim 'name' (Google OAuth)
             $firebaseData = [
                 'uid' => $request->attributes->get('firebaseUid'),
                 'email' => $request->attributes->get('firebaseEmail'),
-                'name' => $request->attributes->get('firebaseUser')['name'] ?? null,
+                'name' => $request->input('displayName')
+                    ?? $request->attributes->get('firebaseUser')['name'] 
+                    ?? null,
                 'picture' => $request->attributes->get('firebaseUser')['picture'] ?? null,
             ];
 

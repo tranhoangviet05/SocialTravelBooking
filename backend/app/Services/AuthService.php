@@ -24,10 +24,15 @@ class AuthService
         if (!$user) {
             $isNewUser = true;
 
+            // Fallback: nếu name là null (đăng ký bằng Email), dùng phần trước @ của email
+            $displayName = $firebaseData['name'] 
+                ?? explode('@', $firebaseEmail)[0] 
+                ?? 'Người dùng';
+
             $user = User::create([
                 'firebase_uid' => $firebaseUid,
                 'email' => $firebaseEmail,
-                'display_name' => $firebaseData['name'] ?? null,
+                'display_name' => $displayName,
                 'avatar_url' => $firebaseData['picture'] ?? null,
                 'role' => 'tourist',
                 'status' => 'active',

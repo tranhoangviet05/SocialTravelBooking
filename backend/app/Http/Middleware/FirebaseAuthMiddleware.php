@@ -33,9 +33,9 @@ class FirebaseAuthMiddleware
         }
 
         try {
-            // Xác minh ID Token với Firebase
+            // Xác minh ID Token với Firebase (thêm 60s leeway để tránh lỗi lệch thời gian)
             $auth = Firebase::auth();
-            $verifiedToken = $auth->verifyIdToken($bearerToken);
+            $verifiedToken = $auth->verifyIdToken($bearerToken, false, 60);
 
             // Lưu thông tin user vào request để dùng ở controller
             $request->attributes->set('firebaseUid', $verifiedToken->claims()->get('sub'));
@@ -43,10 +43,13 @@ class FirebaseAuthMiddleware
             $request->attributes->set('firebaseUser', $verifiedToken->claims()->all());
 
         } catch (RevokedIdToken $e) {
+            \Log::error('Firebase Auth: Token revoked', ['error' => $e->getMessage()]);
             return $this->unauthorizedResponse('Token đã bị thu hồi. Vui lòng đăng nhập lại.');
         } catch (FailedToVerifyToken $e) {
-            return $this->unauthorizedResponse('Token không hợp lệ hoặc đã hết hạn.');
+            \Log::error('Firebase Auth: Token verification failed', ['error' => $e->getMessage()]);
+            return $this->unauthorizedResponse('Token không hợp lệ: ' . $e->getMessage());
         } catch (\Exception $e) {
+            \Log::error('Firebase Auth: General error', ['error' => $e->getMessage()]);
             return $this->unauthorizedResponse('Xác thực thất bại: ' . $e->getMessage());
         }
 

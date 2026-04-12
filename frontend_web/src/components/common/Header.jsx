@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Header = ({ onLoginClick }) => {
@@ -27,25 +28,27 @@ const Header = ({ onLoginClick }) => {
         <header className="fixed top-0 left-0 right-0 z-[100] bg-white/70 backdrop-blur-lg border-b border-white/20 shadow-sm transition-all duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
                 {/* Logo */}
-                <div className="flex items-center space-x-2">
+                <Link to="/" className="flex items-center space-x-2">
                     <div className="text-2xl font-black tracking-tight text-sky-900">
                         Social Travel Booking
                     </div>
-                </div>
+                </Link>
 
                 {/* Navigation */}
                 <nav className="hidden md:flex space-x-8">
-                    {['TRANG CHỦ', 'HOẠT ĐỘNG', 'LƯU TRÚ', 'CỘNG ĐỒNG'].map((item) => (
-                        <a
-                            key={item}
-                            href="#"
-                            className={`text-sm font-semibold transition-colors ${item === 'TRANG CHỦ'
-                                ? 'text-sky-900 border-b-2 border-sky-900 pb-1'
-                                : 'text-gray-500 hover:text-sky-900'
-                                }`}
+                    {[
+                        { text: 'TRANG CHỦ', path: '/' },
+                        { text: 'HOẠT ĐỘNG', path: '/search?type=tour' },
+                        { text: 'LƯU TRÚ', path: '/search?type=hotel' },
+                        { text: 'CỘNG ĐỒNG', path: '/community' }
+                    ].map((item) => (
+                        <Link
+                            key={item.text}
+                            to={item.path}
+                            className={`text-sm font-semibold transition-colors text-gray-500 hover:text-sky-900`}
                         >
-                            {item}
-                        </a>
+                            {item.text}
+                        </Link>
                     ))}
                 </nav>
 
@@ -93,13 +96,23 @@ const Header = ({ onLoginClick }) => {
                                     </div>
 
                                     {/* Menu items */}
-                                    <button
+                                    <Link
+                                        to="/profile"
                                         onClick={() => setShowDropdown(false)}
                                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-50 transition-colors cursor-pointer"
                                     >
                                         <User size={16} />
                                         Thông tin cá nhân
-                                    </button>
+                                    </Link>
+
+                                    <Link
+                                        to="/my-bookings"
+                                        onClick={() => setShowDropdown(false)}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                                        Chuyến đi của tôi
+                                    </Link>
 
                                     <div className="border-t border-gray-100 mt-1 pt-1">
                                         <button

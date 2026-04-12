@@ -9,6 +9,9 @@ import SearchPage from './pages/tourist/Search';
 import ServiceDetailPage from './pages/tourist/ServiceDetail';
 import ProfilePage from './pages/tourist/Profile';
 import MyBookingsPage from './pages/tourist/MyBookings';
+import CommunityPage from './pages/tourist/Community';
+import CheckoutPage from './pages/tourist/Checkout';
+import SuccessPage from './pages/tourist/Success';
 import AdminDashboard from './pages/admin/Dashboard';
 import ProviderDashboard from './pages/provider/Dashboard';
 import './App.css';
@@ -23,11 +26,14 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/service/:id" element={<ServiceDetailPage />} />
+            <Route path="/community" element={<CommunityPage />} />
             
             {/* Các trang dành cho Tourist yêu cầu đăng nhập */}
             <Route element={<ProtectedRoute allowedRoles={['tourist', 'admin', 'provider']} />}>
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/my-bookings" element={<MyBookingsPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/checkout-success" element={<SuccessPage />} />
             </Route>
           </Route>
 

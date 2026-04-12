@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { signUp, signInWithGoogle } from '../firebase/services/authService';
-import authApi from '../api/authApi';
+import { signUp, signInWithGoogle } from '../../firebase/services/authService';
+import { useNavigate } from 'react-router-dom';
+import authApi from '../../api/authApi';
 import { Eye, EyeOff, X, User } from 'lucide-react';
-import { COLORS } from '../utils/colors';
-import dnBg from '../assets/images/dn_bg.jpg';
-import quynhonBg from '../assets/images/quynhon_bg.jpg';
-import hueBg from '../assets/images/hue_bg.jpg';
+import { COLORS } from '../../utils/colors';
+import dnBg from '../../assets/images/dn_bg.jpg';
+import quynhonBg from '../../assets/images/quynhon_bg.jpg';
+import hueBg from '../../assets/images/hue_bg.jpg';
 
 const slides = [
     { image: dnBg, name: 'Đà Nẵng', tag: 'Biển & Phố', desc: 'Thành phố đáng sống với bãi biển Mỹ Khê, cầu Vàng và ẩm thực đường phố tuyệt vời.' },
@@ -24,7 +25,9 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     const [reportMessage, setReportMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [role, setRole] = useState('tourist'); // 'tourist' | 'provider'
     const timerRef = useRef(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (isOpen) {
@@ -82,12 +85,19 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
             // Force refresh token để bao gồm displayName mới cập nhật
             const idToken = await user.getIdToken(true);
-            // Gửi displayName qua body vì token Email/Password không chứa claim 'name'
-            await authApi.syncUser(idToken, { displayName: name.trim() });
+            // Gửi displayName và role qua body
+            const response = await authApi.syncUser(idToken, { 
+                displayName: name.trim(),
+                role: role 
+            });
 
-            console.log('Register success:', user);
+            console.log('Register success:', user, 'Role:', role);
             setReportMessage('');
             onClose();
+
+            // Chuyển hướng theo vai trò
+            if (role === 'admin') navigate('/admin/dashboard');
+            else if (role === 'provider') navigate('/provider/dashboard');
         } catch (error) {
             console.error('Register failed:', error);
             const errorMap = {
@@ -108,10 +118,15 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
             const user = await signInWithGoogle();
 
             const idToken = await user.getIdToken();
-            const response = await authApi.syncUser(idToken);
+            const response = await authApi.syncUser(idToken, { role: role });
+            const finalRole = response?.data?.role || role;
 
-            console.log('Google login & sync success:', response);
+            console.log('Google login & sync success:', finalRole);
             onClose();
+
+            // Chuyển hướng theo vai trò
+            if (finalRole === 'admin') navigate('/admin/dashboard');
+            else if (finalRole === 'provider') navigate('/provider/dashboard');
         } catch (error) {
             console.error('Google Auth failed:', error);
             setReportMessage('Đăng nhập Google thất bại. Vui lòng thử lại.');
@@ -159,8 +174,26 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
                     <div className="mb-6">
                         <h3 className="text-xl font-bold text-slate-900">Tham gia cùng</h3>
-                        <h2 className="text-2xl font-black text-sky-900 mb-1">Social Travel Booking</h2>
+                         <h2 className="text-2xl font-black text-sky-900 mb-1">Social Travel Booking</h2>
                         <p className="text-gray-400 text-sm">Tạo tài khoản để bắt đầu hành trình</p>
+                    </div>
+
+                    {/* Role Selection Tabs */}
+                    <div className="flex p-1 bg-gray-100 rounded-2xl mb-6">
+                        <button
+                            type="button"
+                            onClick={() => setRole('tourist')}
+                            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${role === 'tourist' ? 'bg-white text-sky-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Người du lịch
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRole('provider')}
+                            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${role === 'provider' ? 'bg-white text-sky-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Nhà cung cấp
+                        </button>
                     </div>
 
                     {/* Google Register */}

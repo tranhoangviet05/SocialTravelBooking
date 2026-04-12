@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Star, MapPin, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
-import { COLORS } from '../../utils/colors';
+import { COLORS } from '../../../utils/colors';
 
 const Accommodations = () => {
     const [currentIndex, setCurrentIndex] = useState(0);

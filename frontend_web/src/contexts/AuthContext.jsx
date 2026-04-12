@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthChange, logOut } from '../firebase/services/authService';
+import authApi from '../api/authApi';
 
 const AuthContext = createContext(null);
 
@@ -7,12 +8,42 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
+    const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         // Lắng nghe thay đổi trạng thái đăng nhập Firebase
-        const unsubscribe = onAuthChange((user) => {
+        const unsubscribe = onAuthChange(async (user) => {
             setCurrentUser(user);
+            if (user) {
+                try {
+                    // Lấy profile từ Backend để có role và thông tin chính xác
+                    const idToken = await user.getIdToken();
+                    const response = await authApi.getProfile(idToken);
+                    const backendUser = response?.data;
+
+                    if (backendUser) {
+                        // Gộp dữ liệu từ Backend vào currentUser
+                        setCurrentUser({
+                            ...user,
+                            ...backendUser,
+                            uid: user.uid,
+                            email: user.email,
+                            photoURL: user.photoURL || backendUser.avatar_url,
+                            displayName: user.displayName || backendUser.display_name,
+                        });
+                        setUserRole(backendUser.role || 'tourist');
+                    } else {
+                        setUserRole('tourist');
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch user role:', error);
+                    setUserRole('tourist'); // Fallback
+                }
+            } else {
+                setUserRole(null);
+            }
+
             setLoading(false);
         });
 
@@ -23,6 +54,7 @@ export const AuthProvider = ({ children }) => {
         try {
             await logOut();
             setCurrentUser(null);
+            setUserRole(null);
         } catch (error) {
             console.error('Logout failed:', error);
         }
@@ -30,6 +62,7 @@ export const AuthProvider = ({ children }) => {
 
     const value = {
         currentUser,
+        userRole,
         loading,
         logout: handleLogout,
     };

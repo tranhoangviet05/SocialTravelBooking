@@ -17,6 +17,7 @@ class AuthService
     {
         $firebaseUid = $firebaseData['uid'];
         $firebaseEmail = $firebaseData['email'];
+        $requestedRole = $firebaseData['role'] ?? 'tourist';
         
         $isNewUser = false;
         $user = User::where('firebase_uid', $firebaseUid)->first();
@@ -34,11 +35,12 @@ class AuthService
                 'email' => $firebaseEmail,
                 'display_name' => $displayName,
                 'avatar_url' => $firebaseData['picture'] ?? null,
-                'role' => 'tourist',
+                'role' => $requestedRole,
                 'status' => 'active',
             ]);
         } else {
             // Cập nhật thông tin mới nhất từ Firebase (nếu có)
+            // Không tự động đè role hiện tại trừ khi có yêu cầu cụ thể (có thể mở rộng sau)
             $user->update([
                 'display_name' => $firebaseData['name'] ?? $user->display_name,
                 'avatar_url' => $firebaseData['picture'] ?? $user->avatar_url,

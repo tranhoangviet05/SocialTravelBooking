@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import HeroBanner from '../components/home_page/HeroBanner';
-import WhyChooseUs from '../components/home_page/WhyChooseUs';
-import TrendingDestinations from '../components/home_page/TrendingDestinations';
-import CommunityFeed from '../components/home_page/CommunityFeed';
-import Accommodations from '../components/home_page/Accommodations';
-import SpecialOffers from '../components/home_page/SpecialOffers';
-import PopularActivities from '../components/home_page/PopularActivities';
-import LoginModal from '../components/LoginModal';
-import RegisterModal from '../components/RegisterModal';
+import Header from '../../components/common/Header';
+import Footer from '../../components/common/Footer';
+import HeroBanner from '../../components/tourist/home_page/HeroBanner';
+import WhyChooseUs from '../../components/tourist/home_page/WhyChooseUs';
+import TrendingDestinations from '../../components/tourist/home_page/TrendingDestinations';
+import CommunityFeed from '../../components/tourist/home_page/CommunityFeed';
+import Accommodations from '../../components/tourist/home_page/Accommodations';
+import SpecialOffers from '../../components/tourist/home_page/SpecialOffers';
+import PopularActivities from '../../components/tourist/home_page/PopularActivities';
+import LoginModal from '../../components/common/LoginModal';
+import RegisterModal from '../../components/common/RegisterModal';
 
 const HomePage = () => {
     const [activeModal, setActiveModal] = useState(null); // null | 'login' | 'register'

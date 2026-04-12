@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { signIn, signInWithGoogle } from '../firebase/services/authService';
-import authApi from '../api/authApi';
+import { signIn, signInWithGoogle } from '../../firebase/services/authService';
+import { useNavigate } from 'react-router-dom';
+import authApi from '../../api/authApi';
 import { Eye, EyeOff, X } from 'lucide-react';
-import { COLORS } from '../utils/colors';
-import dnBg from '../assets/images/dn_bg.jpg';
-import quynhonBg from '../assets/images/quynhon_bg.jpg';
-import hueBg from '../assets/images/hue_bg.jpg';
+import { COLORS } from '../../utils/colors';
+import dnBg from '../../assets/images/dn_bg.jpg';
+import quynhonBg from '../../assets/images/quynhon_bg.jpg';
+import hueBg from '../../assets/images/hue_bg.jpg';
 
 const slides = [
     { image: dnBg, name: 'Đà Nẵng', tag: 'Biển & Phố', desc: 'Thành phố đáng sống với bãi biển Mỹ Khê, cầu Vàng và ẩm thực đường phố tuyệt vời.' },
@@ -21,6 +22,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const timerRef = useRef(null);
+    const navigate = useNavigate();
 
     // Lock body scroll
     useEffect(() => {
@@ -60,10 +62,15 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             const user = await signIn(email, password);
 
             const idToken = await user.getIdToken();
-            await authApi.syncUser(idToken);
+            const response = await authApi.syncUser(idToken);
+            const role = response?.data?.role;
 
-            console.log('Login success:', user);
+            console.log('Login success:', user, 'Role:', role);
             onClose();
+
+            // Chuyển hướng theo vai trò
+            if (role === 'admin') navigate('/admin/dashboard');
+            else if (role === 'provider') navigate('/provider/dashboard');
         } catch (error) {
             console.error('Login failed:', error);
             const errorMap = {
@@ -85,10 +92,15 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             const user = await signInWithGoogle();
 
             const idToken = await user.getIdToken();
-            await authApi.syncUser(idToken);
+            const response = await authApi.syncUser(idToken);
+            const role = response?.data?.role;
 
-            console.log('Google login success');
+            console.log('Google login success', 'Role:', role);
             onClose();
+
+            // Chuyển hướng theo vai trò
+            if (role === 'admin') navigate('/admin/dashboard');
+            else if (role === 'provider') navigate('/provider/dashboard');
         } catch (error) {
             console.error('Google Auth failed:', error);
             setReportMessage('Đăng nhập Google thất bại');

@@ -35,6 +35,7 @@ class AuthController extends Controller
                     ?? $request->attributes->get('firebaseUser')['name'] 
                     ?? null,
                 'picture' => $request->attributes->get('firebaseUser')['picture'] ?? null,
+                'role' => $request->input('role') ?? 'tourist',
             ];
 
             if (!$firebaseData['uid']) {

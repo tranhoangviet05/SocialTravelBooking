@@ -34,4 +34,35 @@ class LocationService
     {
         return Location::with(['children', 'parent'])->find($id);
     }
+
+    /**
+     * Thêm địa điểm mới
+     */
+    public function createLocation(array $dataLocation): ?Location {
+        return Location::create($dataLocation);
+    }
+
+    /**
+     * Cập nhật địa điểm
+     */
+    public function updateLocation(int $id, array $dataLocation): ?Location {
+        $location = $this->getLocationById($id);
+        if (!$location) {
+            return null;
+        }
+        $location->update($dataLocation);
+        return $location;
+    }
+
+    /**
+     * Xóa địa điểm
+     */
+    public function deleteLocation(int $id): ?Location {
+        $location = $this->getLocationById($id);
+        if (!$location) {
+            return null;
+        }
+        $location->delete();
+        return $location;
+    }
 }

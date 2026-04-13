@@ -5,14 +5,12 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import HomePage from './pages/tourist/Home';
 import AdminDashboard from './pages/admin/Dashboard';
-<<<<<<< Updated upstream
-=======
 import LocationManagement from './pages/admin/LocationManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import AdminPlaceholder from './pages/admin/Placeholder';
->>>>>>> Stashed changes
 import ProviderDashboard from './pages/provider/Dashboard';
 import './App.css';
+import { API_ENDPOINTS } from './utils/ConstantSystems';
 
 function App() {
   return (
@@ -20,20 +18,9 @@ function App() {
       <AuthProvider>
         <NotificationProvider>
           <Routes>
-          {/* Trang công khai — Tourist */}
-          <Route path="/" element={<HomePage />} />
+            {/* Trang công khai — Tourist */}
+            <Route path="/" element={<HomePage />} />
 
-<<<<<<< Updated upstream
-          {/* Admin routes — cần role admin */}
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-=======
             {/* Admin routes — cần role admin */}
             <Route
               path={API_ENDPOINTS.ADMIN_DASHBOARD}
@@ -99,18 +86,17 @@ function App() {
                 </ProtectedRoute>
               }
             />
->>>>>>> Stashed changes
 
-          {/* Provider routes — cần role provider */}
-          <Route
-            path="/provider/dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['provider']}>
-                <ProviderDashboard />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+            {/* Provider routes — cần role provider */}
+            <Route
+              path={API_ENDPOINTS.PROVIDER_DASHBOARD}
+              element={
+                <ProtectedRoute allowedRoles={['provider']}>
+                  <ProviderDashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>

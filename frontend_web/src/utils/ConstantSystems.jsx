@@ -20,9 +20,6 @@ export const STORAGE_KEYS = {
 export const API_ENDPOINTS = {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
-<<<<<<< Updated upstream
-    LOGOUT: '/auth/logout'
-=======
     LOGOUT: '/auth/logout',
     LOCATIONS: '/locations',
     LOCATIONS_ADMIN: '/admin/locations',
@@ -34,5 +31,4 @@ export const API_ENDPOINTS = {
     CATEGORIES_ADMIN: '/admin/categories',
     STATS_ADMIN: '/admin/stats',
     SETTINGS_ADMIN: '/admin/settings'
->>>>>>> Stashed changes
 };

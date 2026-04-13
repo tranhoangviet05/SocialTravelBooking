@@ -39,7 +39,7 @@ const Header = ({ onLoginClick }) => {
                     {[
                         { text: 'TRANG CHỦ', path: '/' },
                         { text: 'HOẠT ĐỘNG', path: '/search?type=tour' },
-                        { text: 'LƯU TRÚ', path: '/search?type=hotel' },
+                        { text: 'LƯU TRÚ', path: '/search?type=accommodation' },
                         { text: 'CỘNG ĐỒNG', path: '/community' }
                     ].map((item) => (
                         <Link

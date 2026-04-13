@@ -3,18 +3,28 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Star, Clock, Users, CheckCircle2, Shield, CalendarDays, Heart, Share2 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import { MOCK_SERVICES, MOCK_REVIEWS } from '../../data/mockServices';
+import { useWishlist } from '../../contexts/WishlistContext';
 
 const ServiceDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
     
     const serviceBase = MOCK_SERVICES.find(s => s.id === parseInt(id));
+    const isFavorited = isInWishlist(serviceBase?.id);
 
     const [activeImage, setActiveImage] = useState(0);
 
     const handleBooking = () => {
-        // Chuyển hướng sang trang checkout
         navigate('/checkout');
+    };
+
+    const handleFavorite = () => {
+        if (isFavorited) {
+            removeFromWishlist(serviceBase.id);
+        } else {
+            addToWishlist(serviceBase);
+        }
     };
 
     if (!serviceBase) {
@@ -45,7 +55,7 @@ const ServiceDetail = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 pt-20">
             {/* Header: Title & Actions */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
                 <div>
@@ -68,8 +78,15 @@ const ServiceDetail = () => {
                     <button className="p-2.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                         <Share2 size={20} />
                     </button>
-                    <button className="p-2.5 rounded-full border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-500 transition-colors border-rose-100">
-                        <Heart size={20} />
+                    <button 
+                        onClick={handleFavorite}
+                        className={`p-2.5 rounded-full border transition-colors ${
+                            isFavorited 
+                                ? 'bg-rose-500 text-white border-rose-500 hover:bg-rose-600' 
+                                : 'border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-500 hover:border-rose-100'
+                        }`}
+                    >
+                        <Heart size={20} className={isFavorited ? 'fill-current' : ''} />
                     </button>
                 </div>
             </div>

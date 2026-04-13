@@ -1,125 +1,127 @@
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { LayoutDashboard, Users, MapPin, Hotel, Compass, BarChart3, Settings, LogOut, Bell, Search } from 'lucide-react';
-
-const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', active: true },
-    { icon: Users, label: 'Người dùng' },
-    { icon: MapPin, label: 'Địa điểm' },
-    { icon: Hotel, label: 'Lưu trú' },
-    { icon: Compass, label: 'Tours & Hoạt động' },
-    { icon: BarChart3, label: 'Thống kê' },
-    { icon: Settings, label: 'Cài đặt' },
-];
+import { 
+    Users, 
+    Briefcase, 
+    Compass, 
+    BarChart3, 
+    TrendingUp, 
+    Clock, 
+    CheckCircle2, 
+    XCircle 
+} from 'lucide-react';
+import AdminMetricCard from '../../components/admin/AdminMetricCard';
+import AdminTable from '../../components/admin/AdminTable';
 
 const AdminDashboard = () => {
-    const { currentUser, logout } = useAuth();
+    const stats = [
+        { label: 'Tổng người dùng', value: '2,451', icon: Users, change: '+12.5%', trend: 'up', color: 'sky' },
+        { label: 'Nhà cung cấp', value: '184', icon: Briefcase, change: '+5.2%', trend: 'up', color: 'indigo' },
+        { label: 'Tổng doanh thu', value: '1.2B₫', icon: BarChart3, change: '+23.1%', trend: 'up', color: 'emerald' },
+        { label: 'Booking mới', value: '42', icon: Clock, change: '-2.4%', trend: 'down', color: 'amber' },
+    ];
+
+    const recentBookings = [
+        { id: 'BK-9802', customer: 'Nguyễn Văn A', service: 'Tour Fansipan 3 ngày 2 đêm', amount: '2,400,000₫', status: 'Completed', date: '10 ph trước' },
+        { id: 'BK-9801', customer: 'Trần Thị B', service: 'InterContinental Danang', amount: '5,600,000₫', status: 'Pending', date: '25 ph trước' },
+        { id: 'BK-9800', customer: 'Lê Văn C', service: 'Vé Bà Nà Hills', amount: '1,800,000₫', status: 'Cancelled', date: '1 giờ trước' },
+        { id: 'BK-9799', customer: 'Phạm Minh D', service: 'Tour Vịnh Hạ Long', amount: '3,200,000₫', status: 'Completed', date: '2 giờ trước' },
+    ];
+
+    const getStatusStyle = (status) => {
+        switch (status) {
+            case 'Completed': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+            case 'Pending': return 'bg-amber-50 text-amber-600 border-amber-100';
+            case 'Cancelled': return 'bg-rose-50 text-rose-600 border-rose-100';
+            default: return 'bg-gray-50 text-gray-600 border-gray-100';
+        }
+    };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            {/* Sidebar */}
-            <aside className="w-64 bg-slate-900 text-white flex flex-col fixed inset-y-0 left-0 z-50">
-                {/* Logo */}
-                <div className="p-6 border-b border-white/10">
-                    <h1 className="text-lg font-black tracking-tight">
-                        <span className="text-sky-400">STB</span> Admin
-                    </h1>
-                    <p className="text-xs text-gray-400 mt-1">Quản trị hệ thống</p>
+        <div className="space-y-8">
+            {/* Header info */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900">Chào buổi chiều, Admin!</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Hệ thống Social Travel Booking đang hoạt động bình thường.</p>
                 </div>
+                <div className="flex items-center gap-3">
+                    <button className="bg-white border border-gray-100 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer">Tải báo cáo PDF</button>
+                    <button className="bg-sky-500 px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-sky-500/20 hover:bg-sky-600 transition-all cursor-pointer">Live Analytics</button>
+                </div>
+            </div>
 
-                {/* Menu */}
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    {menuItems.map((item) => (
-                        <button
-                            key={item.label}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer
-                                ${item.active
-                                    ? 'bg-sky-500/20 text-sky-400'
-                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                }`}
-                        >
-                            <item.icon size={18} />
-                            {item.label}
-                        </button>
-                    ))}
-                </nav>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {stats.map((stat, idx) => (
+                    <AdminMetricCard key={idx} {...stat} />
+                ))}
+            </div>
 
-                {/* User + Logout */}
-                <div className="p-4 border-t border-white/10">
-                    <div className="flex items-center gap-3 mb-3 px-2">
-                        <div className="w-9 h-9 rounded-full bg-sky-500 flex items-center justify-center text-white text-sm font-bold">
-                            {(currentUser?.displayName || currentUser?.email || 'A')[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{currentUser?.displayName || 'Admin'}</p>
-                            <p className="text-xs text-gray-400 truncate">{currentUser?.email}</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Recent Bookings Table */}
+                <div className="lg:col-span-2">
+                    <AdminTable 
+                        title="Giao dịch mới nhất" 
+                        description="Danh sách các đơn đặt chỗ vừa được thực hiện trong hệ thống."
+                        headers={['ID', 'Khách hàng', 'Dịch vụ', 'Giá trị', 'Trạng thái']}
+                        actions={<button className="text-sky-500 font-bold text-xs uppercase tracking-widest hover:text-sky-600">Xem tất cả</button>}
                     >
-                        <LogOut size={18} />
-                        Đăng xuất
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 ml-64">
-                {/* Top bar */}
-                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-40">
-                    <div className="flex items-center gap-3">
-                        <Search size={18} className="text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm..."
-                            className="text-sm text-gray-700 outline-none w-64"
-                        />
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <button className="relative cursor-pointer text-gray-500 hover:text-gray-800">
-                            <Bell size={20} />
-                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">3</span>
-                        </button>
-                    </div>
-                </header>
-
-                {/* Dashboard content */}
-                <div className="p-8">
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-                        <p className="text-gray-500 text-sm mt-1">Tổng quan hệ thống Social Travel Booking</p>
-                    </div>
-
-                    {/* Stats cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        {[
-                            { label: 'Tổng người dùng', value: '1,234', change: '+12%', color: 'bg-sky-500' },
-                            { label: 'Tổng booking', value: '856', change: '+8%', color: 'bg-emerald-500' },
-                            { label: 'Doanh thu tháng', value: '45.2M₫', change: '+23%', color: 'bg-violet-500' },
-                            { label: 'Đánh giá 5★', value: '92%', change: '+2%', color: 'bg-amber-500' },
-                        ].map((stat) => (
-                            <div key={stat.label} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center`}>
-                                        <BarChart3 size={20} className="text-white" />
-                                    </div>
-                                    <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-full">{stat.change}</span>
-                                </div>
-                                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                                <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-                            </div>
+                        {recentBookings.map((bk) => (
+                            <tr key={bk.id} className="hover:bg-gray-50/50 transition-colors">
+                                <td className="px-8 py-4 font-mono text-xs font-bold text-gray-400">{bk.id}</td>
+                                <td className="px-8 py-4">
+                                    <span className="text-sm font-bold text-slate-700">{bk.customer}</span>
+                                </td>
+                                <td className="px-8 py-4">
+                                    <span className="text-sm text-gray-600 block max-w-[200px] truncate">{bk.service}</span>
+                                </td>
+                                <td className="px-8 py-4">
+                                    <span className="text-sm font-black text-slate-900">{bk.amount}</span>
+                                </td>
+                                <td className="px-8 py-4">
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(bk.status)}`}>
+                                        {bk.status}
+                                    </span>
+                                </td>
+                            </tr>
                         ))}
+                    </AdminTable>
+                </div>
+
+                {/* System Health / Revenue Source */}
+                <div className="space-y-6">
+                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                        <h3 className="text-lg font-bold text-slate-900 mb-6">Nguồn doanh thu</h3>
+                        <div className="space-y-6">
+                            {[
+                                { label: 'Tours & Trải nghiệm', value: '65%', color: 'bg-sky-500' },
+                                { label: 'Khách sạn & Resort', value: '25%', color: 'bg-emerald-500' },
+                                { label: 'Dịch vụ di chuyển', value: '10%', color: 'bg-amber-500' },
+                            ].map((item) => (
+                                <div key={item.label}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{item.label}</span>
+                                        <span className="text-sm font-black text-slate-900">{item.value}</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                        <div className={`h-full ${item.color}`} style={{ width: item.value }}></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Placeholder content */}
-                    <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-bold text-slate-900 mb-2">Hoạt động gần đây</h3>
-                        <p className="text-gray-400 text-sm">Nội dung sẽ được cập nhật sau...</p>
+                    <div className="bg-[#0f172a] rounded-3xl p-8 shadow-xl text-white overflow-hidden relative">
+                        <div className="relative z-10">
+                            <Compass className="text-sky-400 mb-4" size={32} />
+                            <h3 className="text-lg font-bold mb-2">Mở rộng mạng lưới?</h3>
+                            <p className="text-gray-400 text-sm mb-6 font-medium leading-relaxed">Có 12 nhà cung cấp đang chờ phê duyệt hồ sơ kinh doanh.</p>
+                            <button className="w-full bg-sky-500 hover:bg-sky-600 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-sky-500/20 transition-all">Phê duyệt ngay</button>
+                        </div>
+                        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-sky-500/10 rounded-full blur-3xl"></div>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 };

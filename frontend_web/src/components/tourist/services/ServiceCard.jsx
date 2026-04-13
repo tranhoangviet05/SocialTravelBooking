@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star, MapPin, Clock, Users, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useWishlist } from '../../../contexts/WishlistContext';
 
 const ServiceCard = ({ service, className = '' }) => {
     const {
@@ -21,6 +22,9 @@ const ServiceCard = ({ service, className = '' }) => {
         soldCount,
     } = service;
 
+    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+    const isFavorited = isInWishlist(id);
+
     const discount = originalPrice ? Math.round((1 - price / originalPrice) * 100) : null;
     const mainImage = images?.[0] || 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800';
     const typeLabel = type === 'tour' ? 'Tour' : 'Lưu trú';
@@ -28,6 +32,16 @@ const ServiceCard = ({ service, className = '' }) => {
 
     const formatPrice = (p) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(p);
+
+    const handleFavorite = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isFavorited) {
+            removeFromWishlist(id);
+        } else {
+            addToWishlist(service);
+        }
+    };
 
     return (
         <Link
@@ -56,10 +70,15 @@ const ServiceCard = ({ service, className = '' }) => {
 
                 {/* Favorite */}
                 <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    className="absolute bottom-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white hover:scale-110 transition-all cursor-pointer"
+                    onClick={handleFavorite}
+                    className={`absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-all cursor-pointer ${
+                        isFavorited 
+                            ? 'bg-rose-500 text-white hover:bg-rose-600' 
+                            : 'bg-white/90 backdrop-blur-sm text-gray-400 hover:text-red-500 hover:bg-white'
+                    }`}
+                    title={isFavorited ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
                 >
-                    <Heart size={16} className="text-gray-400 group-hover:text-red-500 transition-colors" />
+                    <Heart size={16} className={isFavorited ? 'fill-current' : 'group-hover:fill-current transition-colors'} />
                 </button>
 
                 {/* Sold count */}

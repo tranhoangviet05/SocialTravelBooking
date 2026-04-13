@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 
 const MyBookings = () => {
+    const navigate = useNavigate();
     // Mock data based strictly on the 'bookings' and 'services' table in postgres_schema.sql
-    const [bookings, setBookings] = useState([
+    const [bookings] = useState([
         { 
             id: 'b1f6e2c-b075-4c52-a5f0-acebb130762c', 
             booking_code: 'BK-20260412-A8F1',
@@ -29,33 +31,59 @@ const MyBookings = () => {
             payment_method: 'wallet',
             payment_status: 'pending',
             status: 'pending'
+        },
+        { 
+            id: 'd3f6e2c-b075-4c52-a5f0-acebb130762e', 
+            booking_code: 'BK-20260415-Y7M3',
+            service: {
+                name: 'Tour Biển Nha Trang 4N3Đ',
+                type: 'tour'
+            },
+            check_in_date: '2026-03-10',
+            total_amount: 4500000,
+            payment_method: 'vnpay',
+            payment_status: 'paid',
+            status: 'completed'
+        },
+        { 
+            id: 'e4f6e2c-b075-4c52-a5f0-acebb130762f', 
+            booking_code: 'BK-20260410-Z5N4',
+            service: {
+                name: 'Resort Vinpearl Phú Quốc',
+                type: 'hotel'
+            },
+            check_in_date: '2026-04-25',
+            total_amount: 8000000,
+            payment_method: 'banking',
+            payment_status: 'refunded',
+            status: 'cancelled'
         }
     ]);
 
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    const [activeTab, setActiveTab] = useState('all');
+
+    const handleDetail = (booking) => {
+        // Navigate to booking detail or open modal
+        console.log('View detail:', booking.booking_code);
+        // For now, you can navigate to service detail or create a booking detail page
+        navigate(`/service/${booking.id}`);
     };
 
-    const getStatusBadge = (status) => {
-        const styles = {
-            pending: 'bg-yellow-100 text-yellow-800',
-            confirmed: 'bg-sky-100 text-sky-800',
-            ongoing: 'bg-blue-100 text-blue-800',
-            completed: 'bg-green-100 text-green-800',
-            cancelled: 'bg-red-100 text-red-800'
-        };
-        const labels = {
-            pending: 'Chờ xử lý',
-            confirmed: 'Đã xác nhận',
-            ongoing: 'Đang diễn ra',
-            completed: 'Hoàn thành',
-            cancelled: 'Đã hủy'
-        };
-        return (
-            <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${styles[status] || 'bg-slate-100 text-slate-800'}`}>
-                {labels[status] || status}
-            </span>
-        );
+    const tabs = [
+        { id: 'all', label: 'Tất cả' },
+        { id: 'pending', label: 'Chờ xử lý' },
+        { id: 'confirmed', label: 'Đã xác nhận' },
+        { id: 'ongoing', label: 'Đang diễn ra' },
+        { id: 'completed', label: 'Hoàn thành' },
+        { id: 'cancelled', label: 'Đã hủy' }
+    ];
+
+    const filteredBookings = activeTab === 'all' 
+        ? bookings 
+        : bookings.filter(booking => booking.status === activeTab);
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
 
     const getPaymentStatusBadge = (status) => {
@@ -80,6 +108,45 @@ const MyBookings = () => {
         <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
             <h1 className="text-2xl font-bold text-slate-800 mb-6">Chuyến đi của tôi</h1>
             
+            {/* Lịch sử đặt chỗ */}
+            <h2 className="text-lg font-semibold text-slate-700 mb-4">Lịch sử đặt chỗ</h2>
+            
+            {/* Status Tabs Navigation */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
+                <div className="border-b border-slate-200">
+                    <nav className="flex overflow-x-auto scrollbar-hide" aria-label="Status tabs">
+                        {tabs.map((tab) => {
+                            const count = tab.id === 'all' 
+                                ? bookings.length 
+                                : bookings.filter(b => b.status === tab.id).length;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`
+                                        relative px-5 py-4 text-sm font-medium whitespace-nowrap transition-all
+                                        ${isActive 
+                                            ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/50' 
+                                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50 border-b-2 border-transparent'}
+                                    `}
+                                    aria-current={isActive ? 'page' : undefined}
+                                >
+                                    <span>{tab.label}</span>
+                                    <span className={`
+                                        ml-2 px-2 py-0.5 text-xs rounded-full
+                                        ${isActive ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}
+                                    `}>
+                                        {count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </div>
+            </div>
+
+            {/* Bookings Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-600">
@@ -89,12 +156,11 @@ const MyBookings = () => {
                                 <th className="px-6 py-4">Dịch vụ</th>
                                 <th className="px-6 py-4">Check-in</th>
                                 <th className="px-6 py-4">Thanh toán</th>
-                                <th className="px-6 py-4">Trạng thái</th>
                                 <th className="px-6 py-4 text-right">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                            {bookings.map((booking) => (
+                            {filteredBookings.map((booking) => (
                                 <tr key={booking.id} className="hover:bg-slate-50/80 transition-colors">
                                     <td className="px-6 py-4 font-mono font-medium text-slate-900">{booking.booking_code}</td>
                                     <td className="px-6 py-4">
@@ -106,18 +172,15 @@ const MyBookings = () => {
                                         <div className="font-bold text-slate-900">{formatCurrency(booking.total_amount)}</div>
                                         <div className="mt-1">{getPaymentStatusBadge(booking.payment_status)}</div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        {getStatusBadge(booking.status)}
-                                    </td>
                                     <td className="px-6 py-4 text-right">
-                                        <Button variant="outline" size="sm">Chi tiết</Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleDetail(booking)}>Chi tiết</Button>
                                     </td>
                                 </tr>
                             ))}
-                            {bookings.length === 0 && (
+                            {filteredBookings.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                                        Bạn chưa có chuyến đi nào được đặt.
+                                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                                        Không có chuyến đi nào trong mục này.
                                     </td>
                                 </tr>
                             )}

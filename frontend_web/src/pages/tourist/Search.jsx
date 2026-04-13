@@ -152,7 +152,7 @@ const SearchPage = () => {
         minRating > 0;
 
     return (
-        <div className="min-h-screen bg-slate-50 selection:bg-sky-100">
+        <div className="min-h-screen bg-slate-50 selection:bg-sky-100 pt-20">
             {/* Hero Search Bar */}
             <div className="bg-gradient-to-r from-sky-800 via-sky-700 to-cyan-700 py-12 px-4">
                 <div className="max-w-3xl mx-auto text-center mb-6">

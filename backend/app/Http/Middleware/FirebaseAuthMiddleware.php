@@ -33,9 +33,13 @@ class FirebaseAuthMiddleware
         }
 
         try {
+            \Log::info('Firebase Auth: Verifying token...', ['token_preview' => substr($bearerToken, 0, 10)]);
+            
             // Xác minh ID Token với Firebase (thêm 60s leeway để tránh lỗi lệch thời gian)
             $auth = Firebase::auth();
             $verifiedToken = $auth->verifyIdToken($bearerToken, false, 60);
+
+            \Log::info('Firebase Auth: Token verified successfully', ['uid' => $verifiedToken->claims()->get('sub')]);
 
             // Lưu thông tin user vào request để dùng ở controller
             $request->attributes->set('firebaseUid', $verifiedToken->claims()->get('sub'));
@@ -48,9 +52,15 @@ class FirebaseAuthMiddleware
         } catch (FailedToVerifyToken $e) {
             \Log::error('Firebase Auth: Token verification failed', ['error' => $e->getMessage()]);
             return $this->unauthorizedResponse('Token không hợp lệ: ' . $e->getMessage());
-        } catch (\Exception $e) {
-            \Log::error('Firebase Auth: General error', ['error' => $e->getMessage()]);
-            return $this->unauthorizedResponse('Xác thực thất bại: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            \Log::error('Firebase Auth: CRITICAL ERROR', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi hệ thống trong quá trình xác thực: ' . $e->getMessage(),
+            ], 500);
         }
 
         return $next($request);

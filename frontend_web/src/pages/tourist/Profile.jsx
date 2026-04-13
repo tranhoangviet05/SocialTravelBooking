@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Profile = () => {
+    const navigate = useNavigate();
     const { currentUser } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     
@@ -31,7 +33,7 @@ const Profile = () => {
     };
 
     return (
-        <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 pt-20">
             <h1 className="text-2xl font-bold text-slate-800 mb-6">Hồ sơ cá nhân</h1>
             
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -122,6 +124,45 @@ const Profile = () => {
                     <Input type="password" label="Mật khẩu mới" />
                     <Input type="password" label="Xác nhận mật khẩu mới" />
                     <Button variant="primary">Đổi mật khẩu</Button>
+                </div>
+            </div>
+
+            {/* Quick Access Links */}
+            <div className="mt-6 space-y-3">
+                {/* Lịch sử đặt chỗ */}
+                <div 
+                    onClick={() => navigate('/my-bookings')}
+                    className="bg-white rounded-xl shadow-sm border border-rose-200 p-5 flex items-center justify-between hover:shadow-md transition-all cursor-pointer group"
+                >
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-base group-hover:text-rose-600 transition-colors">
+                            Lịch sử đặt chỗ
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-0.5">Xem tất cả đơn hàng</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center group-hover:bg-rose-100 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Danh sách yêu thích */}
+                <div 
+                    onClick={() => navigate('/wishlist')}
+                    className="bg-white rounded-xl shadow-sm border border-sky-200 p-5 flex items-center justify-between hover:shadow-md transition-all cursor-pointer group"
+                >
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-base group-hover:text-sky-600 transition-colors">
+                            Danh sách yêu thích Tour &amp; khách sạn lưu trú
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-0.5">Xem danh sách Tour &amp; khách sạn đã lưu</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-sky-50 flex items-center justify-center group-hover:bg-sky-100 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
         </div>

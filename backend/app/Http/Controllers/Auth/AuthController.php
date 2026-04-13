@@ -63,11 +63,13 @@ class AuthController extends Controller
                 ]
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Auth Sync Error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Auth Sync CRITICAL ERROR: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Có lỗi xảy ra trong quá trình đồng bộ tài khoản.'
+                'message' => 'Có lỗi xảy ra trong quá trình đồng bộ tài khoản: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -29,8 +29,8 @@ return new class extends Migration
         Schema::create('services', function (Blueprint $table) {
             $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
             $table->uuid('provider_id');
-            $table->uuid('category_id')->nullable();
-            $table->uuid('location_id')->nullable();
+            $table->unsignedInteger('category_id')->nullable();
+            $table->unsignedInteger('location_id')->nullable();
             
             $table->string('name', 255);
             $table->string('slug', 300)->unique();
@@ -111,14 +111,8 @@ return new class extends Migration
             $table->decimal('price_override', 15, 2)->nullable();
             $table->boolean('is_blocked')->default(false);
             
-            $table->foreign('service_id')->references('id')->on('services');
-            $table->foreign('provider_id')->references('id')->on('provider_profiles');
+            $table->foreign('service_id')->references('id')->on('services')->onDelete('cascade');
         });
-
-        // Thêm cột Enum bằng SQL thuần
-        DB::statement('ALTER TABLE bookings ADD COLUMN payment_method payment_method NULL');
-        DB::statement('ALTER TABLE bookings ADD COLUMN payment_status payment_status NOT NULL DEFAULT \'pending\'');
-        DB::statement('ALTER TABLE bookings ADD COLUMN status booking_status NOT NULL DEFAULT \'pending\'');
     }
 
     /**

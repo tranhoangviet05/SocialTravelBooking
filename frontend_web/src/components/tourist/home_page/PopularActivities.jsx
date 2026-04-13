@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Clock, MapPin, Star, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { Clock, MapPin, Star, ChevronLeft, ChevronRight, Users, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useWishlist } from '../../../contexts/WishlistContext';
 
 const PopularActivities = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeLocation, setActiveLocation] = useState('Tất cả');
+    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
     const locations = ['Tất cả', 'Đà Nẵng', 'Quy Nhơn', 'Huế', 'Phú Quốc', 'Nha Trang'];
 

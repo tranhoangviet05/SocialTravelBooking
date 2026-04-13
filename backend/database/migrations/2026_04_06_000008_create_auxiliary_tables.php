@@ -41,7 +41,7 @@ return new class extends Migration
             $table->smallInteger('rating_value')->nullable();
             
             $table->text('content')->nullable();
-            $table->addColumn('text[]', 'images')->default('{}');
+            // $table->addColumn('text[]', 'images')->default('{}'); (thêm bằng SQL)
             $table->boolean('is_verified')->default(false);
             $table->text('provider_reply')->nullable();
             $table->timestampTz('provider_reply_at')->nullable();
@@ -53,12 +53,13 @@ return new class extends Migration
             $table->foreign('service_id')->references('id')->on('services');
             $table->foreign('user_id')->references('id')->on('users');
         });
+        DB::statement('ALTER TABLE reviews ADD COLUMN images text[] NOT NULL DEFAULT \'{}\'');
 
         // 3. Bảng coupons
         Schema::create('coupons', function (Blueprint $table) {
             $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
             $table->string('code', 50)->unique();
-            $table->addColumn('discount_type', 'type');
+            // $table->addColumn('discount_type', 'type'); (thêm bằng SQL)
             $table->decimal('discount_value', 15, 2);
             $table->decimal('min_order_amount', 15, 2)->default(0);
             $table->integer('usage_limit')->nullable();
@@ -71,6 +72,7 @@ return new class extends Migration
 
             $table->foreign('created_by')->references('id')->on('users');
         });
+        DB::statement('ALTER TABLE coupons ADD COLUMN type discount_type NOT NULL');
 
         // 4. Bảng ad_campaigns
         Schema::create('ad_campaigns', function (Blueprint $table) {
@@ -78,7 +80,7 @@ return new class extends Migration
             $table->uuid('provider_id');
             $table->string('post_id')->nullable(); // Firestore ID
             $table->uuid('service_id')->nullable();
-            $table->addColumn('ad_status', 'status')->default('pending');
+            // $table->addColumn('ad_status', 'status')->default('pending'); (thêm bằng SQL)
             
             $table->decimal('budget', 15, 2);
             $table->decimal('spent', 15, 2)->default(0);
@@ -95,6 +97,7 @@ return new class extends Migration
             $table->foreign('provider_id')->references('id')->on('provider_profiles');
             $table->foreign('service_id')->references('id')->on('services');
         });
+        DB::statement('ALTER TABLE ad_campaigns ADD COLUMN status ad_status NOT NULL DEFAULT \'pending\'');
 
         // 5. Bảng affiliate_clicks
         Schema::create('affiliate_clicks', function (Blueprint $table) {
@@ -123,8 +126,8 @@ return new class extends Migration
             $table->uuid('reporter_id');
             $table->string('post_id')->nullable();
             $table->uuid('service_id')->nullable();
-            $table->addColumn('report_type', 'type');
-            $table->addColumn('report_status', 'status')->default('pending');
+            // $table->addColumn('report_type', 'type'); (thêm bằng SQL)
+            // $table->addColumn('report_status', 'status')->default('pending'); (thêm bằng SQL)
             $table->text('description')->nullable();
             $table->uuid('reviewed_by')->nullable();
             $table->timestampTz('reviewed_at')->nullable();
@@ -135,6 +138,8 @@ return new class extends Migration
             $table->foreign('reviewed_by')->references('id')->on('users');
             $table->foreign('service_id')->references('id')->on('services');
         });
+        DB::statement('ALTER TABLE reports ADD COLUMN type report_type NOT NULL');
+        DB::statement('ALTER TABLE reports ADD COLUMN status report_status NOT NULL DEFAULT \'pending\'');
 
         // 7. Bảng system_settings
         Schema::create('system_settings', function (Blueprint $table) {

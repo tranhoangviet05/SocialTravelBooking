@@ -20,7 +20,18 @@ class AuthService
         $requestedRole = $firebaseData['role'] ?? 'tourist';
         
         $isNewUser = false;
+        
+        // 1. Tìm theo Firebase UID
         $user = User::where('firebase_uid', $firebaseUid)->first();
+
+        // 2. Nếu không thấy UID, tìm theo Email (trường hợp user đã có sẵn trong DB nhưng chưa link Firebase)
+        if (!$user && $firebaseEmail) {
+            $user = User::where('email', $firebaseEmail)->first();
+            if ($user) {
+                // Link tài khoản hiện có với Firebase UID
+                $user->update(['firebase_uid' => $firebaseUid]);
+            }
+        }
 
         if (!$user) {
             $isNewUser = true;

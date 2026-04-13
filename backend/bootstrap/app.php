@@ -19,8 +19,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
         ]);
 
+        // Đăng ký CORS middleware cho API
+        $middleware->api(prepend: [
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
         // Đăng ký alias cho Firebase Auth Middleware
-        // Sử dụng: Route::middleware('firebase.auth')->group(...)
         $middleware->alias([
             'firebase.auth' => FirebaseAuthMiddleware::class,
         ]);

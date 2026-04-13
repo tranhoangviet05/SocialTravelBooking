@@ -14,8 +14,9 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         // Lắng nghe thay đổi trạng thái đăng nhập Firebase
         const unsubscribe = onAuthChange(async (user) => {
-            setCurrentUser(user);
             if (user) {
+                setLoading(true);
+                setCurrentUser(user);
                 try {
                     // Lấy profile từ Backend để có role và thông tin chính xác
                     const idToken = await user.getIdToken();
@@ -41,6 +42,7 @@ export const AuthProvider = ({ children }) => {
                     setUserRole('tourist'); // Fallback
                 }
             } else {
+                setCurrentUser(null);
                 setUserRole(null);
             }
 

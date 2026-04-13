@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Clock, MapPin, Star, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { Clock, MapPin, Star, ChevronLeft, ChevronRight, Users, Heart } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useWishlist } from '../../../contexts/WishlistContext';
 
 const PopularActivities = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeLocation, setActiveLocation] = useState('Tất cả');
+    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
     const locations = ['Tất cả', 'Đà Nẵng', 'Quy Nhơn', 'Huế', 'Phú Quốc', 'Nha Trang'];
 
@@ -69,7 +72,7 @@ const PopularActivities = () => {
                         style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
                     >
                         {filteredTours.map(tour => (
-                            <div key={tour.id} className="min-w-[calc(25%-18px)] bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                            <Link key={tour.id} to={`/service/1`} className="block min-w-[calc(25%-18px)] bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
                                 <div className="relative h-48 overflow-hidden">
                                     <img src={tour.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={tour.name} />
                                     <div className="absolute top-3 left-3">
@@ -95,7 +98,7 @@ const PopularActivities = () => {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </div>

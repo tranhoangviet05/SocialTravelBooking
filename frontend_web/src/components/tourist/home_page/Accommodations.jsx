@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Star, MapPin, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { COLORS } from '../../../utils/colors';
+import { useWishlist } from '../../../contexts/WishlistContext';
 
 const Accommodations = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeLocation, setActiveLocation] = useState('Tất cả');
+    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
     const locations = ['Tất cả', 'Đà Nẵng', 'Hội An', 'Phú Quốc', 'Nha Trang', 'Đà Lạt', 'Sa Pa'];
 
@@ -32,6 +35,31 @@ const Accommodations = () => {
     const handleFilterChange = (loc) => {
         setActiveLocation(loc);
         setCurrentIndex(0);
+    };
+
+    const handleWishlist = (e, stay) => {
+        e.preventDefault();
+        if (isInWishlist(stay.id)) {
+            removeFromWishlist(stay.id);
+        } else {
+            addToWishlist({
+                id: stay.id,
+                name: stay.name,
+                type: 'hotel',
+                location: stay.location,
+                price: parseInt(stay.price.replace(/\D/g, '')),
+                originalPrice: parseInt(stay.price.replace(/\D/g, '')) * 1.2,
+                rating: stay.rating,
+                reviewCount: 120,
+                duration: '1 đêm',
+                maxGuests: 2,
+                images: [stay.image],
+                highlights: [stay.type],
+                provider: { name: 'Social Travel Provider' },
+                images_count: 1,
+                soldCount: 150
+            });
+        }
     };
 
     return (
@@ -75,11 +103,11 @@ const Accommodations = () => {
                         style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
                     >
                         {filteredStays.map(stay => (
-                            <div key={stay.id} className="min-w-[calc(25%-18px)] bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                            <Link key={stay.id} to={`/service/2`} className="block min-w-[calc(25%-18px)] bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
                                 <div className="relative h-52 overflow-hidden">
                                     <img src={stay.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={stay.name} />
-                                    <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors">
-                                        <Heart size={16} />
+                                    <button onClick={(e) => handleWishlist(e, stay)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-rose-500 hover:bg-white transition-colors">
+                                        <Heart size={16} className={isInWishlist(stay.id) ? 'fill-rose-500 text-rose-500' : ''} />
                                     </button>
                                 </div>
                                 <div className="p-5">
@@ -98,12 +126,12 @@ const Accommodations = () => {
                                             <p className="text-[9px] text-gray-400 uppercase tracking-wider">Giá từ</p>
                                             <p className="font-bold text-sky-600 text-base">{stay.price}<span className="text-[10px] font-normal text-gray-400">/đêm</span></p>
                                         </div>
-                                        <button className="px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[10px] font-bold hover:bg-sky-600 transition-colors">
+                                        <button onClick={(e) => e.preventDefault()} className="px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[10px] font-bold hover:bg-sky-600 transition-colors cursor-pointer">
                                             Đặt ngay
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </div>

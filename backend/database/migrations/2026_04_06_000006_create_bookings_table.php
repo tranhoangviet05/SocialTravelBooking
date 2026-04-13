@@ -46,9 +46,6 @@ return new class extends Migration
             $table->string('coupon_code', 50)->nullable();
             $table->decimal('total_amount', 15, 2);
             
-            // Cột ENUM cho Payment & Booking
-            $table->addColumn('payment_method', 'payment_method')->nullable();
-            $table->addColumn('payment_status', 'payment_status')->default('pending');
             $table->timestampTz('paid_at')->nullable();
             
             // Task quản lý tài chính (Escrow)
@@ -56,8 +53,7 @@ return new class extends Migration
             $table->boolean('released_to_provider')->default(false);
             $table->timestampTz('released_at')->nullable();
             
-            // Cột ENUM booking status
-            $table->addColumn('booking_status', 'status')->default('pending');
+            // Cột ENUM booking status (sẽ thêm bằng DB::statement)
             
             $table->text('cancel_reason')->nullable();
             $table->timestampTz('cancelled_at')->nullable();
@@ -80,6 +76,11 @@ return new class extends Migration
             $table->foreign('service_id')->references('id')->on('services');
             $table->foreign('provider_id')->references('id')->on('provider_profiles');
         });
+
+        // Thêm các cột Enum bằng SQL thuần
+        DB::statement('ALTER TABLE bookings ADD COLUMN payment_method payment_method NULL');
+        DB::statement('ALTER TABLE bookings ADD COLUMN payment_status payment_status NOT NULL DEFAULT \'pending\'');
+        DB::statement('ALTER TABLE bookings ADD COLUMN status booking_status NOT NULL DEFAULT \'pending\'');
     }
 
     /**

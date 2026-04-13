@@ -38,8 +38,7 @@ return new class extends Migration
             $table->uuid('wallet_id');
             $table->uuid('booking_id')->nullable();
             
-            // Cột ENUM transaction type
-            $table->addColumn('transaction_type', 'type');
+            // Cột ENUM transaction type (thêm bằng SQL)
             
             $table->decimal('amount', 15, 2);
             $table->decimal('balance_before', 15, 2);
@@ -54,6 +53,8 @@ return new class extends Migration
             $table->foreign('wallet_id')->references('id')->on('wallets');
             $table->foreign('booking_id')->references('id')->on('bookings');
         });
+
+        DB::statement('ALTER TABLE wallet_transactions ADD COLUMN type transaction_type NOT NULL');
     }
 
     /**

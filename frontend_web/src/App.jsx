@@ -18,20 +18,18 @@ import CartPage from './pages/tourist/Cart';
 import WishlistPage from './pages/tourist/Wishlist';
 import DashboardLayout from './layouts/DashboardLayout';
 import AdminLayout from './components/admin/AdminLayout';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminUsers from './pages/admin/Users';
-import AdminProviders from './pages/admin/Providers';
-import AdminLocations from './pages/admin/Locations';
-import AdminServices from './pages/admin/Services';
-import AdminBookings from './pages/admin/Bookings';
-import AdminCoupons from './pages/admin/Coupons';
-import AdminReports from './pages/admin/Reports';
-import AdminSettings from './pages/admin/Settings';
-import AdminReviews from './pages/admin/Reviews';
-import AdminAutomation from './pages/admin/Automation';
+import DashboardManagement from './pages/admin/DashboardManagement';
+import UserManagement from './pages/admin/UserManagement';
+import ProviderManagement from './pages/admin/ProviderManagement';
 import LocationManagement from './pages/admin/LocationManagement';
+import ServiceManagement from './pages/admin/ServiceManagement';
+import BookingManagement from './pages/admin/BookingManagement';
+import CouponManagement from './pages/admin/CouponManagement';
+import ReportManagement from './pages/admin/ReportManagement';
+import SettingManagement from './pages/admin/SettingManagement';
+import ReviewManagement from './pages/admin/ReviewManagement';
+import AutomationManagement from './pages/admin/AutomationManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
-import AdminPlaceholder from './pages/admin/Placeholder';
 import ProviderDashboard from './pages/provider/Dashboard';
 import './App.css';
 import { API_ENDPOINTS } from './utils/ConstantSystems';
@@ -51,7 +49,7 @@ function App() {
                 path={API_ENDPOINTS.ADMIN_DASHBOARD}
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminDashboard />
+                    <DashboardManagement />
                   </ProtectedRoute>
                 }
               />
@@ -75,31 +73,63 @@ function App() {
                 path={API_ENDPOINTS.USERS_ADMIN}
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPlaceholder title="Quản lý Người dùng" />
+                    <UserManagement />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path={API_ENDPOINTS.HOTELS_ADMIN}
+                path={API_ENDPOINTS.PROVIDERS_ADMIN}
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPlaceholder title="Quản lý Lưu trú" />
+                    <ProviderManagement />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path={API_ENDPOINTS.TOURS_ADMIN}
+                path={API_ENDPOINTS.SERVICES_ADMIN}
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPlaceholder title="Quản lý Tours & Hoạt động" />
+                    <ServiceManagement />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path={API_ENDPOINTS.STATS_ADMIN}
+                path={API_ENDPOINTS.BOOKINGS_ADMIN}
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPlaceholder title="Thống kê" />
+                    <BookingManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.REVIEWS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <ReviewManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.COUPONS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <CouponManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.AUTOMATION_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AutomationManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.REPORTS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <ReportManagement />
                   </ProtectedRoute>
                 }
               />
@@ -107,10 +137,16 @@ function App() {
                 path={API_ENDPOINTS.SETTINGS_ADMIN}
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPlaceholder title="Cài đặt hệ thống" />
+                    <SettingManagement />
                   </ProtectedRoute>
                 }
               />
+
+              {/* Tạm thời giữ lại các route cũ để tương thích (Optional) */}
+              <Route path="/admin/services" element={<ProtectedRoute allowedRoles={['admin']}><ServiceManagement /></ProtectedRoute>} />
+              <Route path="/admin/hotels" element={<ProtectedRoute allowedRoles={['admin']}><ServiceManagement /></ProtectedRoute>} />
+              <Route path="/admin/tours" element={<ProtectedRoute allowedRoles={['admin']}><ServiceManagement /></ProtectedRoute>} />
+              <Route path="/admin/stats" element={<ProtectedRoute allowedRoles={['admin']}><DashboardManagement /></ProtectedRoute>} />
 
               {/* Provider routes — cần role provider */}
               <Route

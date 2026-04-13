@@ -21,14 +21,23 @@ export const API_ENDPOINTS = {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
+
+    // Admin
     LOCATIONS: '/locations',
     LOCATIONS_ADMIN: '/admin/locations',
     ADMIN_DASHBOARD: '/admin/dashboard',
     PROVIDER_DASHBOARD: '/provider/dashboard',
     USERS_ADMIN: '/admin/users',
-    HOTELS_ADMIN: '/admin/hotels',
     TOURS_ADMIN: '/admin/tours',
     CATEGORIES_ADMIN: '/admin/categories',
+    HOTELS_ADMIN: '/admin/hotels',
     STATS_ADMIN: '/admin/stats',
+    REVIEWS_ADMIN: '/admin/reviews',
+    COUPONS_ADMIN: '/admin/coupons',
+    BOOKINGS_ADMIN: '/admin/bookings',
+    PROVIDERS_ADMIN: '/admin/providers',
+    REPORTS_ADMIN: '/admin/reports',
+    AUTOMATION_ADMIN: '/admin/automation',
+    SERVICES_ADMIN: '/admin/services',
     SETTINGS_ADMIN: '/admin/settings'
 };

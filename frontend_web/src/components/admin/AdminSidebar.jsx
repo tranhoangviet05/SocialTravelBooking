@@ -1,34 +1,36 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-    LayoutDashboard, 
-    Users, 
-    MapPin, 
-    Hotel, 
-    Compass, 
-    BarChart3, 
-    Settings, 
-    LogOut, 
+import {
+    LayoutDashboard,
+    Users,
+    MapPin,
+    Compass,
+    Hotel,
+    Settings,
+    LogOut,
     Ticket,
     ShieldAlert,
     Briefcase,
     Star,
-    Zap
+    Zap,
+    Tag
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { API_ENDPOINTS } from '../../utils/ConstantSystems';
 
 const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-    { icon: Users, label: 'Người dùng', path: '/admin/users' },
-    { icon: Briefcase, label: 'Nhà cung cấp', path: '/admin/providers' },
-    { icon: MapPin, label: 'Địa điểm', path: '/admin/locations' },
-    { icon: Compass, label: 'Dịch vụ & Tours', path: '/admin/services' },
-    { icon: BarChart3, label: 'Đặt chỗ', path: '/admin/bookings' },
-    { icon: Ticket, label: 'Mã giảm giá', path: '/admin/coupons' },
-    { icon: Star, label: 'Đánh giá', path: '/admin/reviews' },
-    { icon: Zap, label: 'Tự động hóa', path: '/admin/automation' },
-    { icon: ShieldAlert, label: 'Báo cáo', path: '/admin/reports' },
-    { icon: Settings, label: 'Cài đặt', path: '/admin/settings' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: API_ENDPOINTS.ADMIN_DASHBOARD },
+    { icon: Users, label: 'Người dùng', path: API_ENDPOINTS.USERS_ADMIN },
+    { icon: Briefcase, label: 'Nhà cung cấp', path: API_ENDPOINTS.PROVIDERS_ADMIN },
+    { icon: Tag, label: 'Danh mục', path: API_ENDPOINTS.CATEGORIES_ADMIN },
+    { icon: MapPin, label: 'Địa điểm', path: API_ENDPOINTS.LOCATIONS_ADMIN },
+    { icon: Compass, label: 'Dịch vụ & Tours', path: API_ENDPOINTS.SERVICES_ADMIN },
+    { icon: Hotel, label: 'Đặt chỗ', path: API_ENDPOINTS.BOOKINGS_ADMIN },
+    { icon: Ticket, label: 'Mã giảm giá', path: API_ENDPOINTS.COUPONS_ADMIN },
+    { icon: Star, label: 'Đánh giá', path: API_ENDPOINTS.REVIEWS_ADMIN },
+    { icon: Zap, label: 'Tự động hóa', path: API_ENDPOINTS.AUTOMATION_ADMIN },
+    { icon: ShieldAlert, label: 'Báo cáo', path: API_ENDPOINTS.REPORTS_ADMIN },
+    { icon: Settings, label: 'Cài đặt', path: API_ENDPOINTS.SETTINGS_ADMIN },
 ];
 
 const AdminSidebar = () => {
@@ -53,7 +55,7 @@ const AdminSidebar = () => {
             </div>
 
             {/* Menu */}
-            <nav className="flex-1 p-4 space-y-1 overflow-y-auto mt-2">
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto no-scrollbar mt-2">
                 {menuItems.map((item) => {
                     const isActive = location.pathname === item.path;
                     return (

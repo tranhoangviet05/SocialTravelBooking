@@ -11,7 +11,8 @@ import {
     LogOut, 
     Ticket,
     ShieldAlert,
-    Briefcase
+    Briefcase,
+    Star
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -23,6 +24,7 @@ const menuItems = [
     { icon: Compass, label: 'Dịch vụ & Tours', path: '/admin/services' },
     { icon: BarChart3, label: 'Đặt chỗ', path: '/admin/bookings' },
     { icon: Ticket, label: 'Mã giảm giá', path: '/admin/coupons' },
+    { icon: Star, label: 'Đánh giá', path: '/admin/reviews' },
     { icon: ShieldAlert, label: 'Báo cáo', path: '/admin/reports' },
     { icon: Settings, label: 'Cài đặt', path: '/admin/settings' },
 ];

@@ -5,12 +5,33 @@ import {
     Compass, 
     BarChart3, 
     TrendingUp, 
-    Clock, 
     CheckCircle2, 
-    XCircle 
+    XCircle,
+    DollarSign,
+    ArrowUpRight,
+    Clock
 } from 'lucide-react';
+import { 
+    AreaChart, 
+    Area, 
+    XAxis, 
+    YAxis, 
+    CartesianGrid, 
+    Tooltip, 
+    ResponsiveContainer 
+} from 'recharts';
 import AdminMetricCard from '../../components/admin/AdminMetricCard';
 import AdminTable from '../../components/admin/AdminTable';
+
+const revenueData = [
+    { name: 'T1', revenue: 450, bookings: 120 },
+    { name: 'T2', revenue: 580, bookings: 145 },
+    { name: 'T3', revenue: 490, bookings: 110 },
+    { name: 'T4', revenue: 850, bookings: 210 },
+    { name: 'T5', revenue: 760, bookings: 180 },
+    { name: 'T6', revenue: 920, bookings: 230 },
+    { name: 'T7', revenue: 1200, bookings: 280 },
+];
 
 const AdminDashboard = () => {
     const stats = [
@@ -55,6 +76,58 @@ const AdminDashboard = () => {
                 {stats.map((stat, idx) => (
                     <AdminMetricCard key={idx} {...stat} />
                 ))}
+            </div>
+            
+            {/* Revenue Chart Section */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900">Phân tích Doanh thu</h3>
+                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Dữ liệu 7 tháng gần nhất (Triệu VND)</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100">
+                        <TrendingUp size={16} />
+                        <span className="text-sm font-black">+24% so với năm ngoái</span>
+                    </div>
+                </div>
+                
+                <div className="h-[350px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={revenueData}>
+                            <defs>
+                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1}/>
+                                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis 
+                                dataKey="name" 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}}
+                                dy={10}
+                            />
+                            <YAxis 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}}
+                            />
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                cursor={{ stroke: '#0ea5e9', strokeWidth: 2 }}
+                            />
+                            <Area 
+                                type="monotone" 
+                                dataKey="revenue" 
+                                stroke="#0ea5e9" 
+                                strokeWidth={4}
+                                fillOpacity={1} 
+                                fill="url(#colorRevenue)" 
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

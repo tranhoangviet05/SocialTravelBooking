@@ -25,6 +25,7 @@ import AdminBookings from './pages/admin/Bookings';
 import AdminCoupons from './pages/admin/Coupons';
 import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
+import AdminReviews from './pages/admin/Reviews';
 import ProviderDashboard from './pages/provider/Dashboard';
 import './App.css';
 
@@ -70,6 +71,7 @@ function App() {
               <Route path="bookings" element={<AdminBookings />} />
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="reports" element={<AdminReports />} />
+              <Route path="reviews" element={<AdminReviews />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
 

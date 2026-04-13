@@ -12,7 +12,8 @@ import {
     Ticket,
     ShieldAlert,
     Briefcase,
-    Star
+    Star,
+    Zap
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -25,6 +26,7 @@ const menuItems = [
     { icon: BarChart3, label: 'Đặt chỗ', path: '/admin/bookings' },
     { icon: Ticket, label: 'Mã giảm giá', path: '/admin/coupons' },
     { icon: Star, label: 'Đánh giá', path: '/admin/reviews' },
+    { icon: Zap, label: 'Tự động hóa', path: '/admin/automation' },
     { icon: ShieldAlert, label: 'Báo cáo', path: '/admin/reports' },
     { icon: Settings, label: 'Cài đặt', path: '/admin/settings' },
 ];

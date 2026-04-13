@@ -60,7 +60,7 @@ const DashboardManagement = () => {
                 {/* Header info */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-2xl font-black text-slate-900">Chào buổi chiều, Admin!</h2>
+                        <h2 className="text-2xl font-black text-slate-900">Chào buổi sáng, Admin!</h2>
                         <p className="text-gray-500 text-sm mt-1 font-medium">Hệ thống Social Travel Booking đang hoạt động bình thường.</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -90,7 +90,7 @@ const DashboardManagement = () => {
                     </div>
 
                     <div className="h-[350px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                             <AreaChart data={revenueData}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">

@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
     USERS_ADMIN: '/admin/users',
     HOTELS_ADMIN: '/admin/hotels',
     TOURS_ADMIN: '/admin/tours',
+    CATEGORIES_ADMIN: '/admin/categories',
     STATS_ADMIN: '/admin/stats',
     SETTINGS_ADMIN: '/admin/settings'
 };

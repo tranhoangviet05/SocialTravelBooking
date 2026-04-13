@@ -6,6 +6,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import HomePage from './pages/tourist/Home';
 import AdminDashboard from './pages/admin/Dashboard';
 import LocationManagement from './pages/admin/LocationManagement';
+import CategoryManagement from './pages/admin/CategoryManagement';
 import AdminPlaceholder from './pages/admin/Placeholder';
 import ProviderDashboard from './pages/provider/Dashboard';
 import './App.css';
@@ -34,6 +35,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <LocationManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={API_ENDPOINTS.CATEGORIES_ADMIN}
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <CategoryManagement />
                 </ProtectedRoute>
               }
             />

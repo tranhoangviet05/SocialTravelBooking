@@ -3,7 +3,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     LayoutDashboard, Users, MapPin, Hotel, Compass,
-    BarChart3, Settings, LogOut, Bell, Search, ChevronRight
+    BarChart3, Settings, LogOut, Bell, Search, ChevronRight, Tag
 } from 'lucide-react';
 import { API_ENDPOINTS } from '../../utils/ConstantSystems';
 
@@ -11,6 +11,7 @@ const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: API_ENDPOINTS.ADMIN_DASHBOARD },
     { icon: Users, label: 'Người dùng', path: API_ENDPOINTS.USERS_ADMIN },
     { icon: MapPin, label: 'Địa điểm', path: API_ENDPOINTS.LOCATIONS_ADMIN },
+    { icon: Tag, label: 'Danh mục', path: API_ENDPOINTS.CATEGORIES_ADMIN },
     { icon: Hotel, label: 'Lưu trú', path: API_ENDPOINTS.HOTELS_ADMIN },
     { icon: Compass, label: 'Tours & Hoạt động', path: API_ENDPOINTS.TOURS_ADMIN },
     { icon: BarChart3, label: 'Thống kê', path: API_ENDPOINTS.STATS_ADMIN },
@@ -32,6 +33,7 @@ const AdminLayout = ({ children }) => {
             let label = name.charAt(0).toUpperCase() + name.slice(1);
             if (name === 'admin') label = 'Quản trị';
             if (name === 'locations') label = 'Địa điểm';
+            if (name === 'categories') label = 'Danh mục';
             if (name === 'dashboard') label = 'Bảng điều khiển';
             if (name === 'users') label = 'Người dùng';
 

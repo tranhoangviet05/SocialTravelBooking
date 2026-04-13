@@ -3,6 +3,7 @@ import { signUp, signInWithGoogle } from '../../firebase/services/authService';
 import { useNavigate } from 'react-router-dom';
 import authApi from '../../api/authApi';
 import { Eye, EyeOff, X, User } from 'lucide-react';
+import { useNotification } from '../../contexts/NotificationContext';
 import { COLORS } from '../../utils/colors';
 import dnBg from '../../assets/images/dn_bg.jpg';
 import quynhonBg from '../../assets/images/quynhon_bg.jpg';
@@ -28,6 +29,7 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     const [role, setRole] = useState('tourist'); // 'tourist' | 'provider'
     const timerRef = useRef(null);
     const navigate = useNavigate();
+    const toast = useNotification();
 
     useEffect(() => {
         if (isOpen) {
@@ -93,6 +95,7 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
             console.log('Register success:', user, 'Role:', role);
             setReportMessage('');
+            toast.success('Đăng ký tài khoản thành công!');
             onClose();
 
             // Chuyển hướng theo vai trò
@@ -105,7 +108,9 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                 'auth/invalid-email': 'Email không hợp lệ',
                 'auth/weak-password': 'Mật khẩu quá yếu',
             };
-            setReportMessage(errorMap[error.code] || 'Đăng ký thất bại. Vui lòng thử lại.');
+            const msg = errorMap[error.code] || 'Đăng ký thất bại. Vui lòng thử lại.';
+            setReportMessage(msg);
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -122,6 +127,7 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
             const finalRole = response?.data?.role || role;
 
             console.log('Google login & sync success:', finalRole);
+            toast.success('Đăng ký với Google thành công!');
             onClose();
 
             // Chuyển hướng theo vai trò
@@ -129,7 +135,9 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
             else if (finalRole === 'provider') navigate('/provider/dashboard');
         } catch (error) {
             console.error('Google Auth failed:', error);
-            setReportMessage('Đăng nhập Google thất bại. Vui lòng thử lại.');
+            const msg = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
+            setReportMessage(msg);
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }

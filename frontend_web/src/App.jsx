@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import HomePage from './pages/tourist/Home';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -11,7 +12,8 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <NotificationProvider>
+          <Routes>
           {/* Trang công khai — Tourist */}
           <Route path="/" element={<HomePage />} />
 
@@ -35,6 +37,7 @@ function App() {
             }
           />
         </Routes>
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );

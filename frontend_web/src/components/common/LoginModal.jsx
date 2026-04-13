@@ -3,6 +3,7 @@ import { signIn, signInWithGoogle } from '../../firebase/services/authService';
 import { useNavigate } from 'react-router-dom';
 import authApi from '../../api/authApi';
 import { Eye, EyeOff, X } from 'lucide-react';
+import { useNotification } from '../../contexts/NotificationContext';
 import { COLORS } from '../../utils/colors';
 import dnBg from '../../assets/images/dn_bg.jpg';
 import quynhonBg from '../../assets/images/quynhon_bg.jpg';
@@ -23,6 +24,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
     const timerRef = useRef(null);
     const navigate = useNavigate();
+    const toast = useNotification();
 
     // Lock body scroll
     useEffect(() => {
@@ -66,6 +68,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             const role = response?.data?.role;
 
             console.log('Login success:', user, 'Role:', role);
+            toast.success(`Chào mừng bạn quay lại, ${user.displayName || 'Người dùng'}!`);
             onClose();
 
             // Chuyển hướng theo vai trò
@@ -79,7 +82,9 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
                 'auth/invalid-email': 'Email không hợp lệ',
                 'auth/invalid-credential': 'Thông tin đăng nhập không chính xác',
             };
-            setReportMessage(errorMap[error.code] || 'Đăng nhập thất bại. Vui lòng thử lại.');
+            const msg = errorMap[error.code] || 'Đăng nhập thất bại. Vui lòng thử lại.';
+            setReportMessage(msg);
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -96,6 +101,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             const role = response?.data?.role;
 
             console.log('Google login success', 'Role:', role);
+            toast.success('Đăng nhập với Google thành công!');
             onClose();
 
             // Chuyển hướng theo vai trò
@@ -103,7 +109,9 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             else if (role === 'provider') navigate('/provider/dashboard');
         } catch (error) {
             console.error('Google Auth failed:', error);
-            setReportMessage('Đăng nhập Google thất bại');
+            const msg = 'Đăng nhập Google thất bại';
+            setReportMessage(msg);
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }

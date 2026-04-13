@@ -4,11 +4,19 @@ import CategoryHeader from '../../components/admin/category/CategoryHeader';
 import CategoryTable from '../../components/admin/category/CategoryTable';
 import CategoryModal from '../../components/admin/category/CategoryModal';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAdminData } from '../../contexts/AdminDataContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 
 const CategoryManagement = () => {
-    const [categories, setCategories] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const {
+        categories,
+        isLoadingCategories: isLoading,
+        fetchCategories,
+        addCategory,
+        updateCategory,
+        removeCategory
+    } = useAdminData();
+
     const [isSaving, setIsSaving] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
@@ -18,24 +26,9 @@ const CategoryManagement = () => {
 
     const toast = useNotification();
 
-    const fetchCategories = async () => {
-        setIsLoading(true);
-        try {
-            const response = await categoryApi.getAll();
-            if (response.success) {
-                setCategories(response.data);
-            }
-        } catch (error) {
-            console.error('Fetch categories error:', error);
-            toast.error('Không thể tải danh sách danh mục.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchCategories();
-    }, []);
+        fetchCategories(); // Cache hit -> nothing happens
+    }, [fetchCategories]);
 
     // Logic lọc dữ liệu
     const filteredCategories = useMemo(() => {
@@ -63,15 +56,13 @@ const CategoryManagement = () => {
                 response = await categoryApi.update(editingCategory.id, data);
                 if (response.success) {
                     toast.success('Cập nhật danh mục thành công!');
-                    setCategories(prev => prev.map(cat => 
-                        cat.id === response.data.id ? response.data : cat
-                    ));
+                    updateCategory(response.data);
                 }
             } else {
                 response = await categoryApi.create(data);
                 if (response.success) {
                     toast.success('Thêm danh mục mới thành công!');
-                    setCategories(prev => [...prev, response.data]);
+                    addCategory(response.data);
                 }
             }
             setIsModalOpen(false);
@@ -91,7 +82,7 @@ const CategoryManagement = () => {
             const response = await categoryApi.delete(id);
             if (response.success) {
                 toast.success('Xóa danh mục thành công!');
-                setCategories(prev => prev.filter(cat => cat.id !== id));
+                removeCategory(id);
             }
         } catch (error) {
             console.error('Delete category error:', error);
@@ -105,7 +96,7 @@ const CategoryManagement = () => {
             <CategoryHeader
                 total={categories.length}
                 onAddClick={handleAddClick}
-                onReload={fetchCategories}
+                onReload={() => fetchCategories(true)}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
             />

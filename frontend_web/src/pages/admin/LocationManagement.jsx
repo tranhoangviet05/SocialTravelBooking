@@ -4,49 +4,38 @@ import LocationHeader from '../../components/admin/location/LocationHeader';
 import LocationTable from '../../components/admin/location/LocationTable';
 import LocationModal from '../../components/admin/location/LocationModal';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAdminData } from '../../contexts/AdminDataContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 
 const LocationManagement = () => {
-    const [locations, setLocations] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const {
+        locations,
+        isLoadingLocations: isLoading,
+        fetchLocations,
+        addLocation,
+        updateLocation,
+        removeLocation
+    } = useAdminData();
+
     const [isSaving, setIsSaving] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingLocation, setEditingLocation] = useState(null);
-    
-    // Search & Filter state
+
     const [searchTerm, setSearchTerm] = useState('');
     const [isPopularActive, setIsPopularActive] = useState(false);
 
     const toast = useNotification();
 
-    const fetchLocations = async () => {
-        setIsLoading(true);
-        try {
-            const response = await locationApi.getAll();
-            if (response.success) {
-                setLocations(response.data);
-            }
-        } catch (error) {
-            console.error('Fetch locations error:', error);
-            toast.error('Không thể tải danh sách địa điểm.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     useEffect(() => {
         fetchLocations();
-    }, []);
+    }, [fetchLocations]);
 
-    // Logic lọc dữ liệu
     const filteredLocations = useMemo(() => {
         return locations.filter(loc => {
-            // Lọc theo từ khóa (Tên địa điểm HOẶC Tên địa điểm cha)
-            const matchSearch = searchTerm === '' || 
+            const matchSearch = searchTerm === '' ||
                 loc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (loc.parent?.name && loc.parent.name.toLowerCase().includes(searchTerm.toLowerCase()));
-            
-            // Lọc theo phổ biến
+
             const matchPopular = !isPopularActive || loc.is_popular;
 
             return matchSearch && matchPopular;
@@ -71,15 +60,13 @@ const LocationManagement = () => {
                 response = await locationApi.update(editingLocation.id, data);
                 if (response.success) {
                     toast.success('Cập nhật địa điểm thành công!');
-                    setLocations(prev => prev.map(loc => 
-                        loc.id === response.data.id ? response.data : loc
-                    ));
+                    updateLocation(response.data);
                 }
             } else {
                 response = await locationApi.create(data);
                 if (response.success) {
                     toast.success('Thêm địa điểm mới thành công!');
-                    setLocations(prev => [response.data, ...prev]);
+                    addLocation(response.data);
                 }
             }
             setIsModalOpen(false);
@@ -99,7 +86,7 @@ const LocationManagement = () => {
             const response = await locationApi.delete(id);
             if (response.success) {
                 toast.success('Xóa địa điểm thành công!');
-                setLocations(prev => prev.filter(loc => loc.id !== id));
+                removeLocation(id);
             }
         } catch (error) {
             console.error('Delete location error:', error);
@@ -117,7 +104,7 @@ const LocationManagement = () => {
                 total={locations.length}
                 popularCount={popularCount}
                 onAddClick={handleAddClick}
-                onReload={fetchLocations}
+                onReload={() => fetchLocations(true)} // Ép buộc gọi API lại nếu người dùng ấn Làm mới
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 isPopularActive={isPopularActive}

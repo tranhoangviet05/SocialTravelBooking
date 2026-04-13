@@ -60,6 +60,21 @@ Route::middleware('firebase.auth')->group(function () {
     });
 
     // ===========================================================
+    // ADMIN ROUTES (Quản trị viên)
+    // ===========================================================
+    Route::prefix('admin')->group(function () {
+        // Quản lý Địa điểm
+        Route::post('/locations', [LocationController::class, 'store']);
+        Route::put('/locations/{id}', [LocationController::class, 'update']);
+        Route::delete('/locations/{id}', [LocationController::class, 'destroy']);
+
+        // Quản lý Danh mục
+        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::put('/categories/{id}', [CategoryController::class, 'update']);
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+    });
+
+    // ===========================================================
     // Thêm các route khác tại đây, ví dụ:
     // Route::apiResource('destinations', DestinationController::class);
     // Route::apiResource('bookings', BookingController::class);

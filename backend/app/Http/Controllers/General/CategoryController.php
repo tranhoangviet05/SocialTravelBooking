@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\General\CategoryRequest;
+use App\Http\Resources\General\CategoryResource;
 use App\Services\CategoryService;
 use Illuminate\Http\Request;
 
@@ -16,17 +18,16 @@ class CategoryController extends Controller
     }
 
     /**
-     * Lấy danh sách danh mục (vaitro/hanhdong/chucnang)
+     * Lấy danh sách danh mục
      * Endpoint: GET /api/general/get/categories
      */
     public function index()
     {
         $categories = $this->categoryService->getAllCategories();
 
-        return response()->json([
+        return CategoryResource::collection($categories)->additional([
             'success' => true,
-            'message' => 'Lấy danh sách danh mục thành công',
-            'data' => $categories
+            'message' => 'Lấy danh sách danh mục thành công'
         ]);
     }
 
@@ -46,10 +47,69 @@ class CategoryController extends Controller
             ], 404);
         }
 
-        return response()->json([
+        return (new CategoryResource($category))->additional([
             'success' => true,
-            'message' => 'Lấy thông tin danh mục thành công',
-            'data' => $category
+            'message' => 'Lấy thông tin danh mục thành công'
         ]);
+    }
+
+    /**
+     * Thêm danh mục mới (Admin)
+     */
+    public function store(CategoryRequest $request)
+    {
+        $category = $this->categoryService->createCategory($request->validated());
+
+        return (new CategoryResource($category))->additional([
+            'success' => true,
+            'message' => 'Thêm danh mục mới thành công'
+        ])->response()->setStatusCode(201);
+    }
+
+    /**
+     * Cập nhật danh mục (Admin)
+     */
+    public function update(CategoryRequest $request, $id)
+    {
+        $category = $this->categoryService->updateCategory((int)$id, $request->validated());
+
+        if (!$category) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy danh mục'
+            ], 404);
+        }
+
+        return (new CategoryResource($category))->additional([
+            'success' => true,
+            'message' => 'Cập nhật danh mục thành công'
+        ]);
+    }
+
+    /**
+     * Xóa danh mục (Admin)
+     */
+    public function destroy($id)
+    {
+        try {
+            $deleted = $this->categoryService->deleteCategory((int)$id);
+
+            if (!$deleted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy danh mục'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Xóa danh mục thành công'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
     }
 }

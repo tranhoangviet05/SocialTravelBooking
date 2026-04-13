@@ -109,7 +109,11 @@ cd SocialTravelBooking
 
 ```bash
 cd backend
+composer install
 copy .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan storage:link
 ```
 
 Mở `backend/.env` và điền thông tin thật:
@@ -133,6 +137,7 @@ MOMO_SECRET_KEY=your_momo_secret_key
 
 ```bash
 cd frontend_web
+npm install
 copy .env.example .env.local
 ```
 
@@ -145,7 +150,15 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 # ... (xem .env.example để đầy đủ)
 ```
 
-### Bước 4 — Chạy script cài đặt tự động
+### Bước 4 — Cấu hình Mobile App (Flutter)
+
+```bash
+cd mobile_app
+flutter pub get
+```
+
+
+### Bước 5 — Chạy script cài đặt tự động
 
 ```bash
 setup.bat

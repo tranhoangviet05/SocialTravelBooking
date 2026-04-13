@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { WishlistProvider } from './contexts/WishlistContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { AdminDataProvider } from './contexts/AdminDataContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/tourist/Home';
@@ -27,69 +29,101 @@ import AdminReports from './pages/admin/Reports';
 import AdminSettings from './pages/admin/Settings';
 import AdminReviews from './pages/admin/Reviews';
 import AdminAutomation from './pages/admin/Automation';
+import LocationManagement from './pages/admin/LocationManagement';
+import CategoryManagement from './pages/admin/CategoryManagement';
+import AdminPlaceholder from './pages/admin/Placeholder';
 import ProviderDashboard from './pages/provider/Dashboard';
 import './App.css';
+import { API_ENDPOINTS } from './utils/ConstantSystems';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <WishlistProvider>
-          <Routes>
-            {/* Trang công khai — Tourist, bọc bằng MainLayout */}
-            <Route element={<MainLayout />}>
+        <AdminDataProvider>
+          <NotificationProvider>
+            <Routes>
+              {/* Trang công khai — Tourist */}
               <Route path="/" element={<HomePage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/service/:id" element={<ServiceDetailPage />} />
-              <Route path="/community" element={<CommunityPage />} />
-              
-              {/* Các trang dành cho Tourist yêu cầu đăng nhập */}
-              <Route element={<ProtectedRoute allowedRoles={['tourist', 'admin', 'provider']} />}>
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/my-bookings" element={<MyBookingsPage />} />
-                <Route path="/wishlist" element={<WishlistPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/checkout-success" element={<SuccessPage />} />
-              </Route>
-            </Route>
 
-            {/* Admin routes — cần role admin */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<AdminDashboard />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="providers" element={<AdminProviders />} />
-              <Route path="locations" element={<AdminLocations />} />
-              <Route path="services" element={<AdminServices />} />
-              <Route path="bookings" element={<AdminBookings />} />
-              <Route path="coupons" element={<AdminCoupons />} />
-              <Route path="reports" element={<AdminReports />} />
-              <Route path="reviews" element={<AdminReviews />} />
-              <Route path="automation" element={<AdminAutomation />} />
-              <Route path="settings" element={<AdminSettings />} />
-            </Route>
+              {/* Admin routes — cần role admin */}
+              <Route
+                path={API_ENDPOINTS.ADMIN_DASHBOARD}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.LOCATIONS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <LocationManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.CATEGORIES_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <CategoryManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.USERS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPlaceholder title="Quản lý Người dùng" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.HOTELS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPlaceholder title="Quản lý Lưu trú" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.TOURS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPlaceholder title="Quản lý Tours & Hoạt động" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.STATS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPlaceholder title="Thống kê" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={API_ENDPOINTS.SETTINGS_ADMIN}
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPlaceholder title="Cài đặt hệ thống" />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Provider routes — cần role provider */}
-            <Route
-              path="/provider"
-              element={
-                <ProtectedRoute allowedRoles={['provider']}>
-                  <DashboardLayout roleTitle="Provider Dashboard" />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="dashboard" element={<ProviderDashboard />} />
-            </Route>
-          </Routes>
-        </WishlistProvider>
+              {/* Provider routes — cần role provider */}
+              <Route
+                path={API_ENDPOINTS.PROVIDER_DASHBOARD}
+                element={
+                  <ProtectedRoute allowedRoles={['provider']}>
+                    <ProviderDashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </NotificationProvider>
+        </AdminDataProvider>
       </AuthProvider>
     </BrowserRouter>
   );

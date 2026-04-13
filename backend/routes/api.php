@@ -29,9 +29,11 @@ Route::get('/ping', fn() => response()->json([
     'timestamp' => now()->toISOString(),
 ]));
 
-// Địa điểm & Danh mục (vaitro/hanhdong/chucnang)
-Route::get('/general/get/locations', [LocationController::class, 'index']);
-Route::get('/general/get/locations/{id}', [LocationController::class, 'show']);
+// Địa điểm & Danh mục (Public)
+Route::get('/locations', [LocationController::class, 'index']);
+Route::get('/locations/{id}', [LocationController::class, 'show']);
+Route::get('/general/get/locations', [LocationController::class, 'index']); // Giữ để không bị break code cũ
+Route::get('/general/get/locations/{id}', [LocationController::class, 'show']); // Giữ để không bị break code cũ
 Route::get('/general/get/categories', [CategoryController::class, 'index']);
 Route::get('/general/get/categories/{slug}', [CategoryController::class, 'show']);
 
@@ -57,6 +59,21 @@ Route::middleware('firebase.auth')->group(function () {
             'success' => true,
             'data' => $user
         ]);
+    });
+
+    // ===========================================================
+    // ADMIN ROUTES (Quản trị viên)
+    // ===========================================================
+    Route::prefix('admin')->group(function () {
+        // Quản lý Địa điểm
+        Route::post('/locations', [LocationController::class, 'store']);
+        Route::put('/locations/{id}', [LocationController::class, 'update']);
+        Route::delete('/locations/{id}', [LocationController::class, 'destroy']);
+
+        // Quản lý Danh mục
+        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::put('/categories/{id}', [CategoryController::class, 'update']);
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     });
 
     // ===========================================================

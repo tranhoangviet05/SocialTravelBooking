@@ -183,6 +183,8 @@ const AdminDashboard = () => {
                             ))}
                         </div>
                     </div>
+                ))}
+            </div>
 
                     <div className="bg-[#0f172a] rounded-3xl p-8 shadow-xl text-white overflow-hidden relative">
                         <div className="relative z-10">
@@ -199,4 +201,4 @@ const AdminDashboard = () => {
     );
 };
 
-export default AdminDashboard;
+export default Dashboard;

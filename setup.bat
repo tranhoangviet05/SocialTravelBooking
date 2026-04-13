@@ -16,14 +16,14 @@ cd ..
 :: ── FRONTEND ─────────────────────────────
 echo.
 echo [2/3] Cai dat Frontend (React)...
-cd frontend-web
+cd frontend_web
 npm install
 cd ..
 
 :: ── FLUTTER ──────────────────────────────
 echo.
 echo [3/3] Cai dat Mobile (Flutter)...
-cd mobile
+cd mobile_app
 flutter pub get
 cd ..
 
@@ -32,7 +32,7 @@ echo ========================================
 echo   Hoan tat! Chay theo huong dan sau:
 echo.
 echo   Backend  : cd backend     ^& php artisan serve
-echo   Frontend : cd frontend-web ^& npm run dev
-echo   Mobile   : cd mobile      ^& flutter run
+echo   Frontend : cd frontend_web ^& npm run dev
+echo   Mobile   : cd mobile_app  ^& flutter run
 echo ========================================
 pause

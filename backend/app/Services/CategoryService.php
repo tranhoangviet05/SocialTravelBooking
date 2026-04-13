@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Category;
+use App\Models\Service;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class CategoryService
 {
@@ -49,5 +51,52 @@ class CategoryService
         }]);
 
         return $category;
+    }
+
+    /* 
+    * Tạo danh mục mới
+    */
+    public function createCategory(array $categoryData): Category {
+        if (empty($categoryData['slug'])) {
+            $slug = Str::slug($categoryData['name']);
+
+            $originalSlug = $slug;
+            $count = 1;
+            while (Category::where('slug', $slug)->exists()) {
+                $slug = $originalSlug . '-' . $count++;
+            }
+            $categoryData['slug'] = $slug;
+        }
+
+        return Category::create($categoryData);
+    }
+
+    /*
+    * Cập nhật Danh mục
+    */
+    public function updateCategory(int $id, array $categoryData): ?Category {
+        $category = Category::find($id);
+        if (!$category) return null;
+
+        if (isset($categoryData['name']) && empty($categoryData['slug'])) {
+            $categoryData['slug'] = Str::slug($categoryData['name']);
+        }
+
+        $category->update($categoryData);
+        return $category;
+    }
+
+    /*
+    * Xóa Danh mục
+    */
+    public function deleteCategory(int $id): bool {
+        $category = Category::find($id);
+        if (!$category) return false;
+
+        if (Service::where('category_id', $id)->exists()) {
+            throw new \Exception('Không thể xóa danh mục đang có dịch vụ du lịch.');
+        }
+
+        return $category->delete();
     }
 }

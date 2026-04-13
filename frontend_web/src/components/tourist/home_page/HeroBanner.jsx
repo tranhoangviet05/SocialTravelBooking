@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MapPin, Calendar, Users, Search, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Compass } from 'lucide-react';
+import { MapPin, Calendar, Users, Search, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Hotel, Compass } from 'lucide-react';
 import { COLORS } from '../../../utils/colors';
 
 const HeroBanner = () => {
@@ -77,14 +77,14 @@ const HeroBanner = () => {
                                     onClick={() => { setSearchTab('stay'); setActiveField(null); }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold transition-all border-b-2 cursor-pointer ${searchTab === 'stay' ? 'border-sky-500 text-sky-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
                                 >
-                                    <img width="18" height="18" src="https://img.icons8.com/external-others-aquariid/64/external-accommodation-buildings-others-aquariid.png" alt="" className={searchTab === 'stay' ? '' : 'opacity-40'} />
+                                    <Hotel className={searchTab === 'stay' ? 'text-sky-500' : 'text-gray-400'} size={18} />
                                     Lưu trú
                                 </button>
                                 <button
                                     onClick={() => { setSearchTab('tour'); setActiveField(null); }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-bold transition-all border-b-2 cursor-pointer ${searchTab === 'tour' ? 'border-sky-500 text-sky-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
                                 >
-                                    <img width="18" height="18" src="https://img.icons8.com/ios/50/around-the-globe.png" alt="" className={searchTab === 'tour' ? '' : 'opacity-40'} />
+                                    <Compass className={searchTab === 'tour' ? 'text-sky-500' : 'text-gray-400'} size={18} />
                                     Tour & Hoạt động
                                 </button>
                             </div>

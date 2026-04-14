@@ -64,7 +64,12 @@ Route::middleware('firebase.auth')->group(function () {
     // ===========================================================
     // ADMIN ROUTES (Quản trị viên)
     // ===========================================================
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('role:admin')->group(function () {
+        // Quản lý Người dùng
+        Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index']);
+        Route::patch('/users/{id}/role', [\App\Http\Controllers\Admin\UserController::class, 'updateRole']);
+        Route::patch('/users/{id}/status', [\App\Http\Controllers\Admin\UserController::class, 'updateStatus']);
+
         // Quản lý Địa điểm
         Route::post('/locations', [LocationController::class, 'store']);
         Route::put('/locations/{id}', [LocationController::class, 'update']);
@@ -77,9 +82,24 @@ Route::middleware('firebase.auth')->group(function () {
     });
 
     // ===========================================================
-    // Thêm các route khác tại đây, ví dụ:
-    // Route::apiResource('destinations', DestinationController::class);
-    // Route::apiResource('bookings', BookingController::class);
+    // PROVIDER ROUTES (Nhà cung cấp)
     // ===========================================================
+    Route::prefix('provider')->middleware('role:provider')->group(function () {
+        // Dashboard Nhà cung cấp (Lấy thống kê riêng)
+        Route::get('/dashboard/stats', function () {
+            return response()->json([
+                'success' => true,
+                'message' => 'Chào mừng Nhà cung cấp! Thống kê của bạn đang được xử lý.',
+                'data' => [
+                    'active_services' => 0,
+                    'total_bookings' => 0,
+                    'revenue' => 0
+                ]
+            ]);
+        });
+
+        // Quản lý Dịch vụ của riêng Provider này
+        Route::get('/services', [ServiceController::class, 'index']); // Sau này sẽ lọc theo provider_id
+    });
 });
 

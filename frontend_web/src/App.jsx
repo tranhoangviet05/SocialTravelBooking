@@ -6,6 +6,8 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { AdminDataProvider } from './contexts/AdminDataContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
+import ProviderLayout from './components/provider/ProviderLayout';
+import PlaceholderContent from './components/common/PlaceholderContent';
 import HomePage from './pages/tourist/Home';
 import SearchPage from './pages/tourist/Search';
 import ServiceDetailPage from './pages/tourist/ServiceDetail';
@@ -118,13 +120,29 @@ function App() {
 
                 {/* Provider routes — cần role provider */}
                 <Route
-                  path={API_ENDPOINTS.PROVIDER_DASHBOARD}
                   element={
                     <ProtectedRoute allowedRoles={['provider']}>
-                      <ProviderDashboard />
+                      <ProviderLayout />
                     </ProtectedRoute>
                   }
-                />
+                >
+                  <Route
+                    path={API_ENDPOINTS.PROVIDER_DASHBOARD}
+                    element={<ProviderDashboard />}
+                  />
+                  <Route
+                    path={API_ENDPOINTS.PROVIDER_SERVICES}
+                    element={<PlaceholderContent title="Nhà cung cấp" page="Dịch vụ" />}
+                  />
+                  <Route
+                    path={API_ENDPOINTS.PROVIDER_BOOKINGS}
+                    element={<PlaceholderContent title="Nhà cung cấp" page="Lịch đặt chỗ" />}
+                  />
+                  <Route
+                    path={API_ENDPOINTS.PROVIDER_REVIEWS}
+                    element={<PlaceholderContent title="Nhà cung cấp" page="Đánh giá" />}
+                  />
+                </Route>
               </Routes>
             </NotificationProvider>
           </AdminDataProvider>

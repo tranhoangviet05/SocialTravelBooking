@@ -39,5 +39,12 @@ export const API_ENDPOINTS = {
     REPORTS_ADMIN: '/admin/reports',
     AUTOMATION_ADMIN: '/admin/automation',
     SERVICES_ADMIN: '/admin/services',
-    SETTINGS_ADMIN: '/admin/settings'
+    SETTINGS_ADMIN: '/admin/settings',
+
+    // Provider
+    PROVIDER_SERVICES: '/provider/services',
+    PROVIDER_BOOKINGS: '/provider/bookings',
+    PROVIDER_REVIEWS: '/provider/reviews',
+    PROVIDER_WALLET: '/provider/wallet',
+    PROVIDER_SETTINGS: '/provider/settings'
 };

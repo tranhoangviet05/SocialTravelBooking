@@ -24,9 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
-        // Đăng ký alias cho Firebase Auth Middleware
+        // Đăng ký alias cho Custom Middleware
         $middleware->alias([
             'firebase.auth' => FirebaseAuthMiddleware::class,
+            'role'          => \App\Http\Middleware\CheckRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

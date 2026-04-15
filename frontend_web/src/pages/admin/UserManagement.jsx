@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Search, 
-    Filter, 
-    MoreHorizontal, 
-    UserPlus, 
-    Shield, 
-    User, 
-    Ban, 
+import {
+    Search,
+    Filter,
+    MoreHorizontal,
+    UserPlus,
+    Shield,
+    User,
+    Ban,
     CheckCircle,
     Mail,
     Calendar,
@@ -18,18 +18,29 @@ import {
 import AdminTable from '../../components/admin/AdminTable';
 import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const UserManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState(null);
+    const toast = useNotification();
+    
+    // Sử dụng ref để ngăn chặn gọi API lặp lại ở mức độ logic
+    const isFetching = React.useRef(false);
+    const lockRef = React.useRef(null); // Lưu ID đang xử lý để khóa cứng
 
     useEffect(() => {
-        fetchUsers();
+        if (!isFetching.current) {
+            fetchUsers();
+        }
     }, []);
 
     const fetchUsers = async () => {
+        if (isFetching.current) return;
+        isFetching.current = true;
+        
         setLoading(true);
         try {
             const response = await adminApi.getAllUsers();
@@ -40,39 +51,53 @@ const UserManagement = () => {
             console.error('Failed to fetch users:', error);
         } finally {
             setLoading(false);
+            setTimeout(() => { isFetching.current = false; }, 1000);
         }
     };
 
     const handleRoleChange = async (userId, newRole) => {
+        // KHÓA CỨNG: Nếu đang xử lý chính User này thì biến ngay
+        if (lockRef.current === userId) return;
+        lockRef.current = userId;
+
         setUpdatingId(userId);
         try {
+            console.log(`[🚀 API CALL] Updating role for ${userId} to ${newRole}`);
             const response = await adminApi.updateUserRole(userId, newRole);
             if (response.success) {
-                alert('Cập nhật vai trò thành công');
+                toast?.success?.('Cập nhật vai trò thành công');
                 setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+                alert('Cập nhật vai trò thành công');
+                setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, role: newRole } : u));
             }
         } catch (error) {
             console.error('Failed to update role:', error);
             const msg = error.response?.data?.message || 'Lỗi khi cập nhật vai trò';
-            alert(msg);
+            toast?.error?.(msg);
         } finally {
             setUpdatingId(null);
+            // Giải phóng khóa sau một khoảng trễ nhỏ để tránh các event bám đuôi
+            setTimeout(() => { lockRef.current = null; }, 500);
         }
     };
 
     const handleStatusChange = async (userId, newStatus) => {
+        if (isProcessing.current) return;
+        isProcessing.current = true;
+
         setUpdatingId(userId);
         try {
             const response = await adminApi.updateUserStatus(userId, newStatus);
             if (response.success) {
-                alert('Cập nhật trạng thái thành công');
+                toast?.success?.('Cập nhật trạng thái thành công');
                 setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
             }
         } catch (error) {
             console.error('Failed to update status:', error);
-            alert('Lỗi khi cập nhật trạng thái');
+            toast?.error?.('Lỗi khi cập nhật trạng thái');
         } finally {
             setUpdatingId(null);
+            isProcessing.current = false;
         }
     };
 
@@ -92,7 +117,7 @@ const UserManagement = () => {
         }
     };
 
-    const filteredUsers = users.filter(user => 
+    const filteredUsers = users.filter(user =>
         user.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.username?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -111,9 +136,9 @@ const UserManagement = () => {
                 <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                     <div className="relative flex-1 w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Tìm theo tên, email, username..." 
+                        <input
+                            type="text"
+                            placeholder="Tìm theo tên, email, username..."
                             className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -127,7 +152,7 @@ const UserManagement = () => {
                         <p className="text-slate-400 font-bold">Đang tải danh sách người dùng...</p>
                     </div>
                 ) : (
-                    <AdminTable 
+                    <AdminTable
                         headers={['Người dùng', 'Vai trò (Cấp quyền)', 'Trạng thái', 'Hành động']}
                         title="Danh sách thành viên"
                         description={`Hiển thị ${filteredUsers.length} người dùng.`}
@@ -156,10 +181,15 @@ const UserManagement = () => {
                                 </td>
                                 <td className="px-8 py-5">
                                     <div className="flex flex-wrap gap-2">
-                                        <select 
+                                        <select
                                             value={user.role}
                                             disabled={updatingId === user.id}
-                                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                            onChange={(e) => {
+                                                const newRole = e.target.value;
+                                                if (newRole !== user.role) {
+                                                    handleRoleChange(user.id, newRole);
+                                                }
+                                            }}
                                             className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border-0 bg-slate-50 text-slate-600 focus:ring-2 focus:ring-sky-500/20 cursor-pointer outline-none transition-all
                                                 ${user.role === 'admin' ? 'text-rose-600 bg-rose-50' : ''}
                                                 ${user.role === 'provider' ? 'text-emerald-600 bg-emerald-50' : ''}
@@ -176,14 +206,14 @@ const UserManagement = () => {
                                 <td className="px-8 py-5">
                                     <div className="flex items-center gap-2">
                                         {user.status === 'active' ? (
-                                            <button 
+                                            <button
                                                 onClick={() => handleStatusChange(user.id, 'banned')}
                                                 className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all title='Ban user'"
                                             >
                                                 <Ban size={18} />
                                             </button>
                                         ) : (
-                                            <button 
+                                            <button
                                                 onClick={() => handleStatusChange(user.id, 'active')}
                                                 className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all title='Unban user'"
                                             >

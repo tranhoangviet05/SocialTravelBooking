@@ -1,81 +1,228 @@
-import React from 'react';
-import { 
-    CalendarCheck, 
-    Bell, 
-    Wallet, 
-    Star, 
-    TrendingUp, 
-    Plus 
+import React, { useState, useEffect } from 'react';
+import {
+    CalendarCheck, Bell, Wallet, Star, Plus, Loader2, Package, AlertCircle, ArrowRight
 } from 'lucide-react';
+import providerApi from '../../api/providerApi';
+import { useNavigate } from 'react-router-dom';
+import ProviderLayout from '../../components/provider/ProviderLayout';
+import NoProviderProfile from '../../components/provider/NoProviderProfile';
 
 const ProviderDashboard = () => {
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await providerApi.getStats();
+                if (res.success) setStats(res.data);
+            } catch (err) {
+                console.error('Dashboard stats error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
+
+    if (loading) {
+        return (
+            <ProviderLayout>
+                <div className="flex flex-col items-center justify-center py-32">
+                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
+                    <p className="text-slate-400 font-bold">Đang tải dữ liệu...</p>
+                </div>
+            </ProviderLayout>
+        );
+    }
+
+    // Nếu chưa có Provider Profile
+    if (!stats || !stats.has_profile) {
+        return (
+            <ProviderLayout>
+                <div className="space-y-8">
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Bảng điều khiển</h2>
+                        <p className="text-slate-500 font-medium mt-1">Chào mừng bạn đến với Cổng Nhà cung cấp!</p>
+                    </div>
+                    <NoProviderProfile onProfileCreated={() => window.location.reload()} />
+                </div>
+            </ProviderLayout>
+        );
+    }
+
+    const statCards = [
+        {
+            label: 'Dịch vụ hoạt động',
+            value: stats?.active_services || 0,
+            color: 'from-blue-500 to-sky-400',
+            icon: Package,
+            onClick: () => navigate('/provider/services')
+        },
+        {
+            label: 'Tổng đặt chỗ',
+            value: stats?.total_bookings || 0,
+            color: 'from-violet-600 to-purple-400',
+            icon: CalendarCheck,
+            onClick: () => navigate('/provider/bookings')
+        },
+        {
+            label: 'Chờ xác nhận',
+            value: stats?.pending_bookings || 0,
+            color: 'from-amber-500 to-orange-400',
+            icon: Bell,
+            onClick: () => navigate('/provider/bookings')
+        },
+        {
+            label: 'Doanh thu (VNĐ)',
+            value: Number(stats?.revenue || 0).toLocaleString('vi-VN'),
+            color: 'from-emerald-600 to-teal-400',
+            icon: Wallet,
+            onClick: null
+        },
+    ];
+
     return (
-        <div className="space-y-8">
-            <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Bảng điều khiển</h2>
-                <p className="text-slate-500 font-medium mt-1">Chào mừng bạn quay trở lại, đây là hiệu suất kinh doanh của bạn!</p>
-            </div>
+        <ProviderLayout>
+            <div className="space-y-8">
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Bảng điều khiển</h2>
+                        <p className="text-slate-500 font-medium mt-1">
+                            Chào mừng <span className="text-emerald-600 font-black">{stats?.business_name || 'Nhà cung cấp'}</span>, đây là hiệu suất kinh doanh của bạn!
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/provider/services')}
+                        className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                    >
+                        <Plus size={18} /> Thêm dịch vụ
+                    </button>
+                </div>
 
-            {/* Stats cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                    { label: 'Tổng đặt chỗ', value: '128', change: '+12%', color: 'from-blue-500 to-sky-400', icon: CalendarCheck },
-                    { label: 'Chờ xác nhận', value: '15', change: 'Mới', color: 'from-amber-500 to-orange-400', icon: Bell },
-                    { label: 'Doanh thu tháng', value: '24.5M₫', change: '+18.5%', color: 'from-emerald-600 to-teal-400', icon: Wallet },
-                    { label: 'Đánh giá TB', value: '4.8', change: '+0.3', color: 'from-violet-600 to-purple-400', icon: Star },
-                ].map((stat, idx) => (
-                    <div key={idx} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 group">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                                <stat.icon size={26} className="text-white" />
+                {/* Stats cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {statCards.map((stat, idx) => (
+                        <div
+                            key={idx}
+                            onClick={stat.onClick}
+                            className={`bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 group ${stat.onClick ? 'cursor-pointer' : ''}`}
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <div className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                                    <stat.icon size={26} className="text-white" />
+                                </div>
+                                {stat.onClick && (
+                                    <ArrowRight size={16} className="text-slate-200 group-hover:text-slate-400 transition-colors" />
+                                )}
                             </div>
-                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider ${stat.change.startsWith('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                {stat.change}
-                            </span>
+                            <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{stat.label}</p>
                         </div>
-                        <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{stat.label}</p>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recent Bookings Placeholder */}
-                <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Đánh giá trung bình */}
+                    <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight">Tổng quan đánh giá</h3>
+                                <p className="text-slate-400 text-sm font-medium">Điểm đánh giá từ khách hàng</p>
+                            </div>
+                            <button
+                                onClick={() => navigate('/provider/reviews')}
+                                className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors"
+                            >
+                                Xem tất cả <ArrowRight size={14} />
+                            </button>
+                        </div>
+                        {stats?.total_reviews > 0 ? (
+                            <div className="flex items-center gap-8 py-4">
+                                <div className="text-center flex-shrink-0">
+                                    <div className="text-6xl font-black text-emerald-600">{stats?.avg_rating || '—'}</div>
+                                    <div className="flex items-center justify-center gap-1 mt-2">
+                                        {[1,2,3,4,5].map(i => (
+                                            <Star key={i} size={18} className={i <= Math.round(stats?.avg_rating || 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'} />
+                                        ))}
+                                    </div>
+                                    <p className="text-sm text-slate-400 font-bold mt-2">{stats?.total_reviews || 0} đánh giá</p>
+                                </div>
+                                <div className="flex-1 border-l border-slate-100 pl-8">
+                                    <div className="space-y-3">
+                                        {[5,4,3,2,1].map(star => (
+                                            <div key={star} className="flex items-center gap-3">
+                                                <span className="text-xs font-bold text-slate-400 w-4">{star}</span>
+                                                <Star size={12} className="text-amber-400 fill-amber-400 flex-shrink-0" />
+                                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-amber-400 rounded-full"
+                                                        style={{ width: star === Math.round(stats?.avg_rating || 0) ? '60%' : `${Math.max(10, (6 - star) * 10)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                                <Star size={40} className="text-slate-200 mb-3" />
+                                <p className="text-slate-400 font-bold">Chưa có đánh giá nào</p>
+                                <p className="text-slate-300 text-sm mt-1">Đánh giá sẽ hiện khi khách hàng hoàn thành dịch vụ</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-900/10">
+                        <h3 className="text-xl font-black mb-2 tracking-tight">Thao tác nhanh</h3>
+                        <p className="text-emerald-100/80 text-sm font-medium mb-8 leading-relaxed">
+                            Quản lý dịch vụ và đơn hàng của bạn ngay tại đây.
+                        </p>
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => navigate('/provider/services')}
+                                className="w-full py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl text-sm font-black transition-all border border-white/20 flex items-center justify-center gap-2"
+                            >
+                                <Plus size={18} /> Thêm dịch vụ mới
+                            </button>
+                            <button
+                                onClick={() => navigate('/provider/bookings')}
+                                className="w-full py-4 bg-white text-emerald-700 rounded-2xl text-sm font-black shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                            >
+                                <CalendarCheck size={18} />
+                                Quản lý đặt chỗ
+                                {stats?.pending_bookings > 0 && (
+                                    <span className="bg-amber-400 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                                        {stats.pending_bookings}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => navigate('/provider/reviews')}
+                                className="w-full py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl text-sm font-bold transition-all border border-white/20 flex items-center justify-center gap-2"
+                            >
+                                <Star size={16} /> Xem đánh giá ({stats?.total_reviews || 0})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Provider Status Banner */}
+                {stats?.provider_status && stats.provider_status !== 'active' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-center gap-4">
+                        <AlertCircle size={24} className="text-amber-500 flex-shrink-0" />
                         <div>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Đặt chỗ mới nhất</h3>
-                            <p className="text-slate-400 text-sm font-medium">Theo dõi các đơn hàng vừa được đặt</p>
+                            <p className="text-amber-800 font-bold text-sm">Tài khoản đang chờ phê duyệt</p>
+                            <p className="text-amber-600 text-xs mt-0.5">Tài khoản nhà cung cấp của bạn đang được Admin xem xét. Một số tính năng có thể bị hạn chế.</p>
                         </div>
-                        <button className="px-5 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors">
-                            Xem tất cả
-                        </button>
                     </div>
-                    <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-100 rounded-[2rem]">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-200">
-                            <CalendarCheck size={40} />
-                        </div>
-                        <p className="text-slate-400 font-bold">Chưa có dữ liệu đặt chỗ mới</p>
-                    </div>
-                </div>
-
-                {/* Quick Actions / Tips */}
-                <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-900/10">
-                    <h3 className="text-xl font-black mb-2 tracking-tight">Mẹo tăng trưởng</h3>
-                    <p className="text-emerald-100/80 text-sm font-medium mb-8 leading-relaxed">
-                        Cập nhật hình ảnh chất lượng cao để tăng tỷ lệ đặt chỗ lên tới 40%!
-                    </p>
-                    <div className="space-y-4">
-                        <button className="w-full py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl text-sm font-black transition-all border border-white/20">
-                            Thêm dịch vụ mới
-                        </button>
-                        <button className="w-full py-4 bg-white text-emerald-700 rounded-2xl text-sm font-black shadow-lg transition-all hover:scale-[1.02]">
-                            Tải báo cáo tháng
-                        </button>
-                    </div>
-                </div>
+                )}
             </div>
-        </div>
+        </ProviderLayout>
     );
 };
 

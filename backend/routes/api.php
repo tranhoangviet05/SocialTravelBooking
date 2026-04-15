@@ -122,5 +122,13 @@ Route::middleware('firebase.auth')->group(function () {
         // --- Quản lý Đánh giá ---
         Route::get('/reviews', [\App\Http\Controllers\Provider\ReviewController::class, 'index']);
         Route::post('/reviews/{id}/reply', [\App\Http\Controllers\Provider\ReviewController::class, 'reply']);
+
+        // --- Quản lý Ví tiền & Doanh thu ---
+        Route::get('/wallet', [\App\Http\Controllers\Provider\WalletController::class, 'index']);
+        Route::get('/wallet/report', [\App\Http\Controllers\Provider\WalletController::class, 'report']);
+
+        // --- Cấu hình cửa hàng ---
+        Route::get('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'index']);
+        Route::put('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'update']);
     });
 });

@@ -34,6 +34,8 @@ import ProviderDashboard from './pages/provider/Dashboard';
 import ProviderMyServices from './pages/provider/MyServices';
 import ProviderMyBookings from './pages/provider/MyBookings';
 import ProviderMyReviews from './pages/provider/MyReviews';
+import ProviderMyWallet from './pages/provider/MyWallet';
+import ProviderMySettings from './pages/provider/MySettings';
 
 import './App.css';
 import { API_ENDPOINTS } from './utils/ConstantSystems';
@@ -90,6 +92,8 @@ function App() {
                   <Route path={API_ENDPOINTS.PROVIDER_SERVICES} element={<ProviderMyServices />} />
                   <Route path={API_ENDPOINTS.PROVIDER_BOOKINGS} element={<ProviderMyBookings />} />
                   <Route path={API_ENDPOINTS.PROVIDER_REVIEWS} element={<ProviderMyReviews />} />
+                  <Route path={API_ENDPOINTS.PROVIDER_WALLET} element={<ProviderMyWallet />} />
+                  <Route path={API_ENDPOINTS.PROVIDER_SETTINGS} element={<ProviderMySettings />} />
                 </Route>
               </Routes>
             </NotificationProvider>

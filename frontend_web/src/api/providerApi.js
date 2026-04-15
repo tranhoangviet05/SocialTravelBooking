@@ -27,6 +27,12 @@ const providerApi = {
     // Hỗ trợ (Lấy dữ liệu hệ thống)
     getPublicLocations: () => axios.get('/general/get/locations'),
     getPublicCategories: () => axios.get('/general/get/categories'),
+
+    // Ví tiền & Cài đặt
+    getWallet: () => axios.get('/provider/wallet'),
+    getWalletReport: () => axios.get('/provider/wallet/report'),
+    getSettings: () => axios.get('/provider/settings'),
+    updateSettings: (data) => axios.put('/provider/settings', data),
 };
 
 export default providerApi;

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\ProviderProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -22,7 +23,8 @@ class UserController extends Controller
     }
 
     /**
-     * Cập nhật vai trò (role) của người dùng
+     * Cập nhật vai trò (role) của người dùng.
+     * Khi đổi sang 'provider', tự động tạo ProviderProfile nếu chưa có.
      */
     public function updateRole(Request $request, $id)
     {
@@ -31,8 +33,8 @@ class UserController extends Controller
         ]);
 
         $user = User::findOrFail($id);
-        
-        // Tránh việc admin tự hạ quyền của chính mình (tùy chọn)
+
+        // Tránh việc admin tự hạ quyền của chính mình
         $currentUserUid = $request->attributes->get('firebaseUid');
         if ($user->firebase_uid === $currentUserUid && $request->role !== 'admin') {
             return response()->json([
@@ -46,6 +48,18 @@ class UserController extends Controller
 
         // Xóa cache để cập nhật role mới ngay lập tức
         Cache::forget("user_role_{$user->firebase_uid}");
+
+        // Nếu đổi sang provider → tự động tạo ProviderProfile nếu chưa có
+        if ($request->role === 'provider') {
+            ProviderProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'business_name' => ($user->display_name ?? 'Nhà cung cấp') . "'s Business",
+                    'status'        => 'pending',
+                    'address'       => '',
+                ]
+            );
+        }
 
         return response()->json([
             'success' => true,

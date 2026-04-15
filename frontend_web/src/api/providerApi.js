@@ -1,6 +1,9 @@
 import axios from './axios';
 
 const providerApi = {
+    // Setup
+    setupProfile: () => axios.post('/provider/setup-profile'),
+
     // Dashboard
     getStats: () => axios.get('/provider/dashboard/stats'),
 

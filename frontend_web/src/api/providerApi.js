@@ -23,6 +23,10 @@ const providerApi = {
     // Đánh giá
     getReviews: () => axios.get('/provider/reviews'),
     replyReview: (id, reply) => axios.post(`/provider/reviews/${id}/reply`, { reply }),
+
+    // Hỗ trợ (Lấy dữ liệu hệ thống)
+    getPublicLocations: () => axios.get('/general/get/locations'),
+    getPublicCategories: () => axios.get('/general/get/categories'),
 };
 
 export default providerApi;

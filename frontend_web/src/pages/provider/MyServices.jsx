@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Plus, Search, Trash2, Loader2, Package, MapPin, X,
-    CheckCircle, AlertCircle, Star, Users
+    Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
+    CheckCircle, AlertCircle, Star, Users, LayoutGrid
 } from 'lucide-react';
 import ProviderLayout from '../../components/provider/ProviderLayout';
 import NoProviderProfile from '../../components/provider/NoProviderProfile';
@@ -43,20 +43,47 @@ const MyServices = () => {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [hasProfile, setHasProfile] = useState(true);
+    
+    // System data
+    const [locations, setLocations] = useState([]);
+    const [categories, setCategories] = useState([]);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
-    const [showCreateModal, setShowCreateModal] = useState(false);
+    
+    // Modals
+    const [showModal, setShowModal] = useState(false); // true for both create and edit
+    const [editMode, setEditMode] = useState(false);
+    const [currentServiceId, setCurrentServiceId] = useState(null);
+    
     const [creating, setCreating] = useState(false);
     const [toast, setToast] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
-    const [form, setForm] = useState({
-        name: '', type: 'tour', base_price: '', description: '',
-        address: '', max_guests: '', price_unit: 'per_person'
-    });
+    
+    const initialForm = {
+        name: '', type: 'tour', category_id: '', location_id: '',
+        base_price: '', description: '', address: '', max_guests: '', 
+        price_unit: 'per_person'
+    };
+    const [form, setForm] = useState(initialForm);
 
-    useEffect(() => { fetchServices(); }, []);
+    useEffect(() => { 
+        fetchServices();
+        fetchSystemData();
+    }, []);
 
     const showToast = (msg, type = 'success') => setToast({ message: msg, type });
+
+    const fetchSystemData = async () => {
+        try {
+            const [locRes, catRes] = await Promise.all([
+                providerApi.getPublicLocations(),
+                providerApi.getPublicCategories()
+            ]);
+            if (locRes.success) setLocations(locRes.data);
+            if (catRes.success) setCategories(catRes.data);
+        } catch (err) { console.error(err); }
+    };
 
     const fetchServices = async () => {
         setLoading(true);
@@ -64,38 +91,67 @@ const MyServices = () => {
             const res = await providerApi.getServices();
             if (res.success) { setServices(res.data); setHasProfile(true); }
         } catch (err) {
-            if (err.response?.status === 404 || err.response?.status === 403) {
-                setHasProfile(false);
-            } else {
-                showToast('Không thể tải danh sách dịch vụ', 'error');
-            }
-        } finally {
-            setLoading(false);
-        }
+            if (err.response?.status === 404 || err.response?.status === 403) setHasProfile(false);
+            else showToast('Không thể tải danh sách dịch vụ', 'error');
+        } finally { setLoading(false); }
     };
 
-    const handleCreate = async (e) => {
+    const handleOpenCreate = () => {
+        setEditMode(false);
+        setForm(initialForm);
+        setShowModal(true);
+    };
+
+    const handleOpenEdit = (service) => {
+        setEditMode(true);
+        setCurrentServiceId(service.id);
+        setForm({
+            name: service.name,
+            type: service.type,
+            category_id: service.category_id,
+            location_id: service.location_id,
+            base_price: service.base_price,
+            description: service.description || '',
+            address: service.address || '',
+            max_guests: service.max_guests || '',
+            price_unit: service.price_unit
+        });
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (creating) return;
+        if (!form.location_id || !form.category_id) {
+            showToast('Vui lòng chọn Điểm đến và Danh mục', 'error');
+            return;
+        }
+
         setCreating(true);
         try {
             const payload = {
                 ...form,
                 base_price: Number(form.base_price),
+                category_id: Number(form.category_id),
+                location_id: Number(form.location_id),
                 max_guests: form.max_guests ? Number(form.max_guests) : null,
             };
-            const res = await providerApi.createService(payload);
+
+            let res;
+            if (editMode) {
+                res = await providerApi.updateService(currentServiceId, payload);
+            } else {
+                res = await providerApi.createService(payload);
+            }
+
             if (res.success) {
-                showToast('Tạo dịch vụ thành công! Đang chờ Admin duyệt.');
-                setShowCreateModal(false);
-                setForm({ name: '', type: 'tour', base_price: '', description: '', address: '', max_guests: '', price_unit: 'per_person' });
+                showToast(editMode ? 'Cập nhật thành công! Đang chờ duyệt lại.' : 'Tạo dịch vụ thành công! Đang chờ duyệt.');
+                setShowModal(false);
                 fetchServices();
             }
         } catch (err) {
-            showToast(err.response?.data?.message || 'Lỗi khi tạo dịch vụ', 'error');
-        } finally {
-            setCreating(false);
-        }
+            showToast(err.response?.data?.message || 'Lỗi xử lý yêu cầu', 'error');
+        } finally { setCreating(false); }
     };
 
     const handleDeleteConfirm = async () => {
@@ -106,11 +162,8 @@ const MyServices = () => {
                 setServices(services.filter(s => s.id !== confirmDelete.id));
                 showToast('Đã xóa dịch vụ thành công.');
             }
-        } catch {
-            showToast('Lỗi khi xóa dịch vụ', 'error');
-        } finally {
-            setConfirmDelete(null);
-        }
+        } catch { showToast('Lỗi khi xóa dịch vụ', 'error'); }
+        finally { setConfirmDelete(null); }
     };
 
     const getStatusBadge = (status) => {
@@ -147,7 +200,6 @@ const MyServices = () => {
         return matchSearch && matchType;
     });
 
-    // --- No Profile State ---
     if (!loading && !hasProfile) {
         return (
             <ProviderLayout>
@@ -175,7 +227,7 @@ const MyServices = () => {
                         </p>
                     </div>
                     <button
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={handleOpenCreate}
                         className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
                     >
                         <Plus size={18} /> Thêm dịch vụ
@@ -242,8 +294,8 @@ const MyServices = () => {
                                                 {getStatusBadge(service.status)}
                                             </div>
                                             <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
-                                                {service.location && <span className="flex items-center gap-1"><MapPin size={11} /> {service.location.name}</span>}
-                                                {service.max_guests && <span className="flex items-center gap-1"><Users size={11} /> Tối đa {service.max_guests} khách</span>}
+                                                <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || 'Chưa xác định'}</span>
+                                                <span className="flex items-center gap-1"><LayoutGrid size={11} /> {service.category?.name || 'Khác'}</span>
                                                 {service.avg_rating > 0 && <span className="flex items-center gap-1"><Star size={11} className="text-amber-400 fill-amber-400" />{service.avg_rating}</span>}
                                             </div>
                                         </div>
@@ -254,6 +306,12 @@ const MyServices = () => {
                                             <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng/đêm'}</p>
                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {service.status !== 'active' && (
+                                                <button onClick={() => handleOpenEdit(service)}
+                                                    className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Sửa thông tin">
+                                                    <Edit3 size={16} />
+                                                </button>
+                                            )}
                                             <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })}
                                                 className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all" title="Xóa">
                                                 <Trash2 size={16} />
@@ -267,27 +325,28 @@ const MyServices = () => {
                 )}
             </div>
 
-            {/* Create Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowCreateModal(false)}>
-                    <div className="bg-white rounded-3xl p-8 w-[580px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Modal (Combine Create & Edit) */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowModal(false)}>
+                    <div className="bg-white rounded-3xl p-8 w-[640px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900">Thêm dịch vụ mới</h3>
+                                <h3 className="text-xl font-black text-slate-900">{editMode ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}</h3>
                                 <p className="text-slate-400 text-sm mt-0.5">Dịch vụ sẽ được Admin xét duyệt trước khi hiển thị</p>
                             </div>
-                            <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleCreate} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tên dịch vụ *</label>
                                 <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                     placeholder="VD: Tour Đà Lạt 3N2Đ" />
                             </div>
+                            
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Loại dịch vụ *</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Loại hình *</label>
                                     <select value={form.type} onChange={e => setForm({...form, type: e.target.value})}
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all">
                                         <option value="tour">🗺️ Tour du lịch</option>
@@ -297,48 +356,70 @@ const MyServices = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Đơn giá theo</label>
-                                    <select value={form.price_unit} onChange={e => setForm({...form, price_unit: e.target.value})}
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Danh mục hệ thống *</label>
+                                    <select required value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})}
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all">
-                                        <option value="per_person">Mỗi người</option>
-                                        <option value="per_room">Mỗi phòng/đêm</option>
+                                        <option value="">-- Chọn danh mục --</option>
+                                        {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                                     </select>
                                 </div>
                             </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Giá cơ bản (VNĐ) *</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Điểm đến (Hệ thống) *</label>
+                                    <select required value={form.location_id} onChange={e => setForm({...form, location_id: e.target.value})}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                                        <option value="">-- Chọn địa điểm --</option>
+                                        {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Địa chỉ chi tiết</label>
+                                    <input value={form.address} onChange={e => setForm({...form, address: e.target.value})}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                                        placeholder="VD: 123 Trần Phú, TP Đà Lạt" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Giá (VNĐ) *</label>
                                     <input required type="number" min="0" value={form.base_price} onChange={e => setForm({...form, base_price: e.target.value})}
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                         placeholder="500000" />
                                 </div>
-                                <div>
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Đơn vị</label>
+                                    <select value={form.price_unit} onChange={e => setForm({...form, price_unit: e.target.value})}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                                        <option value="per_person">/ người</option>
+                                        <option value="per_room">/ phòng / đêm</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-1">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số khách tối đa</label>
                                     <input type="number" min="1" value={form.max_guests} onChange={e => setForm({...form, max_guests: e.target.value})}
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                         placeholder="20" />
                                 </div>
                             </div>
+
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Địa chỉ</label>
-                                <input value={form.address} onChange={e => setForm({...form, address: e.target.value})}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                                    placeholder="VD: 123 Trần Phú, TP Đà Lạt" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Mô tả</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Mô tả dịch vụ</label>
                                 <textarea rows={4} value={form.description} onChange={e => setForm({...form, description: e.target.value})}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none transition-all"
                                     placeholder="Mô tả chi tiết về dịch vụ..." />
                             </div>
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => setShowCreateModal(false)}
+
+                            <div className="flex gap-3 pt-4">
+                                <button type="button" onClick={() => setShowModal(false)}
                                     className="flex-1 py-3.5 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all">
                                     Hủy bỏ
                                 </button>
                                 <button type="submit" disabled={creating}
-                                    className="flex-1 py-3.5 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {creating ? <><Loader2 size={16} className="animate-spin" /> Đang tạo...</> : <><Plus size={16} /> Tạo dịch vụ</>}
+                                    className="flex-1 py-3.5 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
+                                    {creating ? <><Loader2 size={16} className="animate-spin" /> ...</> : <>{editMode ? 'Cập nhật' : 'Tạo dịch vụ'}</>}
                                 </button>
                             </div>
                         </form>
@@ -355,7 +436,6 @@ const MyServices = () => {
             )}
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
             <style>{`@keyframes slideInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
         </ProviderLayout>
     );

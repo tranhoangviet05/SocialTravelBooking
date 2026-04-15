@@ -143,19 +143,34 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền sửa dịch vụ này.'], 403);
         }
 
+        // --- CHẶN SỬA NẾU ĐÃ DUYỆT ---
+        if ($service->status === 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dịch vụ đã được duyệt và đang hoạt động, không thể chỉnh sửa. Vui lòng liên hệ Admin nếu muốn thay đổi thông tin.'
+            ], 422);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
+            'type' => 'sometimes|string',
+            'category_id' => 'sometimes|exists:categories,id',
+            'location_id' => 'sometimes|exists:locations,id',
             'base_price' => 'sometimes|numeric|min:0',
             'description' => 'nullable|string',
             'address' => 'nullable|string',
-            'status' => 'sometimes|in:draft,pending_review'
+            'max_guests' => 'nullable|integer|min:1',
+            'price_unit' => 'nullable|string'
         ]);
+
+        // Khi sửa, đẩy về trạng thái chờ duyệt lại (tùy chọn, ở đây tôi giữ nguyên hoặc set lại)
+        $validated['status'] = 'pending_review';
 
         $service->update($validated);
 
         return response()->json([
             'success' => true,
-            'message' => 'Cập nhật dịch vụ thành công.',
+            'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
             'data' => $service
         ]);
     }

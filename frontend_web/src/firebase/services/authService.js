@@ -65,6 +65,11 @@ export const onAuthChange = (callback) => {
 };
 
 // ========================
+// LƯU dữ liệu người dùng mạng xã hội
+// Sử dụng trong useEffect để lắng nghe thay đổi trạng thái auth
+// ========================
+
+// ========================
 // LẤY user hiện tại
 // ========================
 export const getCurrentUser = () => {

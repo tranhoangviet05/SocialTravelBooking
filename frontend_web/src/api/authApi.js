@@ -1,3 +1,4 @@
+import { data } from 'react-router-dom';
 import axiosClient from './axios';
 
 /**
@@ -27,6 +28,26 @@ const authApi = {
     getProfile: (idToken) => {
         const url = '/user/get/profile';
         return axiosClient.get(url, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
+    },
+
+    checkSocialStatus: (idToken) => {
+        const url = '/user/get/social-status';
+        return axiosClient.get(url, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            }
+        });
+    },
+
+    syncSocialProfile: (idToken, data) => {
+        const url = '/auth/post/sync-social-profile';
+        return axiosClient.post(url, data, {
             headers: {
                 'Authorization': `Bearer ${idToken}`
             }

@@ -1,25 +1,22 @@
 import React, { useState } from 'react';
-import { Star, MapPin, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { COLORS } from '../../../utils/colors';
-import { useWishlist } from '../../../contexts/WishlistContext';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import ServiceCard from '../services/ServiceCard';
 
 const Accommodations = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeLocation, setActiveLocation] = useState('Tất cả');
-    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
     const locations = ['Tất cả', 'Đà Nẵng', 'Hội An', 'Phú Quốc', 'Nha Trang', 'Đà Lạt', 'Sa Pa'];
 
     const allStays = [
-        { id: 1, name: "InterContinental Sun Peninsula", location: "Đà Nẵng", rating: 4.9, price: "8.500.000đ", type: "Resort", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800&auto=format&fit=crop" },
-        { id: 2, name: "La Siesta Hoi An Resort", location: "Hội An", rating: 4.8, price: "3.200.000đ", type: "Boutique", image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=800&auto=format&fit=crop" },
-        { id: 3, name: "Topas Ecolodge", location: "Sa Pa", rating: 4.7, price: "5.100.000đ", type: "Ecolodge", image: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=800&auto=format&fit=crop" },
-        { id: 4, name: "Ana Villas Dalat", location: "Đà Lạt", rating: 4.8, price: "2.800.000đ", type: "Villa", image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=800&auto=format&fit=crop" },
-        { id: 5, name: "Pullman Vung Tau", location: "Đà Nẵng", rating: 4.6, price: "2.500.000đ", type: "Hotel", image: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?q=80&w=800&auto=format&fit=crop" },
-        { id: 6, name: "JW Marriott Phu Quoc", location: "Phú Quốc", rating: 4.9, price: "9.200.000đ", type: "Resort", image: "https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=800&auto=format&fit=crop" },
-        { id: 7, name: "Six Senses Ninh Van Bay", location: "Nha Trang", rating: 5.0, price: "12.000.000đ", type: "Luxury", image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop" },
-        { id: 8, name: "The Reverie Saigon", location: "Đà Nẵng", rating: 4.9, price: "6.800.000đ", type: "Hotel", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?q=80&w=800&auto=format&fit=crop" },
+        { id: 'acc-1', name: "InterContinental Sun Peninsula", location: "Đà Nẵng", rating: 4.9, reviewCount: 452, price: 8500000, type: "accommodation", highlights: ["Resort", "Ocean View"], images: ["https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "Social Travel", verified: true }, images_count: 8, soldCount: 320 },
+        { id: 'acc-2', name: "La Siesta Hoi An Resort", location: "Hội An", rating: 4.8, reviewCount: 310, price: 3200000, type: "accommodation", highlights: ["Boutique", "Historic"], images: ["https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "La Siesta Group", verified: true }, images_count: 5, soldCount: 150 },
+        { id: 'acc-3', name: "Topas Ecolodge", location: "Sa Pa", rating: 4.7, reviewCount: 215, price: 5100000, type: "accommodation", highlights: ["Ecolodge", "Mountains"], images: ["https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "Topas Group", verified: true }, images_count: 6, soldCount: 98 },
+        { id: 'acc-4', name: "Ana Villas Dalat", location: "Đà Lạt", rating: 4.8, reviewCount: 189, price: 2800000, type: "accommodation", highlights: ["Villa", "Vintage"], images: ["https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 4, provider: { name: "Ana Mandara", verified: false }, images_count: 7, soldCount: 210 },
+        { id: 'acc-5', name: "Pullman Vung Tau", location: "Đà Nẵng", rating: 4.6, reviewCount: 520, price: 2500000, type: "accommodation", highlights: ["Hotel", "Modern"], images: ["https://images.unsplash.com/photo-1564501049412-61c2a3083791?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "Accor", verified: true }, images_count: 10, soldCount: 550 },
+        { id: 'acc-6', name: "JW Marriott Phu Quoc", location: "Phú Quốc", rating: 4.9, reviewCount: 890, price: 9200000, type: "accommodation", highlights: ["Resort", "Luxury"], images: ["https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "Marriott", verified: true }, images_count: 12, soldCount: 430 },
+        { id: 'acc-7', name: "Six Senses Ninh Van Bay", location: "Nha Trang", rating: 5.0, reviewCount: 154, price: 12000000, type: "accommodation", highlights: ["Luxury", "Private Beach"], images: ["https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "Six Senses", verified: true }, images_count: 8, soldCount: 65 },
+        { id: 'acc-8', name: "The Reverie Saigon", location: "Đà Nẵng", rating: 4.9, reviewCount: 342, price: 6800000, type: "accommodation", highlights: ["Hotel", "City Center"], images: ["https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?q=80&w=800&auto=format&fit=crop"], duration: "1 đêm", maxGuests: 2, provider: { name: "WMC Group", verified: true }, images_count: 9, soldCount: 200 },
     ];
 
     const filteredStays = activeLocation === 'Tất cả' ? allStays : allStays.filter(s => s.location === activeLocation);
@@ -35,31 +32,6 @@ const Accommodations = () => {
     const handleFilterChange = (loc) => {
         setActiveLocation(loc);
         setCurrentIndex(0);
-    };
-
-    const handleWishlist = (e, stay) => {
-        e.preventDefault();
-        if (isInWishlist(stay.id)) {
-            removeFromWishlist(stay.id);
-        } else {
-            addToWishlist({
-                id: stay.id,
-                name: stay.name,
-                type: 'hotel',
-                location: stay.location,
-                price: parseInt(stay.price.replace(/\D/g, '')),
-                originalPrice: parseInt(stay.price.replace(/\D/g, '')) * 1.2,
-                rating: stay.rating,
-                reviewCount: 120,
-                duration: '1 đêm',
-                maxGuests: 2,
-                images: [stay.image],
-                highlights: [stay.type],
-                provider: { name: 'Social Travel Provider' },
-                images_count: 1,
-                soldCount: 150
-            });
-        }
     };
 
     return (
@@ -103,35 +75,11 @@ const Accommodations = () => {
                         style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
                     >
                         {filteredStays.map(stay => (
-                            <Link key={stay.id} to={`/service/2`} className="block min-w-[calc(25%-18px)] bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
-                                <div className="relative h-52 overflow-hidden">
-                                    <img src={stay.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={stay.name} />
-                                    <button onClick={(e) => handleWishlist(e, stay)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-rose-500 hover:bg-white transition-colors">
-                                        <Heart size={16} className={isInWishlist(stay.id) ? 'fill-rose-500 text-rose-500' : ''} />
-                                    </button>
-                                </div>
-                                <div className="p-5">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="px-2.5 py-0.5 bg-sky-50 text-sky-600 text-[10px] font-bold rounded-md uppercase tracking-wider">{stay.type}</span>
-                                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500">
-                                            <Star size={12} fill="currentColor" /> {stay.rating}
-                                        </div>
-                                    </div>
-                                    <h3 className="font-bold text-slate-800 text-sm leading-snug mb-2 line-clamp-1 group-hover:text-sky-600 transition-colors">{stay.name}</h3>
-                                    <div className="flex items-center text-gray-400 text-[11px] mb-4">
-                                        <MapPin size={12} className="mr-1 text-sky-400" /> {stay.location}
-                                    </div>
-                                    <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                                        <div>
-                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Giá từ</p>
-                                            <p className="font-bold text-sky-600 text-base">{stay.price}<span className="text-[10px] font-normal text-gray-400">/đêm</span></p>
-                                        </div>
-                                        <button onClick={(e) => e.preventDefault()} className="px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[10px] font-bold hover:bg-sky-600 transition-colors cursor-pointer">
-                                            Đặt ngay
-                                        </button>
-                                    </div>
-                                </div>
-                            </Link>
+                            <ServiceCard 
+                                key={stay.id} 
+                                service={stay} 
+                                className="min-w-[calc(25%-18px)]"
+                            />
                         ))}
                     </div>
                 </div>

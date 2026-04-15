@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthChange, logOut } from '../firebase/services/authService';
+import { onAuthChange, logOut, getCurrentUser } from '../firebase/services/authService';
 import authApi from '../api/authApi';
 
 const AuthContext = createContext(null);
@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [socialActive, setSocialActive] = useState(null);
 
     useEffect(() => {
         // Lắng nghe thay đổi trạng thái đăng nhập Firebase
@@ -34,8 +35,10 @@ export const AuthProvider = ({ children }) => {
                             displayName: user.displayName || backendUser.display_name,
                         });
                         setUserRole(backendUser.role || 'tourist');
+                        setSocialActive(backendUser.social_active || false);
                     } else {
                         setUserRole('tourist');
+                        setSocialActive(false);
                     }
                 } catch (error) {
                     console.error('Failed to fetch user role:', error);
@@ -52,6 +55,18 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
+    const refreshSocialStatus = async () => {
+        try {
+            const firebaseUser = getCurrentUser();
+            if (!firebaseUser) return;
+            const idToken = await firebaseUser.getIdToken();
+            const response = await authApi.checkSocialStatus(idToken);
+            setSocialActive(response.data.social_active);
+        } catch (error) {
+            console.error('Failed to refresh social status:', error);
+        }
+    };
+
     const handleLogout = async () => {
         try {
             await logOut();
@@ -67,6 +82,8 @@ export const AuthProvider = ({ children }) => {
         userRole,
         loading,
         logout: handleLogout,
+        refreshSocialStatus,
+        socialActive,
     };
 
     return (

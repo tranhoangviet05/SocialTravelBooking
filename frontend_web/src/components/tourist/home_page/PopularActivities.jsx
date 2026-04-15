@@ -1,24 +1,22 @@
 import React, { useState } from 'react';
-import { Clock, MapPin, Star, ChevronLeft, ChevronRight, Users, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useWishlist } from '../../../contexts/WishlistContext';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import ServiceCard from '../services/ServiceCard';
 
 const PopularActivities = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeLocation, setActiveLocation] = useState('Tất cả');
-    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
     const locations = ['Tất cả', 'Đà Nẵng', 'Quy Nhơn', 'Huế', 'Phú Quốc', 'Nha Trang'];
 
     const allTours = [
-        { id: 1, name: "Tham quan Bà Nà Hills & Cầu Vàng", location: "Đà Nẵng", duration: "1 ngày", rating: 4.9, price: "1.200.000đ", image: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 15 người", tag: "Best Seller" },
-        { id: 2, name: "Tour Kỳ Co - Eo Gió trọn gói", location: "Quy Nhơn", duration: "1 ngày", rating: 4.8, price: "890.000đ", image: "https://images.unsplash.com/photo-1573790387438-4da905039392?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 20 người", tag: "Mới" },
-        { id: 3, name: "Khám phá Đại Nội & Lăng Tự Đức", location: "Huế", duration: "Nửa ngày", rating: 4.7, price: "650.000đ", image: "https://images.unsplash.com/photo-1580974852861-c381510bc98a?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 12 người", tag: "Di sản" },
-        { id: 4, name: "Lặn ngắm san hô Hòn Mun", location: "Nha Trang", duration: "Nửa ngày", rating: 4.9, price: "980.000đ", image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 8 người", tag: "Phiêu lưu" },
-        { id: 5, name: "Tour 4 đảo Phú Quốc", location: "Phú Quốc", duration: "1 ngày", rating: 4.8, price: "1.500.000đ", image: "https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 20 người", tag: "Nổi bật" },
-        { id: 6, name: "Đạp xe phố cổ Hội An", location: "Đà Nẵng", duration: "3 giờ", rating: 4.6, price: "350.000đ", image: "https://images.unsplash.com/photo-1555432329-1983e979f829?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 10 người", tag: "Văn hoá" },
-        { id: 7, name: "Chèo SUP sông Hương", location: "Huế", duration: "2 giờ", rating: 4.5, price: "420.000đ", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 6 người", tag: "Trải nghiệm" },
-        { id: 8, name: "Trekking Sơn Trà bình minh", location: "Đà Nẵng", duration: "4 giờ", rating: 4.7, price: "550.000đ", image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop", groupSize: "Tối đa 12 người", tag: "Thiên nhiên" },
+        { id: 'tour-1', name: "Tham quan Bà Nà Hills & Cầu Vàng", location: "Đà Nẵng", duration: "1 ngày", maxGuests: 15, rating: 4.9, reviewCount: 1250, price: 1200000, type: "tour", highlights: ["Bà Nà Hills", "Cáp treo"], images: ["https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Sun World', verified: true }, images_count: 12, soldCount: 3450 },
+        { id: 'tour-2', name: "Tour Kỳ Co - Eo Gió trọn gói", location: "Quy Nhơn", duration: "1 ngày", maxGuests: 20, rating: 4.8, reviewCount: 890, price: 890000, type: "tour", highlights: ["Kỳ Co", "Lặn biển"], images: ["https://images.unsplash.com/photo-1573790387438-4da905039392?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Quy Nhơn Tourist', verified: true }, images_count: 8, soldCount: 2100 },
+        { id: 'tour-3', name: "Khám phá Đại Nội & Lăng Tự Đức", location: "Huế", duration: "Nửa ngày", maxGuests: 12, rating: 4.7, reviewCount: 450, price: 650000, type: "tour", highlights: ["Văn hoá", "Di sản"], images: ["https://images.unsplash.com/photo-1580974852861-c381510bc98a?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Hue Heritage', verified: true }, images_count: 5, soldCount: 890 },
+        { id: 'tour-4', name: "Lặn ngắm san hô Hòn Mun", location: "Nha Trang", duration: "Nửa ngày", maxGuests: 8, rating: 4.9, reviewCount: 670, price: 980000, type: "tour", highlights: ["Lặn san hô", "Cano"], images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Nha Trang Diving', verified: true }, images_count: 10, soldCount: 1540 },
+        { id: 'tour-5', name: "Tour 4 đảo Phú Quốc", location: "Phú Quốc", duration: "1 ngày", maxGuests: 20, rating: 4.8, reviewCount: 1100, price: 1500000, type: "tour", highlights: ["4 đảo", "Cáp treo"], images: ["https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Phu Quoc Travel', verified: true }, images_count: 15, soldCount: 2800 },
+        { id: 'tour-6', name: "Đạp xe phố cổ Hội An", location: "Đà Nẵng", duration: "3 giờ", maxGuests: 10, rating: 4.6, reviewCount: 230, price: 350000, type: "tour", highlights: ["Xe đạp", "Phố cổ"], images: ["https://images.unsplash.com/photo-1555432329-1983e979f829?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Hoi An Bikes', verified: false }, images_count: 4, soldCount: 450 },
+        { id: 'tour-7', name: "Chèo SUP sông Hương", location: "Huế", duration: "2 giờ", maxGuests: 6, rating: 4.5, reviewCount: 120, price: 420000, type: "tour", highlights: ["SUP", "Thể thao"], images: ["https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Hue SUP', verified: true }, images_count: 6, soldCount: 300 },
+        { id: 'tour-8', name: "Trekking Sơn Trà bình minh", location: "Đà Nẵng", duration: "4 giờ", maxGuests: 12, rating: 4.7, reviewCount: 340, price: 550000, type: "tour", highlights: ["Trekking", "Bình minh"], images: ["https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop"], provider: { name: 'Da Nang Trek', verified: true }, images_count: 8, soldCount: 560 },
     ];
 
     const filteredTours = activeLocation === 'Tất cả' ? allTours : allTours.filter(t => t.location === activeLocation);
@@ -72,33 +70,11 @@ const PopularActivities = () => {
                         style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
                     >
                         {filteredTours.map(tour => (
-                            <Link key={tour.id} to={`/service/1`} className="block min-w-[calc(25%-18px)] bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
-                                <div className="relative h-48 overflow-hidden">
-                                    <img src={tour.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={tour.name} />
-                                    <div className="absolute top-3 left-3">
-                                        <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-bold text-sky-600 rounded-md">{tour.tag}</span>
-                                    </div>
-                                </div>
-                                <div className="p-5">
-                                    <h3 className="font-bold text-slate-800 text-sm leading-snug mb-2 line-clamp-2 group-hover:text-sky-600 transition-colors">{tour.name}</h3>
-                                    <div className="flex items-center text-gray-400 text-[11px] mb-1">
-                                        <MapPin size={12} className="mr-1 text-sky-400" /> {tour.location}
-                                    </div>
-                                    <div className="flex items-center gap-3 text-[11px] text-gray-400 mb-4">
-                                        <span className="flex items-center gap-1"><Clock size={12} /> {tour.duration}</span>
-                                        <span className="flex items-center gap-1"><Users size={12} /> {tour.groupSize}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                                        <div>
-                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Giá từ</p>
-                                            <p className="font-bold text-sky-600 text-base">{tour.price}<span className="text-[10px] font-normal text-gray-400">/người</span></p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500">
-                                            <Star size={12} fill="currentColor" /> {tour.rating}
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
+                            <ServiceCard 
+                                key={tour.id} 
+                                service={tour} 
+                                className="min-w-[calc(25%-18px)]"
+                            />
                         ))}
                     </div>
                 </div>

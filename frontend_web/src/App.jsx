@@ -13,11 +13,16 @@ import SearchPage from './pages/tourist/Search';
 import ServiceDetailPage from './pages/tourist/ServiceDetail';
 import ProfilePage from './pages/tourist/Profile';
 import MyBookingsPage from './pages/tourist/MyBookings';
-import CommunityPage from './pages/tourist/Community';
+import NewsFeed from './pages/tourist/NewsFeed';
+import NewsFeedHome from './pages/tourist/news_feed/Home';
+import NewsFeedSearch from './pages/tourist/news_feed/SearchPage';
+import NewsFeedProfile from './pages/tourist/news_feed/Profile';
 import CheckoutPage from './pages/tourist/Checkout';
 import SuccessPage from './pages/tourist/Success';
 import CartPage from './pages/tourist/Cart';
 import WishlistPage from './pages/tourist/Wishlist';
+import Onboarding from './pages/tourist/Onboarding';
+import SocialRoute from './components/common/SocialRoute';
 import DashboardManagement from './pages/admin/DashboardManagement';
 import UserManagement from './pages/admin/UserManagement';
 import ProviderManagement from './pages/admin/ProviderManagement';
@@ -38,115 +43,82 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <WishlistProvider>
+        <NotificationProvider>
           <AdminDataProvider>
-            <NotificationProvider>
-              <Routes>
-                {/* Trang công khai & Tourist — Bọc trong MainLayout (Header + Footer) */}
-                <Route element={<MainLayout />}>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/service/:id" element={<ServiceDetailPage />} />
-                  <Route path="/community" element={<CommunityPage />} />
+            <Routes>
+              {/* === TRANG CÔNG KHAI & TOURIST === */}
+              {/* Bọc trong MainLayout (Header + Footer) và WishlistProvider */}
+              <Route element={
+                <WishlistProvider>
+                  <MainLayout />
+                </WishlistProvider>
+              }>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/service/:id" element={<ServiceDetailPage />} />
 
-                  {/* Các route yêu cầu đăng nhập (Tourist) */}
-                  <Route element={<ProtectedRoute allowedRoles={['tourist', 'admin', 'provider']} />}>
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/my-bookings" element={<MyBookingsPage />} />
-                    <Route path="/cart" element={<CartPage />} />
-                    <Route path="/wishlist" element={<WishlistPage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/success" element={<SuccessPage />} />
-                  </Route>
+                {/* Các route yêu cầu đăng nhập đối với Tourist */}
+                <Route element={<ProtectedRoute allowedRoles={['tourist', 'provider']} />}>
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/my-bookings" element={<MyBookingsPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
+                  <Route path="/success" element={<SuccessPage />} />
                 </Route>
 
-                {/* Admin routes — cần role admin */}
-                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                  <Route
-                    path={API_ENDPOINTS.ADMIN_DASHBOARD}
-                    element={<DashboardManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.LOCATIONS_ADMIN}
-                    element={<LocationManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.CATEGORIES_ADMIN}
-                    element={<CategoryManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.USERS_ADMIN}
-                    element={<UserManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDERS_ADMIN}
-                    element={<ProviderManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.SERVICES_ADMIN}
-                    element={<ServiceManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.BOOKINGS_ADMIN}
-                    element={<BookingManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.REVIEWS_ADMIN}
-                    element={<ReviewManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.COUPONS_ADMIN}
-                    element={<CouponManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.AUTOMATION_ADMIN}
-                    element={<AutomationManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.REPORTS_ADMIN}
-                    element={<ReportManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.SETTINGS_ADMIN}
-                    element={<SettingManagement />}
-                  />
-
-                  {/* Tạm thời giữ lại các route cũ để tương thích (Optional) */}
-                  <Route path="/admin/services" element={<ServiceManagement />} />
-                  <Route path="/admin/hotels" element={<ServiceManagement />} />
-                  <Route path="/admin/tours" element={<ServiceManagement />} />
-                  <Route path="/admin/stats" element={<DashboardManagement />} />
+                <Route element={<ProtectedRoute allowedRoles={['tourist', 'provider']} />}>
+                  <Route path="/onboarding" element={<Onboarding />} />
                 </Route>
+              </Route>
 
-                {/* Provider routes — cần role provider */}
-                <Route
-                  element={
-                    <ProtectedRoute allowedRoles={['provider']}>
-                      <ProviderLayout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_DASHBOARD}
-                    element={<ProviderDashboard />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_SERVICES}
-                    element={<PlaceholderContent title="Nhà cung cấp" page="Dịch vụ" />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_BOOKINGS}
-                    element={<PlaceholderContent title="Nhà cung cấp" page="Lịch đặt chỗ" />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_REVIEWS}
-                    element={<PlaceholderContent title="Nhà cung cấp" page="Đánh giá" />}
-                  />
+              {/* === CỘNG ĐỒNG / MẠNG XÃ HỘI === */}
+              {/* Bảo vệ bởi SocialRoute: phải đăng nhập và đã kích hoạt social_active */}
+              <Route element={<SocialRoute />}>
+                <Route path="/newsfeed" element={<NewsFeed />}>
+                  <Route index element={<NewsFeedHome />} />
+                  <Route path="search" element={<NewsFeedSearch />} />
+                  <Route path="profile" element={<NewsFeedProfile />} />
                 </Route>
-              </Routes>
-            </NotificationProvider>
+              </Route>
+
+              {/* === HỆ THỐNG QUẢN TRỊ (ADMIN) === */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path={API_ENDPOINTS.ADMIN_DASHBOARD} element={<DashboardManagement />} />
+                <Route path={API_ENDPOINTS.LOCATIONS_ADMIN} element={<LocationManagement />} />
+                <Route path={API_ENDPOINTS.CATEGORIES_ADMIN} element={<CategoryManagement />} />
+                <Route path={API_ENDPOINTS.USERS_ADMIN} element={<UserManagement />} />
+                <Route path={API_ENDPOINTS.PROVIDERS_ADMIN} element={<ProviderManagement />} />
+                <Route path={API_ENDPOINTS.SERVICES_ADMIN} element={<ServiceManagement />} />
+                <Route path={API_ENDPOINTS.BOOKINGS_ADMIN} element={<BookingManagement />} />
+                <Route path={API_ENDPOINTS.REVIEWS_ADMIN} element={<ReviewManagement />} />
+                <Route path={API_ENDPOINTS.COUPONS_ADMIN} element={<CouponManagement />} />
+                <Route path={API_ENDPOINTS.AUTOMATION_ADMIN} element={<AutomationManagement />} />
+                <Route path={API_ENDPOINTS.REPORTS_ADMIN} element={<ReportManagement />} />
+                <Route path={API_ENDPOINTS.SETTINGS_ADMIN} element={<SettingManagement />} />
+
+                {/* Fallback routes for admin */}
+                <Route path="/admin/services" element={<ServiceManagement />} />
+                <Route path="/admin/hotels" element={<ServiceManagement />} />
+                <Route path="/admin/tours" element={<ServiceManagement />} />
+                <Route path="/admin/stats" element={<DashboardManagement />} />
+              </Route>
+
+              {/* === HỆ THỐNG NHÀ CUNG CẤP (PROVIDER) === */}
+              <Route element={
+                <ProtectedRoute allowedRoles={['provider']}>
+                  <ProviderLayout />
+                </ProtectedRoute>
+              }>
+                <Route path={API_ENDPOINTS.PROVIDER_DASHBOARD} element={<ProviderDashboard />} />
+                <Route path={API_ENDPOINTS.PROVIDER_SERVICES} element={<PlaceholderContent title="Nhà cung cấp" page="Dịch vụ" />} />
+                <Route path={API_ENDPOINTS.PROVIDER_BOOKINGS} element={<PlaceholderContent title="Nhà cung cấp" page="Lịch đặt chỗ" />} />
+                <Route path={API_ENDPOINTS.PROVIDER_REVIEWS} element={<PlaceholderContent title="Nhà cung cấp" page="Đánh giá" />} />
+              </Route>
+
+            </Routes>
           </AdminDataProvider>
-        </WishlistProvider>
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -33,6 +33,7 @@ class User extends Authenticatable
         return [
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
+            'social_active' => 'boolean',
         ];
     }
 
@@ -49,6 +50,11 @@ class User extends Authenticatable
     public function providerProfile()
     {
         return $this->hasOne(ProviderProfile::class);
+    }
+
+    public function socialProfile()
+    {
+        return $this->hasOne(SocialProfile::class);
     }
 
     public function wallet()

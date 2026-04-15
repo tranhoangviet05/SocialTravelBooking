@@ -55,7 +55,7 @@ class UserController extends Controller
     }
 
     /**
-     * Cập nhật trạng thái (status) người dùng (Active/Banned)
+     * Cập nhật trạng thái (status) người dùng (Active/Banned)..
      */
     public function updateStatus(Request $request, $id)
     {

@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Users,
     Briefcase,
     Compass,
     BarChart3,
     TrendingUp,
-    Clock
+    TrendingDown,
+    Clock,
+    Loader2
 } from 'lucide-react';
 import {
     AreaChart,
@@ -19,40 +21,143 @@ import {
 import AdminMetricCard from '../../components/admin/AdminMetricCard';
 import AdminTable from '../../components/admin/AdminTable';
 import AdminLayout from '../../components/admin/AdminLayout';
-
-const revenueData = [
-    { name: 'T1', revenue: 450, bookings: 120 },
-    { name: 'T2', revenue: 580, bookings: 145 },
-    { name: 'T3', revenue: 490, bookings: 110 },
-    { name: 'T4', revenue: 850, bookings: 210 },
-    { name: 'T5', revenue: 760, bookings: 180 },
-    { name: 'T6', revenue: 920, bookings: 230 },
-    { name: 'T7', revenue: 1200, bookings: 280 },
-];
+import adminApi from '../../api/adminApi';
 
 const DashboardManagement = () => {
-    const stats = [
-        { label: 'Tổng người dùng', value: '2,451', icon: Users, change: '+12.5%', trend: 'up', color: 'sky' },
-        { label: 'Nhà cung cấp', value: '184', icon: Briefcase, change: '+5.2%', trend: 'up', color: 'indigo' },
-        { label: 'Tổng doanh thu', value: '1.2B₫', icon: BarChart3, change: '+23.1%', trend: 'up', color: 'emerald' },
-        { label: 'Booking mới', value: '42', icon: Clock, change: '-2.4%', trend: 'down', color: 'amber' },
-    ];
+    const [dashboardData, setDashboardData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const recentBookings = [
-        { id: 'BK-9802', customer: 'Nguyễn Văn A', service: 'Tour Fansipan 3 ngày 2 đêm', amount: '2,400,000₫', status: 'Completed', date: '10 ph trước' },
-        { id: 'BK-9801', customer: 'Trần Thị B', service: 'InterContinental Danang', amount: '5,600,000₫', status: 'Pending', date: '25 ph trước' },
-        { id: 'BK-9800', customer: 'Lê Văn C', service: 'Vé Bà Nà Hills', amount: '1,800,000₫', status: 'Cancelled', date: '1 giờ trước' },
-        { id: 'BK-9799', customer: 'Phạm Minh D', service: 'Tour Vịnh Hạ Long', amount: '3,200,000₫', status: 'Completed', date: '2 giờ trước' },
-    ];
+    useEffect(() => {
+        fetchDashboard();
+    }, []);
+
+    const fetchDashboard = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await adminApi.getDashboardStats();
+            if (response.success) {
+                setDashboardData(response.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch dashboard:', err);
+            setError('Không thể tải dữ liệu Dashboard. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Format số lớn thành dạng đọc được (ví dụ: 1200000 → 1.2M₫)
+    const formatRevenue = (value) => {
+        if (!value || value === 0) return '0₫';
+        if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B₫';
+        if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M₫';
+        if (value >= 1000) return (value / 1000).toFixed(0) + 'K₫';
+        return value.toLocaleString() + '₫';
+    };
+
+    const formatGrowth = (value) => {
+        if (value > 0) return `+${value}%`;
+        if (value < 0) return `${value}%`;
+        return '0%';
+    };
 
     const getStatusStyle = (status) => {
         switch (status) {
-            case 'Completed': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-            case 'Pending': return 'bg-amber-50 text-amber-600 border-amber-100';
-            case 'Cancelled': return 'bg-rose-50 text-rose-600 border-rose-100';
+            case 'completed': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+            case 'confirmed': return 'bg-sky-50 text-sky-600 border-sky-100';
+            case 'pending': return 'bg-amber-50 text-amber-600 border-amber-100';
+            case 'cancelled': return 'bg-rose-50 text-rose-600 border-rose-100';
             default: return 'bg-gray-50 text-gray-600 border-gray-100';
         }
     };
+
+    const getStatusLabel = (status) => {
+        switch (status) {
+            case 'completed': return 'Hoàn thành';
+            case 'confirmed': return 'Đã xác nhận';
+            case 'pending': return 'Chờ xử lý';
+            case 'cancelled': return 'Đã hủy';
+            default: return status;
+        }
+    };
+
+    // Lấy giờ hiện tại để chào
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Chào buổi sáng';
+        if (hour < 18) return 'Chào buổi chiều';
+        return 'Chào buổi tối';
+    };
+
+    if (loading) {
+        return (
+            <AdminLayout>
+                <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                    <Loader2 className="w-12 h-12 text-sky-500 animate-spin mb-4" />
+                    <p className="text-slate-400 font-bold">Đang tải dữ liệu Dashboard...</p>
+                </div>
+            </AdminLayout>
+        );
+    }
+
+    if (error) {
+        return (
+            <AdminLayout>
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                    <div className="w-20 h-20 rounded-3xl bg-rose-50 flex items-center justify-center text-rose-500 mb-6">
+                        <BarChart3 size={40} />
+                    </div>
+                    <h2 className="text-xl font-black text-slate-900 mb-2">Không thể tải Dashboard</h2>
+                    <p className="text-gray-500 font-medium mb-6">{error}</p>
+                    <button
+                        onClick={fetchDashboard}
+                        className="bg-sky-500 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-sky-500/20 hover:bg-sky-600 transition-all cursor-pointer"
+                    >
+                        Thử lại
+                    </button>
+                </div>
+            </AdminLayout>
+        );
+    }
+
+    const { stats, revenue_chart, recent_bookings, revenue_sources } = dashboardData || {};
+
+    const statCards = [
+        {
+            label: 'Tổng người dùng',
+            value: stats?.total_users?.toLocaleString() || '0',
+            icon: Users,
+            change: formatGrowth(stats?.user_growth || 0),
+            trend: (stats?.user_growth || 0) >= 0 ? 'up' : 'down',
+            color: 'sky'
+        },
+        {
+            label: 'Nhà cung cấp',
+            value: stats?.total_providers?.toLocaleString() || '0',
+            icon: Briefcase,
+            change: `${stats?.pending_providers || 0} chờ duyệt`,
+            trend: 'up',
+            color: 'indigo'
+        },
+        {
+            label: 'Tổng doanh thu',
+            value: formatRevenue(stats?.total_revenue || 0),
+            icon: BarChart3,
+            change: formatGrowth(stats?.revenue_growth || 0),
+            trend: (stats?.revenue_growth || 0) >= 0 ? 'up' : 'down',
+            color: 'emerald'
+        },
+        {
+            label: 'Booking hôm nay',
+            value: stats?.new_bookings_today?.toLocaleString() || '0',
+            icon: Clock,
+            change: `${stats?.bookings_this_month || 0} tháng này`,
+            trend: 'up',
+            color: 'amber'
+        },
+    ];
 
     return (
         <AdminLayout>
@@ -60,18 +165,25 @@ const DashboardManagement = () => {
                 {/* Header info */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-2xl font-black text-slate-900">Chào buổi sáng, Admin!</h2>
-                        <p className="text-gray-500 text-sm mt-1 font-medium">Hệ thống Social Travel Booking đang hoạt động bình thường.</p>
+                        <h2 className="text-2xl font-black text-slate-900">{getGreeting()}, Admin!</h2>
+                        <p className="text-gray-500 text-sm mt-1 font-medium">
+                            Hệ thống có {stats?.total_services || 0} dịch vụ đang hoạt động
+                            {stats?.pending_services > 0 && ` • ${stats.pending_services} dịch vụ chờ duyệt`}
+                        </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button className="bg-white border border-gray-100 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer">Tải báo cáo PDF</button>
-                        <button className="bg-sky-500 px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-sky-500/20 hover:bg-sky-600 transition-all cursor-pointer">Live Analytics</button>
+                        <button
+                            onClick={fetchDashboard}
+                            className="bg-white border border-gray-100 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                        >
+                            Làm mới dữ liệu
+                        </button>
                     </div>
                 </div>
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {stats.map((stat, idx) => (
+                    {statCards.map((stat, idx) => (
                         <AdminMetricCard key={idx} {...stat} />
                     ))}
                 </div>
@@ -81,50 +193,67 @@ const DashboardManagement = () => {
                     <div className="flex items-center justify-between mb-8">
                         <div>
                             <h3 className="text-xl font-black text-slate-900">Phân tích Doanh thu</h3>
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Dữ liệu 7 tháng gần nhất (Triệu VND)</p>
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Dữ liệu 6 tháng gần nhất (Triệu VND)</p>
                         </div>
-                        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100">
-                            <TrendingUp size={16} />
-                            <span className="text-sm font-black">+24% so với năm ngoái</span>
+                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
+                            (stats?.revenue_growth || 0) >= 0
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                : 'bg-rose-50 text-rose-600 border-rose-100'
+                        }`}>
+                            {(stats?.revenue_growth || 0) >= 0
+                                ? <TrendingUp size={16} />
+                                : <TrendingDown size={16} />
+                            }
+                            <span className="text-sm font-black">{formatGrowth(stats?.revenue_growth || 0)} so với tháng trước</span>
                         </div>
                     </div>
 
                     <div className="h-[350px] w-full">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                            <AreaChart data={revenueData}>
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis
-                                    dataKey="name"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
-                                    dy={10}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
-                                />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                    cursor={{ stroke: '#0ea5e9', strokeWidth: 2 }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="revenue"
-                                    stroke="#0ea5e9"
-                                    strokeWidth={4}
-                                    fillOpacity={1}
-                                    fill="url(#colorRevenue)"
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {revenue_chart && revenue_chart.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                <AreaChart data={revenue_chart}>
+                                    <defs>
+                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                                        dy={10}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        cursor={{ stroke: '#0ea5e9', strokeWidth: 2 }}
+                                        formatter={(value, name) => [
+                                            name === 'revenue' ? `${value}M₫` : value,
+                                            name === 'revenue' ? 'Doanh thu' : 'Bookings'
+                                        ]}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#0ea5e9"
+                                        strokeWidth={4}
+                                        fillOpacity={1}
+                                        fill="url(#colorRevenue)"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-400 font-bold">
+                                Chưa có dữ liệu doanh thu
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -133,43 +262,46 @@ const DashboardManagement = () => {
                     <div className="lg:col-span-2">
                         <AdminTable
                             title="Giao dịch mới nhất"
-                            description="Danh sách các đơn đặt chỗ vừa được thực hiện trong hệ thống."
-                            headers={['ID', 'Khách hàng', 'Dịch vụ', 'Giá trị', 'Trạng thái']}
-                            actions={<button className="text-sky-500 font-bold text-xs uppercase tracking-widest hover:text-sky-600">Xem tất cả</button>}
+                            description={`${recent_bookings?.length || 0} đơn đặt chỗ gần đây nhất từ hệ thống.`}
+                            headers={['Mã', 'Khách hàng', 'Dịch vụ', 'Giá trị', 'Trạng thái']}
                         >
-                            {recentBookings.map((bk) => (
-                                <tr key={bk.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-8 py-4 font-mono text-xs font-bold text-gray-400">{bk.id}</td>
-                                    <td className="px-8 py-4">
-                                        <span className="text-sm font-bold text-slate-700">{bk.customer}</span>
-                                    </td>
-                                    <td className="px-8 py-4">
-                                        <span className="text-sm text-gray-600 block max-w-[200px] truncate">{bk.service}</span>
-                                    </td>
-                                    <td className="px-8 py-4">
-                                        <span className="text-sm font-black text-slate-900">{bk.amount}</span>
-                                    </td>
-                                    <td className="px-8 py-4">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(bk.status)}`}>
-                                            {bk.status}
-                                        </span>
+                            {recent_bookings && recent_bookings.length > 0 ? (
+                                recent_bookings.map((bk, idx) => (
+                                    <tr key={bk.id || idx} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-8 py-4 font-mono text-xs font-bold text-gray-400">{bk.booking_code}</td>
+                                        <td className="px-8 py-4">
+                                            <span className="text-sm font-bold text-slate-700">{bk.customer}</span>
+                                        </td>
+                                        <td className="px-8 py-4">
+                                            <span className="text-sm text-gray-600 block max-w-[200px] truncate">{bk.service}</span>
+                                        </td>
+                                        <td className="px-8 py-4">
+                                            <span className="text-sm font-black text-slate-900">{bk.amount}</span>
+                                        </td>
+                                        <td className="px-8 py-4">
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(bk.status)}`}>
+                                                {getStatusLabel(bk.status)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="px-8 py-12 text-center text-gray-400 font-bold">
+                                        Chưa có đơn đặt chỗ nào
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </AdminTable>
                     </div>
 
-                    {/* System Health / Revenue Source */}
+                    {/* Revenue Source + CTA */}
                     <div className="space-y-6">
                         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold text-slate-900 mb-6">Nguồn doanh thu</h3>
                             <div className="space-y-6">
-                                {[
-                                    { label: 'Tours & Trải nghiệm', value: '65%', color: 'bg-sky-500' },
-                                    { label: 'Khách sạn & Resort', value: '25%', color: 'bg-emerald-500' },
-                                    { label: 'Dịch vụ di chuyển', value: '10%', color: 'bg-amber-500' },
-                                ].map((item) => (
-                                    <div key={item.label}>
+                                {(revenue_sources || []).map((item, idx) => (
+                                    <div key={idx}>
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{item.label}</span>
                                             <span className="text-sm font-black text-slate-900">{item.value}</span>
@@ -185,9 +317,13 @@ const DashboardManagement = () => {
                         <div className="bg-[#0f172a] rounded-3xl p-8 shadow-xl text-white overflow-hidden relative">
                             <div className="relative z-10">
                                 <Compass className="text-sky-400 mb-4" size={32} />
-                                <h3 className="text-lg font-bold mb-2">Mở rộng mạng lưới?</h3>
-                                <p className="text-gray-400 text-sm mb-6 font-medium leading-relaxed">Có 12 nhà cung cấp đang chờ phê duyệt hồ sơ kinh doanh.</p>
-                                <button className="w-full bg-sky-500 hover:bg-sky-600 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-sky-500/20 transition-all">Phê duyệt ngay</button>
+                                <h3 className="text-lg font-bold mb-2">Tổng quan nhanh</h3>
+                                <p className="text-gray-400 text-sm mb-6 font-medium leading-relaxed">
+                                    {stats?.pending_providers > 0
+                                        ? `Có ${stats.pending_providers} nhà cung cấp đang chờ phê duyệt.`
+                                        : `Hệ thống có ${stats?.total_services || 0} dịch vụ và ${stats?.total_reviews || 0} đánh giá (⭐ ${stats?.avg_rating || 0}).`
+                                    }
+                                </p>
                             </div>
                             <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-sky-500/10 rounded-full blur-3xl"></div>
                         </div>

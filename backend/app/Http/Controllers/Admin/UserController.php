@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
@@ -43,6 +44,9 @@ class UserController extends Controller
         $user->role = $request->role;
         $user->save();
 
+        // Xóa cache để cập nhật role mới ngay lập tức
+        Cache::forget("user_role_{$user->firebase_uid}");
+
         return response()->json([
             'success' => true,
             'message' => "Đã cập nhật vai trò của {$user->display_name} thành {$request->role}.",
@@ -62,6 +66,9 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $user->status = $request->status;
         $user->save();
+
+        // Xóa cache vì status cũng ảnh hưởng tới việc truy cập
+        Cache::forget("user_role_{$user->firebase_uid}");
 
         return response()->json([
             'success' => true,

@@ -32,12 +32,12 @@ Route::get('/ping', fn() => response()->json([
 // Địa điểm & Danh mục (Public)
 Route::get('/locations', [LocationController::class, 'index']);
 Route::get('/locations/{id}', [LocationController::class, 'show']);
-Route::get('/general/get/locations', [LocationController::class, 'index']); // Giữ để không bị break code cũ
-Route::get('/general/get/locations/{id}', [LocationController::class, 'show']); // Giữ để không bị break code cũ
+Route::get('/general/get/locations', [LocationController::class, 'index']);
+Route::get('/general/get/locations/{id}', [LocationController::class, 'show']);
 Route::get('/general/get/categories', [CategoryController::class, 'index']);
 Route::get('/general/get/categories/{slug}', [CategoryController::class, 'show']);
 
-// Dịch vụ đồ du lịch (vaitro/hanhdong/chucnang)
+// Dịch vụ du lịch (Public)
 Route::get('/general/get/services', [ServiceController::class, 'index']);
 Route::get('/general/get/services/detail/{slug}', [ServiceController::class, 'show']);
 Route::get('/general/get/services/latest', [ServiceController::class, 'latest']);
@@ -47,7 +47,7 @@ Route::get('/general/get/services/latest', [ServiceController::class, 'latest'])
 // ========================
 Route::middleware('firebase.auth')->group(function () {
 
-    // 1. Đồng bộ người dùng khi đăng nhập Firebase (vaitro/hanhdong/chucnang)
+    // 1. Đồng bộ người dùng khi đăng nhập Firebase
     Route::post('/auth/post/sync', [AuthController::class, 'sync']);
 
     // 2. Lấy thông tin user hiện tại
@@ -85,21 +85,24 @@ Route::middleware('firebase.auth')->group(function () {
     // PROVIDER ROUTES (Nhà cung cấp)
     // ===========================================================
     Route::prefix('provider')->middleware('role:provider')->group(function () {
-        // Dashboard Nhà cung cấp (Lấy thống kê riêng)
-        Route::get('/dashboard/stats', function () {
-            return response()->json([
-                'success' => true,
-                'message' => 'Chào mừng Nhà cung cấp! Thống kê của bạn đang được xử lý.',
-                'data' => [
-                    'active_services' => 0,
-                    'total_bookings' => 0,
-                    'revenue' => 0
-                ]
-            ]);
-        });
 
-        // Quản lý Dịch vụ của riêng Provider này
-        Route::get('/services', [ServiceController::class, 'index']); // Sau này sẽ lọc theo provider_id
+        // --- Dashboard & Thống kê ---
+        Route::get('/dashboard/stats', [\App\Http\Controllers\Provider\DashboardController::class, 'stats']);
+
+        // --- Quản lý Dịch vụ (CRUD) ---
+        Route::get('/services', [\App\Http\Controllers\Provider\ServiceController::class, 'index']);
+        Route::post('/services', [\App\Http\Controllers\Provider\ServiceController::class, 'store']);
+        Route::get('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'show']);
+        Route::put('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'update']);
+        Route::delete('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroy']);
+
+        // --- Quản lý Đơn đặt chỗ ---
+        Route::get('/bookings', [\App\Http\Controllers\Provider\BookingController::class, 'index']);
+        Route::get('/bookings/{id}', [\App\Http\Controllers\Provider\BookingController::class, 'show']);
+        Route::patch('/bookings/{id}/status', [\App\Http\Controllers\Provider\BookingController::class, 'updateStatus']);
+
+        // --- Quản lý Đánh giá ---
+        Route::get('/reviews', [\App\Http\Controllers\Provider\ReviewController::class, 'index']);
+        Route::post('/reviews/{id}/reply', [\App\Http\Controllers\Provider\ReviewController::class, 'reply']);
     });
 });
-

@@ -40,7 +40,7 @@ const Header = ({ onLoginClick }) => {
                         { text: 'TRANG CHỦ', path: '/' },
                         { text: 'HOẠT ĐỘNG', path: '/search?type=tour' },
                         { text: 'LƯU TRÚ', path: '/search?type=accommodation' },
-                        { text: 'CỘNG ĐỒNG', path: '/community' }
+                        { text: 'CỘNG ĐỒNG', path: '/newsfeed' }
                     ].map((item) => (
                         <Link
                             key={item.text}
@@ -110,7 +110,7 @@ const Header = ({ onLoginClick }) => {
                                         onClick={() => setShowDropdown(false)}
                                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-50 transition-colors cursor-pointer"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
                                         Chuyến đi của tôi
                                     </Link>
 

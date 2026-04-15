@@ -59,6 +59,7 @@ class AuthController extends Controller
                     'display_name' => $user->display_name,
                     'avatar_url' => $user->avatar_url,
                     'role' => $user->role,
+                    'social_active' => $user->social_active,
                     'is_new_user' => $isNewUser
                 ]
             ]);

@@ -56,13 +56,17 @@ Route::middleware('firebase.auth')->group(function () {
     // 3. Lấy thông tin user hiện tại
     Route::get('/user/get/profile', function (\Illuminate\Http\Request $request) {
         $firebaseUid = $request->attributes->get('firebaseUid');
-        $user = \App\Models\User::where('firebase_uid', $firebaseUid)->first();
+        $user = \App\Models\User::with('socialProfile')->where('firebase_uid', $firebaseUid)->first();
 
         return response()->json([
             'success' => true,
             'data' => $user
         ]);
     });
+
+    // 3. Routes Mạng xã hội
+    Route::get('/user/get/social-status', [\App\Http\Controllers\Social\SocialController::class, 'getSocialStatus']);
+    Route::post('/auth/post/sync-social-profile', [\App\Http\Controllers\Social\SocialController::class, 'syncSocialProfile']);
 
     // ===========================================================
     // TOURIST ROUTES (Khách du lịch)

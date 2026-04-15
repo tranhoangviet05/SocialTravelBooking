@@ -49,8 +49,11 @@ Route::middleware('firebase.auth')->group(function () {
 
     // 1. Đồng bộ người dùng khi đăng nhập Firebase
     Route::post('/auth/post/sync', [AuthController::class, 'sync']);
+    
+    // 2. Upload tệp tin
+    Route::post('/upload', [\App\Http\Controllers\General\UploadController::class, 'upload']);
 
-    // 2. Lấy thông tin user hiện tại
+    // 3. Lấy thông tin user hiện tại
     Route::get('/user/get/profile', function (\Illuminate\Http\Request $request) {
         $firebaseUid = $request->attributes->get('firebaseUid');
         $user = \App\Models\User::where('firebase_uid', $firebaseUid)->first();

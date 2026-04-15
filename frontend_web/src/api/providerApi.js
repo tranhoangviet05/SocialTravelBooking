@@ -27,6 +27,15 @@ const providerApi = {
     // Hỗ trợ (Lấy dữ liệu hệ thống)
     getPublicLocations: () => axios.get('/general/get/locations'),
     getPublicCategories: () => axios.get('/general/get/categories'),
+    
+    uploadFiles: (files, folder = 'services') => {
+        const formData = new FormData();
+        files.forEach(file => formData.append('files[]', file));
+        formData.append('folder', folder);
+        return axios.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
 
     // Ví tiền & Cài đặt
     getWallet: () => axios.get('/provider/wallet'),

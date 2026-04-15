@@ -62,6 +62,8 @@ class ServiceController extends Controller
             'address' => 'nullable|string',
             'max_guests' => 'nullable|integer|min:1',
             'price_unit' => 'nullable|string',
+            'duration_days' => 'nullable|integer|min:0',
+            'duration_nights' => 'nullable|integer|min:0',
             'images' => 'nullable|array',
             'images.*' => 'url'
         ]);
@@ -83,7 +85,9 @@ class ServiceController extends Controller
                     'address' => $validated['address'] ?? '',
                     'max_guests' => $validated['max_guests'] ?? null,
                     'price_unit' => $validated['price_unit'] ?? 'per_person',
-                    'status' => 'pending_review' // Chờ admin duyệt
+                    'duration_days' => $validated['duration_days'] ?? null,
+                    'duration_nights' => $validated['duration_nights'] ?? null,
+                    'status' => 'pending_review'
                 ]);
 
                 // Xử lý ảnh nếu có
@@ -160,7 +164,11 @@ class ServiceController extends Controller
             'description' => 'nullable|string',
             'address' => 'nullable|string',
             'max_guests' => 'nullable|integer|min:1',
-            'price_unit' => 'nullable|string'
+            'price_unit' => 'nullable|string',
+            'duration_days' => 'nullable|integer|min:0',
+            'duration_nights' => 'nullable|integer|min:0',
+            'images' => 'nullable|array',
+            'images.*' => 'url'
         ]);
 
         // Khi sửa, đẩy về trạng thái chờ duyệt lại (tùy chọn, ở đây tôi giữ nguyên hoặc set lại)

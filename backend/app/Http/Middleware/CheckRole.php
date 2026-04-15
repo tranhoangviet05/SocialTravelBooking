@@ -25,10 +25,14 @@ class CheckRole
             ], 401);
         }
 
-        // 2. Tìm User trong Database
-        $user = \App\Models\User::where('firebase_uid', $firebaseUid)->first();
+        // 2. Sử dụng Cache để giảm truy vấn DB (Lưu trong 60 phút)
+        $cacheKey = "user_role_{$firebaseUid}";
+        $user = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(60), function () use ($firebaseUid) {
+            return \App\Models\User::where('firebase_uid', $firebaseUid)->first();
+        });
 
         if (!$user) {
+            \Illuminate\Support\Facades\Cache::forget($cacheKey);
             return response()->json([
                 'success' => false,
                 'message' => 'Người dùng chưa được đồng bộ với hệ thống.'
@@ -39,11 +43,11 @@ class CheckRole
         if (!in_array($user->role, $roles)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bạn không có quyền thực hiện hành động này. Yêu cầu quyền: ' . implode(', ', $roles)
+                'message' => 'Bạn không có quyền thực hiện hành động này.'
             ], 403);
         }
 
-        // 4. Đính kèm user model vào request để dùng ở Controller nếu cần
+        // 4. Đính kèm user model vào request
         $request->merge(['user' => $user]);
 
         return $next($request);

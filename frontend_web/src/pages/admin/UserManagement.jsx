@@ -26,12 +26,21 @@ const UserManagement = () => {
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState(null);
     const toast = useNotification();
+    
+    // Sử dụng ref để ngăn chặn gọi API lặp lại ở mức độ logic
+    const isFetching = React.useRef(false);
+    const lockRef = React.useRef(null); // Lưu ID đang xử lý để khóa cứng
 
     useEffect(() => {
-        fetchUsers();
+        if (!isFetching.current) {
+            fetchUsers();
+        }
     }, []);
 
     const fetchUsers = async () => {
+        if (isFetching.current) return;
+        isFetching.current = true;
+        
         setLoading(true);
         try {
             const response = await adminApi.getAllUsers();
@@ -42,16 +51,24 @@ const UserManagement = () => {
             console.error('Failed to fetch users:', error);
         } finally {
             setLoading(false);
+            setTimeout(() => { isFetching.current = false; }, 1000);
         }
     };
 
     const handleRoleChange = async (userId, newRole) => {
+        // KHÓA CỨNG: Nếu đang xử lý chính User này thì biến ngay
+        if (lockRef.current === userId) return;
+        lockRef.current = userId;
+
         setUpdatingId(userId);
         try {
+            console.log(`[🚀 API CALL] Updating role for ${userId} to ${newRole}`);
             const response = await adminApi.updateUserRole(userId, newRole);
             if (response.success) {
                 toast?.success?.('Cập nhật vai trò thành công');
                 setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+                alert('Cập nhật vai trò thành công');
+                setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, role: newRole } : u));
             }
         } catch (error) {
             console.error('Failed to update role:', error);
@@ -59,10 +76,15 @@ const UserManagement = () => {
             toast?.error?.(msg);
         } finally {
             setUpdatingId(null);
+            // Giải phóng khóa sau một khoảng trễ nhỏ để tránh các event bám đuôi
+            setTimeout(() => { lockRef.current = null; }, 500);
         }
     };
 
     const handleStatusChange = async (userId, newStatus) => {
+        if (isProcessing.current) return;
+        isProcessing.current = true;
+
         setUpdatingId(userId);
         try {
             const response = await adminApi.updateUserStatus(userId, newStatus);
@@ -75,6 +97,7 @@ const UserManagement = () => {
             toast?.error?.('Lỗi khi cập nhật trạng thái');
         } finally {
             setUpdatingId(null);
+            isProcessing.current = false;
         }
     };
 
@@ -161,7 +184,12 @@ const UserManagement = () => {
                                         <select
                                             value={user.role}
                                             disabled={updatingId === user.id}
-                                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                            onChange={(e) => {
+                                                const newRole = e.target.value;
+                                                if (newRole !== user.role) {
+                                                    handleRoleChange(user.id, newRole);
+                                                }
+                                            }}
                                             className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border-0 bg-slate-50 text-slate-600 focus:ring-2 focus:ring-sky-500/20 cursor-pointer outline-none transition-all
                                                 ${user.role === 'admin' ? 'text-rose-600 bg-rose-50' : ''}
                                                 ${user.role === 'provider' ? 'text-emerald-600 bg-emerald-50' : ''}

@@ -6,8 +6,6 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { AdminDataProvider } from './contexts/AdminDataContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
-import ProviderLayout from './components/provider/ProviderLayout';
-import PlaceholderContent from './components/common/PlaceholderContent';
 import HomePage from './pages/tourist/Home';
 import SearchPage from './pages/tourist/Search';
 import ServiceDetailPage from './pages/tourist/ServiceDetail';
@@ -30,7 +28,13 @@ import SettingManagement from './pages/admin/SettingManagement';
 import ReviewManagement from './pages/admin/ReviewManagement';
 import AutomationManagement from './pages/admin/AutomationManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
+
+// --- Provider Pages ---
 import ProviderDashboard from './pages/provider/Dashboard';
+import ProviderMyServices from './pages/provider/MyServices';
+import ProviderMyBookings from './pages/provider/MyBookings';
+import ProviderMyReviews from './pages/provider/MyReviews';
+
 import './App.css';
 import { API_ENDPOINTS } from './utils/ConstantSystems';
 
@@ -62,86 +66,30 @@ function App() {
 
                 {/* Admin routes — cần role admin */}
                 <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                  <Route
-                    path={API_ENDPOINTS.ADMIN_DASHBOARD}
-                    element={<DashboardManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.LOCATIONS_ADMIN}
-                    element={<LocationManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.CATEGORIES_ADMIN}
-                    element={<CategoryManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.USERS_ADMIN}
-                    element={<UserManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDERS_ADMIN}
-                    element={<ProviderManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.SERVICES_ADMIN}
-                    element={<ServiceManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.BOOKINGS_ADMIN}
-                    element={<BookingManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.REVIEWS_ADMIN}
-                    element={<ReviewManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.COUPONS_ADMIN}
-                    element={<CouponManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.AUTOMATION_ADMIN}
-                    element={<AutomationManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.REPORTS_ADMIN}
-                    element={<ReportManagement />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.SETTINGS_ADMIN}
-                    element={<SettingManagement />}
-                  />
-
-                  {/* Tạm thời giữ lại các route cũ để tương thích (Optional) */}
+                  <Route path={API_ENDPOINTS.ADMIN_DASHBOARD} element={<DashboardManagement />} />
+                  <Route path={API_ENDPOINTS.LOCATIONS_ADMIN} element={<LocationManagement />} />
+                  <Route path={API_ENDPOINTS.CATEGORIES_ADMIN} element={<CategoryManagement />} />
+                  <Route path={API_ENDPOINTS.USERS_ADMIN} element={<UserManagement />} />
+                  <Route path={API_ENDPOINTS.PROVIDERS_ADMIN} element={<ProviderManagement />} />
+                  <Route path={API_ENDPOINTS.SERVICES_ADMIN} element={<ServiceManagement />} />
+                  <Route path={API_ENDPOINTS.BOOKINGS_ADMIN} element={<BookingManagement />} />
+                  <Route path={API_ENDPOINTS.REVIEWS_ADMIN} element={<ReviewManagement />} />
+                  <Route path={API_ENDPOINTS.COUPONS_ADMIN} element={<CouponManagement />} />
+                  <Route path={API_ENDPOINTS.AUTOMATION_ADMIN} element={<AutomationManagement />} />
+                  <Route path={API_ENDPOINTS.REPORTS_ADMIN} element={<ReportManagement />} />
+                  <Route path={API_ENDPOINTS.SETTINGS_ADMIN} element={<SettingManagement />} />
                   <Route path="/admin/services" element={<ServiceManagement />} />
                   <Route path="/admin/hotels" element={<ServiceManagement />} />
                   <Route path="/admin/tours" element={<ServiceManagement />} />
                   <Route path="/admin/stats" element={<DashboardManagement />} />
                 </Route>
 
-                {/* Provider routes — cần role provider */}
-                <Route
-                  element={
-                    <ProtectedRoute allowedRoles={['provider']}>
-                      <ProviderLayout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_DASHBOARD}
-                    element={<ProviderDashboard />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_SERVICES}
-                    element={<PlaceholderContent title="Nhà cung cấp" page="Dịch vụ" />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_BOOKINGS}
-                    element={<PlaceholderContent title="Nhà cung cấp" page="Lịch đặt chỗ" />}
-                  />
-                  <Route
-                    path={API_ENDPOINTS.PROVIDER_REVIEWS}
-                    element={<PlaceholderContent title="Nhà cung cấp" page="Đánh giá" />}
-                  />
+                {/* Provider routes — cần role provider (Mỗi page tự bọc ProviderLayout) */}
+                <Route element={<ProtectedRoute allowedRoles={['provider']} />}>
+                  <Route path={API_ENDPOINTS.PROVIDER_DASHBOARD} element={<ProviderDashboard />} />
+                  <Route path={API_ENDPOINTS.PROVIDER_SERVICES} element={<ProviderMyServices />} />
+                  <Route path={API_ENDPOINTS.PROVIDER_BOOKINGS} element={<ProviderMyBookings />} />
+                  <Route path={API_ENDPOINTS.PROVIDER_REVIEWS} element={<ProviderMyReviews />} />
                 </Route>
               </Routes>
             </NotificationProvider>

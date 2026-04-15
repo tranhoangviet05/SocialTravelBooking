@@ -5,11 +5,18 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\N8nService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
+    protected $n8n;
+
+    public function __construct(N8nService $n8n)
+    {
+        $this->n8n = $n8n;
+    }
     /**
      * Lấy danh sách báo cáo
      * GET /api/admin/reports
@@ -97,6 +104,15 @@ class ReportController extends Controller
             $report->reviewed_by = $admin->id ?? null;
             $report->reviewed_at = now();
             $report->save();
+
+            // --- N8N AUTOMATION: Thông báo cho người report về kết quả xử lý ---
+            $this->n8n->trigger('report_resolved', [
+                'report_id' => $report->id,
+                'reporter_email' => $report->reporter->email ?? null,
+                'status' => $report->status,
+                'resolution_note' => $report->resolution_note,
+                'service_name' => $report->service->name ?? 'Dịch vụ'
+            ]);
 
             return response()->json([
                 'success' => true,

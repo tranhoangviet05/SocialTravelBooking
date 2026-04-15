@@ -49,8 +49,11 @@ Route::middleware('firebase.auth')->group(function () {
 
     // 1. Đồng bộ người dùng khi đăng nhập Firebase
     Route::post('/auth/post/sync', [AuthController::class, 'sync']);
+    
+    // 2. Upload tệp tin
+    Route::post('/upload', [\App\Http\Controllers\General\UploadController::class, 'upload']);
 
-    // 2. Lấy thông tin user hiện tại
+    // 3. Lấy thông tin user hiện tại
     Route::get('/user/get/profile', function (\Illuminate\Http\Request $request) {
         $firebaseUid = $request->attributes->get('firebaseUid');
         $user = \App\Models\User::where('firebase_uid', $firebaseUid)->first();
@@ -131,6 +134,24 @@ Route::middleware('firebase.auth')->group(function () {
     // ===========================================================
     Route::prefix('provider')->middleware('role:provider')->group(function () {
 
+        // --- Tự tạo ProviderProfile nếu chưa có (gọi lần đầu) ---
+        Route::post('/setup-profile', function (\Illuminate\Http\Request $request) {
+            $user = $request->input('user');
+            $profile = \App\Models\ProviderProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'business_name' => ($user->display_name ?? 'Nhà cung cấp') . "'s Business",
+                    'status'        => 'pending',
+                    'address'       => '',
+                ]
+            );
+            return response()->json([
+                'success' => true,
+                'message' => 'Hồ sơ nhà cung cấp đã được khởi tạo. Vui lòng chờ Admin phê duyệt.',
+                'data'    => $profile
+            ]);
+        });
+
         // --- Dashboard & Thống kê ---
         Route::get('/dashboard/stats', [\App\Http\Controllers\Provider\DashboardController::class, 'stats']);
 
@@ -149,5 +170,13 @@ Route::middleware('firebase.auth')->group(function () {
         // --- Quản lý Đánh giá ---
         Route::get('/reviews', [\App\Http\Controllers\Provider\ReviewController::class, 'index']);
         Route::post('/reviews/{id}/reply', [\App\Http\Controllers\Provider\ReviewController::class, 'reply']);
+
+        // --- Quản lý Ví tiền & Doanh thu ---
+        Route::get('/wallet', [\App\Http\Controllers\Provider\WalletController::class, 'index']);
+        Route::get('/wallet/report', [\App\Http\Controllers\Provider\WalletController::class, 'report']);
+
+        // --- Cấu hình cửa hàng ---
+        Route::get('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'index']);
+        Route::put('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'update']);
     });
 });

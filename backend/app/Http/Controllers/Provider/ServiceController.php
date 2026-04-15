@@ -62,6 +62,8 @@ class ServiceController extends Controller
             'address' => 'nullable|string',
             'max_guests' => 'nullable|integer|min:1',
             'price_unit' => 'nullable|string',
+            'duration_days' => 'nullable|integer|min:0',
+            'duration_nights' => 'nullable|integer|min:0',
             'images' => 'nullable|array',
             'images.*' => 'url'
         ]);
@@ -83,7 +85,9 @@ class ServiceController extends Controller
                     'address' => $validated['address'] ?? '',
                     'max_guests' => $validated['max_guests'] ?? null,
                     'price_unit' => $validated['price_unit'] ?? 'per_person',
-                    'status' => 'pending_review' // Chờ admin duyệt
+                    'duration_days' => $validated['duration_days'] ?? null,
+                    'duration_nights' => $validated['duration_nights'] ?? null,
+                    'status' => 'pending_review'
                 ]);
 
                 // Xử lý ảnh nếu có
@@ -143,19 +147,38 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền sửa dịch vụ này.'], 403);
         }
 
+        // --- CHẶN SỬA NẾU ĐÃ DUYỆT ---
+        if ($service->status === 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dịch vụ đã được duyệt và đang hoạt động, không thể chỉnh sửa. Vui lòng liên hệ Admin nếu muốn thay đổi thông tin.'
+            ], 422);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
+            'type' => 'sometimes|string',
+            'category_id' => 'sometimes|exists:categories,id',
+            'location_id' => 'sometimes|exists:locations,id',
             'base_price' => 'sometimes|numeric|min:0',
             'description' => 'nullable|string',
             'address' => 'nullable|string',
-            'status' => 'sometimes|in:draft,pending_review'
+            'max_guests' => 'nullable|integer|min:1',
+            'price_unit' => 'nullable|string',
+            'duration_days' => 'nullable|integer|min:0',
+            'duration_nights' => 'nullable|integer|min:0',
+            'images' => 'nullable|array',
+            'images.*' => 'url'
         ]);
+
+        // Khi sửa, đẩy về trạng thái chờ duyệt lại (tùy chọn, ở đây tôi giữ nguyên hoặc set lại)
+        $validated['status'] = 'pending_review';
 
         $service->update($validated);
 
         return response()->json([
             'success' => true,
-            'message' => 'Cập nhật dịch vụ thành công.',
+            'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
             'data' => $service
         ]);
     }

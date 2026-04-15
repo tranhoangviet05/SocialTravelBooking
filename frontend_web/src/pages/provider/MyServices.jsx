@@ -1,186 +1,295 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-    Plus, Search, Trash2, Edit3, Eye, Loader2, Package, MapPin, Tag, DollarSign, MoreHorizontal, X, AlertCircle
+    Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
+    CheckCircle, AlertCircle, Star, Users, LayoutGrid, Image as ImageIcon,
+    UploadCloud, Clock
 } from 'lucide-react';
 import ProviderLayout from '../../components/provider/ProviderLayout';
+import NoProviderProfile from '../../components/provider/NoProviderProfile';
 import providerApi from '../../api/providerApi';
+
+// --- Toast ---
+const Toast = ({ message, type = 'success', onClose }) => {
+    useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+    return (
+        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl animate-[slideInUp_0.3s_ease-out] ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
+            {type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            <p className="text-sm font-bold">{message}</p>
+        </div>
+    );
+};
+
+// --- Confirm Modal ---
+const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[150]">
+        <div className="bg-white rounded-3xl p-8 w-[400px] shadow-2xl">
+            <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Trash2 size={24} className="text-rose-500" />
+                </div>
+                <div>
+                    <h3 className="text-lg font-black text-slate-900">Xác nhận</h3>
+                    <p className="text-sm text-slate-400 mt-0.5">{message}</p>
+                </div>
+            </div>
+            <div className="flex gap-3">
+                <button onClick={onCancel} className="flex-1 py-3 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all">Hủy</button>
+                <button onClick={onConfirm} className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-sm font-bold hover:bg-rose-700 transition-all">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+);
 
 const MyServices = () => {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [hasProfile, setHasProfile] = useState(true);
+    const [locations, setLocations] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [form, setForm] = useState({
-        name: '', type: 'tour', base_price: '', description: '', address: '', max_guests: '', category_id: '', location_id: ''
-    });
+    const [typeFilter, setTypeFilter] = useState('all');
+    
+    // Modals & Forms
+    const [showModal, setShowModal] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [currentServiceId, setCurrentServiceId] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    
+    // Images
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [previewUrls, setPreviewUrls] = useState([]);
+    const fileInputRef = useRef(null);
 
-    useEffect(() => {
-        fetchServices();
-    }, []);
+    const initialForm = {
+        name: '', type: 'tour', category_id: '', location_id: '',
+        base_price: '', description: '', address: '', max_guests: '', 
+        price_unit: 'per_person', duration_days: '', duration_nights: ''
+    };
+    const [form, setForm] = useState(initialForm);
+    const [toast, setToast] = useState(null);
+    const [confirmDelete, setConfirmDelete] = useState(null);
+
+    useEffect(() => { fetchServices(); fetchSystemData(); }, []);
+
+    const showToast = (msg, type = 'success') => setToast({ message: msg, type });
+
+    const fetchSystemData = async () => {
+        try {
+            const [locRes, catRes] = await Promise.all([
+                providerApi.getPublicLocations(),
+                providerApi.getPublicCategories()
+            ]);
+            if (locRes.success) setLocations(locRes.data);
+            if (catRes.success) setCategories(catRes.data);
+        } catch (err) { console.error(err); }
+    };
 
     const fetchServices = async () => {
         setLoading(true);
         try {
             const res = await providerApi.getServices();
-            if (res.success) setServices(res.data);
+            if (res.success) { setServices(res.data); setHasProfile(true); }
         } catch (err) {
-            console.error('Fetch services error:', err);
-        } finally {
-            setLoading(false);
-        }
+            if (err.response?.status === 404 || err.response?.status === 403) setHasProfile(false);
+            else showToast('Không thể tải dịch vụ', 'error');
+        } finally { setLoading(false); }
     };
 
-    const handleCreate = async (e) => {
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length + selectedFiles.length > 5) {
+            showToast('Bạn chỉ có thể tải lên tối đa 5 ảnh', 'error');
+            return;
+        }
+        const newFiles = [...selectedFiles, ...files];
+        setSelectedFiles(newFiles);
+        const newPreviews = files.map(file => URL.createObjectURL(file));
+        setPreviewUrls([...previewUrls, ...newPreviews]);
+    };
+
+    const removeFile = (index) => {
+        const newFiles = [...selectedFiles];
+        newFiles.splice(index, 1);
+        setSelectedFiles(newFiles);
+
+        const newPreviews = [...previewUrls];
+        if (newPreviews[index].startsWith('blob:')) {
+            URL.revokeObjectURL(newPreviews[index]);
+        }
+        newPreviews.splice(index, 1);
+        setPreviewUrls(newPreviews);
+    };
+
+    const handleOpenCreate = () => {
+        setEditMode(false);
+        setForm(initialForm);
+        setSelectedFiles([]);
+        setPreviewUrls([]);
+        setShowModal(true);
+    };
+
+    const handleOpenEdit = (service) => {
+        setEditMode(true);
+        setCurrentServiceId(service.id);
+        setForm({
+            name: service.name,
+            type: service.type,
+            category_id: service.category_id,
+            location_id: service.location_id,
+            base_price: service.base_price,
+            description: service.description || '',
+            address: service.address || '',
+            max_guests: service.max_guests || '',
+            price_unit: service.price_unit,
+            duration_days: service.duration_days || '',
+            duration_nights: service.duration_nights || ''
+        });
+        setSelectedFiles([]);
+        setPreviewUrls(service.media?.map(m => m.url) || []);
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (creating) return;
-        setCreating(true);
+        if (submitting) return;
+        if (!form.location_id || !form.category_id) return showToast('Vui lòng chọn Điểm đến và Danh mục', 'error');
+
+        setSubmitting(true);
         try {
+            let imageUrls = previewUrls.filter(url => url.startsWith('http'));
+
+            if (selectedFiles.length > 0) {
+                const uploadRes = await providerApi.uploadFiles(selectedFiles);
+                if (uploadRes.success) {
+                    imageUrls = [...imageUrls, ...uploadRes.urls];
+                }
+            }
+
             const payload = {
                 ...form,
                 base_price: Number(form.base_price),
+                category_id: Number(form.category_id),
+                location_id: Number(form.location_id),
                 max_guests: form.max_guests ? Number(form.max_guests) : null,
-                category_id: form.category_id || null,
-                location_id: form.location_id || null,
+                duration_days: form.duration_days ? Number(form.duration_days) : null,
+                duration_nights: form.duration_nights ? Number(form.duration_nights) : null,
+                images: imageUrls
             };
-            const res = await providerApi.createService(payload);
+
+            const res = editMode 
+                ? await providerApi.updateService(currentServiceId, payload)
+                : await providerApi.createService(payload);
+
             if (res.success) {
-                alert('Tạo dịch vụ thành công! Đang chờ Admin duyệt.');
-                setShowCreateModal(false);
-                setForm({ name: '', type: 'tour', base_price: '', description: '', address: '', max_guests: '', category_id: '', location_id: '' });
+                showToast(editMode ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
+                setShowModal(false);
                 fetchServices();
             }
         } catch (err) {
-            console.error('Create service error:', err);
-            alert(err.response?.data?.message || 'Lỗi khi tạo dịch vụ');
-        } finally {
-            setCreating(false);
-        }
+            showToast(err.response?.data?.message || 'Lỗi xử lý', 'error');
+        } finally { setSubmitting(false); }
     };
 
-    const handleDelete = async (id, name) => {
-        if (!confirm(`Bạn có chắc muốn xóa dịch vụ "${name}"?`)) return;
+    const handleDeleteConfirm = async () => {
         try {
-            const res = await providerApi.deleteService(id);
+            const res = await providerApi.deleteService(confirmDelete.id);
             if (res.success) {
-                setServices(services.filter(s => s.id !== id));
-                alert('Đã xóa dịch vụ.');
+                setServices(services.filter(s => s.id !== confirmDelete.id));
+                showToast('Đã xóa dịch vụ.');
             }
-        } catch (err) {
-            alert('Lỗi khi xóa dịch vụ');
-        }
+        } catch { showToast('Lỗi khi xóa', 'error'); }
+        finally { setConfirmDelete(null); }
     };
 
     const getStatusBadge = (status) => {
         const map = {
-            active: { bg: 'bg-emerald-50 text-emerald-600', label: 'Hoạt động' },
-            pending_review: { bg: 'bg-amber-50 text-amber-600', label: 'Chờ duyệt' },
-            draft: { bg: 'bg-slate-100 text-slate-500', label: 'Bản nháp' },
-            rejected: { bg: 'bg-rose-50 text-rose-600', label: 'Bị từ chối' },
+            active: { cls: 'bg-emerald-50 text-emerald-600 border border-emerald-100', label: 'Hoạt động' },
+            pending_review: { cls: 'bg-amber-50 text-amber-600 border border-amber-100', label: 'Chờ duyệt' },
+            draft: { cls: 'bg-slate-100 text-slate-500 border border-slate-200', label: 'Bản nháp' },
+            rejected: { cls: 'bg-rose-50 text-rose-600 border border-rose-100', label: 'Bị từ chối' },
         };
         const s = map[status] || map.draft;
-        return <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg ${s.bg}`}>{s.label}</span>;
+        return <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg ${s.cls}`}>{s.label}</span>;
     };
 
     const getTypeBadge = (type) => {
         const map = {
-            tour: { bg: 'bg-blue-50 text-blue-600', label: 'Tour' },
-            hotel: { bg: 'bg-purple-50 text-purple-600', label: 'Khách sạn' },
-            homestay: { bg: 'bg-pink-50 text-pink-600', label: 'Homestay' },
-            vehicle: { bg: 'bg-orange-50 text-orange-600', label: 'Phương tiện' },
+            tour: { cls: 'bg-blue-50 text-blue-600 border border-blue-100', label: '🗺️ Tour' },
+            hotel: { cls: 'bg-purple-50 text-purple-600 border border-purple-100', label: '🏨 Khách sạn' },
+            homestay: { cls: 'bg-pink-50 text-pink-600 border border-pink-100', label: '🏡 Homestay' },
+            vehicle: { cls: 'bg-orange-50 text-orange-600 border border-orange-100', label: '🚌 Phương tiện' },
         };
         const t = map[type] || map.tour;
-        return <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg ${t.bg}`}>{t.label}</span>;
+        return <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${t.cls}`}>{t.label}</span>;
     };
 
-    const filteredServices = services.filter(s =>
-        s.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredServices = services.filter(s => {
+        const matchSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchType = typeFilter === 'all' || s.type === typeFilter;
+        return matchSearch && matchType;
+    });
 
     return (
         <ProviderLayout>
             <div className="space-y-6">
+                {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Dịch vụ của tôi</h2>
-                        <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý các tour, khách sạn và dịch vụ bạn đang cung cấp.</p>
+                        <p className="text-gray-500 text-sm mt-1 font-medium">
+                            Quản lý các dịch vụ bạn đang cung cấp. {services.length > 0 && <span className="ml-2 text-emerald-600 font-bold">{services.length} dịch vụ</span>}
+                        </p>
                     </div>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
-                    >
+                    <button onClick={handleOpenCreate} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
                         <Plus size={18} /> Thêm dịch vụ
                     </button>
                 </div>
 
-                {/* Search */}
-                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-                    <div className="relative">
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm dịch vụ..."
-                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                        <input type="text" placeholder="Tìm kiếm dịch vụ..." className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    </div>
+                    <div className="flex gap-2">
+                        {['all', 'tour', 'hotel', 'homestay', 'vehicle'].map(opt => (
+                            <button key={opt} onClick={() => setTypeFilter(opt)} className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all ${typeFilter === opt ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-100'}`}>
+                                {opt === 'all' ? 'Tất cả' : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                {/* Service List */}
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border">
-                        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải danh sách dịch vụ...</p>
-                    </div>
-                ) : filteredServices.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
-                        <Package size={48} className="text-slate-200 mb-4" />
-                        <p className="text-slate-400 font-bold mb-2">Chưa có dịch vụ nào</p>
-                        <p className="text-slate-300 text-sm">Bấm "Thêm dịch vụ" để bắt đầu kinh doanh!</p>
-                    </div>
-                ) : (
+                {/* List */}
+                {loading ? <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-emerald-500" size={40} /></div> : (
                     <div className="grid gap-4">
                         {filteredServices.map(service => (
                             <div key={service.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4 flex-1">
+                                    <div className="flex items-center gap-4 flex-1 min-w-0">
                                         <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
-                                            {service.media?.[0]?.url ? (
-                                                <img src={service.media[0].url} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                    <Package size={24} />
-                                                </div>
-                                            )}
+                                            {service.media?.[0]?.url ? <img src={service.media[0].url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
                                         </div>
-                                        <div className="flex-1 min-w-0">
+                                        <div>
                                             <h3 className="text-sm font-black text-slate-900 truncate">{service.name}</h3>
-                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                                {getTypeBadge(service.type)}
-                                                {getStatusBadge(service.status)}
-                                                {service.location && (
-                                                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                        <MapPin size={10} /> {service.location.name}
-                                                    </span>
+                                            <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
+                                            <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
+                                                <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
+                                                {(service.duration_days || service.duration_nights) && (
+                                                    <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
                                                 )}
+                                                <span className="flex items-center gap-1"><LayoutGrid size={11} /> {service.category?.name || '---'}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-6">
                                         <div className="text-right">
-                                            <p className="text-lg font-black text-emerald-600">
-                                                {Number(service.base_price).toLocaleString('vi-VN')}₫
-                                            </p>
+                                            <p className="text-lg font-black text-emerald-600">{Number(service.base_price).toLocaleString()}₫</p>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng'}</p>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={() => handleDelete(service.id, service.name)}
-                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            {service.status !== 'active' && <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl"><Edit3 size={16} /></button>}
+                                            <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl"><Trash2 size={16} /></button>
                                         </div>
                                     </div>
                                 </div>
@@ -190,60 +299,101 @@ const MyServices = () => {
                 )}
             </div>
 
-            {/* Create Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowCreateModal(false)}>
-                    <div className="bg-white rounded-3xl p-8 w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-black text-slate-900">Thêm dịch vụ mới</h3>
-                            <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
+            {/* Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowModal(false)}>
+                    <div className="bg-white rounded-[2.5rem] p-8 w-[720px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-black text-slate-900">{editMode ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}</h3>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleCreate} className="space-y-4">
+                        
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Image Upload Section */}
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tên dịch vụ *</label>
-                                <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="VD: Tour Đà Lạt 3N2Đ" />
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Hình ảnh dịch vụ (Tối đa 5 ảnh)</label>
+                                <div className="grid grid-cols-5 gap-3">
+                                    {previewUrls.map((url, idx) => (
+                                        <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border bg-slate-50 group">
+                                            <img src={url} className="w-full h-full object-cover" />
+                                            <button type="button" onClick={() => removeFile(idx)} className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {previewUrls.length < 5 && (
+                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-emerald-500 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
+                                            <UploadCloud size={24} />
+                                            <span className="text-[10px] font-bold mt-1 uppercase">Tải ảnh</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Loại dịch vụ *</label>
-                                    <select value={form.type} onChange={e => setForm({...form, type: e.target.value})}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
-                                        <option value="tour">Tour du lịch</option>
-                                        <option value="hotel">Khách sạn</option>
-                                        <option value="homestay">Homestay</option>
-                                        <option value="vehicle">Phương tiện</option>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Tên dịch vụ *</label>
+                                    <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20" placeholder="VD: Tour Trekking Langbiang" />
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                        <option value="tour">🗺️ Tour du lịch</option>
+                                        <option value="hotel">🏨 Khách sạn</option>
+                                        <option value="homestay">🏡 Homestay</option>
+                                        <option value="vehicle">🚌 Phương tiện</option>
+                                    </select>
+                                    <select required value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                        <option value="">-- Danh mục --</option>
+                                        {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Giá cơ bản (VNĐ) *</label>
-                                    <input required type="number" min="0" value={form.base_price} onChange={e => setForm({...form, base_price: e.target.value})}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="500000" />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <select required value={form.location_id} onChange={e => setForm({...form, location_id: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                        <option value="">-- Địa điểm --</option>
+                                        {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+                                    </select>
+                                    <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Địa chỉ chi tiết" />
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <input type="number" value={form.duration_days} onChange={e => setForm({...form, duration_days: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Số ngày (VD: 3)" />
+                                        <span className="text-xs font-bold text-slate-400">Ngày</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="number" value={form.duration_nights} onChange={e => setForm({...form, duration_nights: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Số đêm (VD: 2)" />
+                                        <span className="text-xs font-bold text-slate-400">Đêm</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <input required type="number" value={form.base_price} onChange={e => setForm({...form, base_price: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Giá (VNĐ)" />
+                                    <select value={form.price_unit} onChange={e => setForm({...form, price_unit: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                        <option value="per_person">/ người</option>
+                                        <option value="per_room">/ phòng</option>
+                                    </select>
+                                    <input type="number" value={form.max_guests} onChange={e => setForm({...form, max_guests: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Khách tối đa" />
+                                </div>
+
+                                <textarea rows={4} value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold resize-none" placeholder="Mô tả dịch vụ..." />
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Địa chỉ</label>
-                                <input value={form.address} onChange={e => setForm({...form, address: e.target.value})}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="VD: 123 Trần Phú, TP Đà Lạt" />
+
+                            <div className="flex gap-4 pt-4">
+                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold">Hủy</button>
+                                <button type="submit" disabled={submitting} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+                                    {submitting ? <Loader2 className="animate-spin mx-auto" size={20} /> : (editMode ? 'Cập nhật dịch vụ' : 'Tạo dịch vụ ngay')}
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số khách tối đa</label>
-                                <input type="number" min="1" value={form.max_guests} onChange={e => setForm({...form, max_guests: e.target.value})}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="20" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Mô tả</label>
-                                <textarea rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" placeholder="Mô tả chi tiết về dịch vụ..." />
-                            </div>
-                            <button type="submit" disabled={creating}
-                                className="w-full py-3.5 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                                {creating ? <><Loader2 size={16} className="animate-spin" /> Đang tạo...</> : <><Plus size={16} /> Tạo dịch vụ</>}
-                            </button>
                         </form>
                     </div>
                 </div>
             )}
+
+            {confirmDelete && <ConfirmModal message={`Xóa dịch vụ "${confirmDelete.name}"?`} onConfirm={handleDeleteConfirm} onCancel={() => setConfirmDelete(null)} />}
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </ProviderLayout>
     );
 };

@@ -65,6 +65,9 @@ Route::middleware('firebase.auth')->group(function () {
     // ADMIN ROUTES (Quản trị viên)
     // ===========================================================
     Route::prefix('admin')->middleware('role:admin')->group(function () {
+        // Dashboard thống kê
+        Route::get('/dashboard/stats', [\App\Http\Controllers\Admin\DashboardController::class, 'stats']);
+
         // Quản lý Người dùng
         Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index']);
         Route::patch('/users/{id}/role', [\App\Http\Controllers\Admin\UserController::class, 'updateRole']);
@@ -79,6 +82,48 @@ Route::middleware('firebase.auth')->group(function () {
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::put('/categories/{id}', [CategoryController::class, 'update']);
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+        // Quản lý Dịch vụ
+        Route::get('/services', [\App\Http\Controllers\Admin\ServiceController::class, 'index']);
+        Route::get('/services/{id}', [\App\Http\Controllers\Admin\ServiceController::class, 'show']);
+        Route::post('/services', [\App\Http\Controllers\Admin\ServiceController::class, 'store']);
+        Route::put('/services/{id}', [\App\Http\Controllers\Admin\ServiceController::class, 'update']);
+        Route::patch('/services/{id}/status', [\App\Http\Controllers\Admin\ServiceController::class, 'updateStatus']);
+        Route::delete('/services/{id}', [\App\Http\Controllers\Admin\ServiceController::class, 'destroy']);
+
+        // Quản lý Đặt chỗ
+        Route::get('/bookings', [\App\Http\Controllers\Admin\BookingController::class, 'index']);
+        Route::get('/bookings/{id}', [\App\Http\Controllers\Admin\BookingController::class, 'show']);
+        Route::patch('/bookings/{id}/status', [\App\Http\Controllers\Admin\BookingController::class, 'updateStatus']);
+
+        // Quản lý Nhà cung cấp
+        Route::get('/providers', [\App\Http\Controllers\Admin\ProviderController::class, 'index']);
+        Route::get('/providers/{id}', [\App\Http\Controllers\Admin\ProviderController::class, 'show']);
+        Route::patch('/providers/{id}/status', [\App\Http\Controllers\Admin\ProviderController::class, 'updateStatus']);
+
+        // Quản lý Đánh giá
+        Route::get('/reviews', [\App\Http\Controllers\Admin\ReviewController::class, 'index']);
+        Route::post('/reviews/{id}/reply', [\App\Http\Controllers\Admin\ReviewController::class, 'reply']);
+        Route::delete('/reviews/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'destroy']);
+
+        // Quản lý Mã giảm giá
+        Route::get('/coupons', [\App\Http\Controllers\Admin\CouponController::class, 'index']);
+        Route::post('/coupons', [\App\Http\Controllers\Admin\CouponController::class, 'store']);
+        Route::put('/coupons/{id}', [\App\Http\Controllers\Admin\CouponController::class, 'update']);
+        Route::delete('/coupons/{id}', [\App\Http\Controllers\Admin\CouponController::class, 'destroy']);
+
+        // Quản lý Báo cáo vi phạm
+        Route::get('/reports', [\App\Http\Controllers\Admin\ReportController::class, 'index']);
+        Route::get('/reports/{id}', [\App\Http\Controllers\Admin\ReportController::class, 'show']);
+        Route::patch('/reports/{id}/resolve', [\App\Http\Controllers\Admin\ReportController::class, 'resolve']);
+
+        // Cài đặt hệ thống
+        Route::get('/settings', [\App\Http\Controllers\Admin\SettingController::class, 'index']);
+        Route::post('/settings/batch', [\App\Http\Controllers\Admin\SettingController::class, 'updateBatch']);
+
+        // Tự động hóa n8n
+        Route::get('/automation/workflows', [\App\Http\Controllers\Admin\AutomationController::class, 'index']);
+        Route::patch('/automation/workflows/{id}/toggle', [\App\Http\Controllers\Admin\AutomationController::class, 'toggle']);
     });
 
     // ===========================================================

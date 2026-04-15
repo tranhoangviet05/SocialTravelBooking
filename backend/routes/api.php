@@ -65,6 +65,13 @@ Route::middleware('firebase.auth')->group(function () {
     });
 
     // ===========================================================
+    // TOURIST ROUTES (Khách du lịch)
+    // ===========================================================
+    Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
+    Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
+    Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
+
+    // ===========================================================
     // ADMIN ROUTES (Quản trị viên)
     // ===========================================================
     Route::prefix('admin')->middleware('role:admin')->group(function () {

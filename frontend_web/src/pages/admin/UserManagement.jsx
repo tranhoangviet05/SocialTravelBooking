@@ -20,40 +20,26 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
+import { useAdminData } from '../../contexts/AdminDataContext';
+
 const UserManagement = () => {
+    const { 
+        users, fetchUsers, loadingStates, setUsers 
+    } = useAdminData();
+
     const [searchTerm, setSearchTerm] = useState('');
-    const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState(null);
     const toast = useNotification();
     
-    // Sử dụng ref để ngăn chặn gọi API lặp lại ở mức độ logic
-    const isFetching = React.useRef(false);
-    const lockRef = React.useRef(null); // Lưu ID đang xử lý để khóa cứng
+    // Refs for locking
+    const lockRef = React.useRef(null);
+    const isProcessing = React.useRef(false);
+
+    const loading = loadingStates.users && users.length === 0;
 
     useEffect(() => {
-        if (!isFetching.current) {
-            fetchUsers();
-        }
-    }, []);
-
-    const fetchUsers = async () => {
-        if (isFetching.current) return;
-        isFetching.current = true;
-        
-        setLoading(true);
-        try {
-            const response = await adminApi.getAllUsers();
-            if (response.success) {
-                setUsers(response.data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch users:', error);
-        } finally {
-            setLoading(false);
-            setTimeout(() => { isFetching.current = false; }, 1000);
-        }
-    };
+        fetchUsers();
+    }, [fetchUsers]);
 
     const handleRoleChange = async (userId, newRole) => {
         // KHÓA CỨNG: Nếu đang xử lý chính User này thì biến ngay

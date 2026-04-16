@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useProviderData } from '../../contexts/ProviderDataContext';
 import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
     CheckCircle, AlertCircle, Star, Users, LayoutGrid, Image as ImageIcon,
     UploadCloud, Clock
 } from 'lucide-react';
-import ProviderLayout from '../../components/provider/ProviderLayout';
 import NoProviderProfile from '../../components/provider/NoProviderProfile';
 import providerApi from '../../api/providerApi';
 
@@ -39,13 +39,16 @@ const ConfirmModal = ({ message, onConfirm, onCancel }) => (
         </div>
     </div>
 );
-
 const MyServices = () => {
-    const [services, setServices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { 
+        services, locations, categories, 
+        fetchServices, fetchSystemData, 
+        loadingStates, 
+        setServices 
+    } = useProviderData();
+
+    const loading = (loadingStates.services && services.length === 0) || (loadingStates.system && locations.length === 0);
     const [hasProfile, setHasProfile] = useState(true);
-    const [locations, setLocations] = useState([]);
-    const [categories, setCategories] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
     
@@ -69,31 +72,14 @@ const MyServices = () => {
     const [toast, setToast] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
 
-    useEffect(() => { fetchServices(); fetchSystemData(); }, []);
+    useEffect(() => { 
+        fetchServices().catch(err => {
+            if (err.response?.status === 404 || err.response?.status === 403) setHasProfile(false);
+        }); 
+        fetchSystemData(); 
+    }, [fetchServices, fetchSystemData]);
 
     const showToast = (msg, type = 'success') => setToast({ message: msg, type });
-
-    const fetchSystemData = async () => {
-        try {
-            const [locRes, catRes] = await Promise.all([
-                providerApi.getPublicLocations(),
-                providerApi.getPublicCategories()
-            ]);
-            if (locRes.success) setLocations(locRes.data);
-            if (catRes.success) setCategories(catRes.data);
-        } catch (err) { console.error(err); }
-    };
-
-    const fetchServices = async () => {
-        setLoading(true);
-        try {
-            const res = await providerApi.getServices();
-            if (res.success) { setServices(res.data); setHasProfile(true); }
-        } catch (err) {
-            if (err.response?.status === 404 || err.response?.status === 403) setHasProfile(false);
-            else showToast('Không thể tải dịch vụ', 'error');
-        } finally { setLoading(false); }
-    };
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files);
@@ -230,7 +216,7 @@ const MyServices = () => {
     });
 
     return (
-        <ProviderLayout>
+        <>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -394,7 +380,7 @@ const MyServices = () => {
 
             {confirmDelete && <ConfirmModal message={`Xóa dịch vụ "${confirmDelete.name}"?`} onConfirm={handleDeleteConfirm} onCancel={() => setConfirmDelete(null)} />}
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        </ProviderLayout>
+        </>
     );
 };
 

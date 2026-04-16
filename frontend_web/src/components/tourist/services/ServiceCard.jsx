@@ -4,29 +4,40 @@ import { Link } from 'react-router-dom';
 import { useWishlist } from '../../../contexts/WishlistContext';
 
 const ServiceCard = ({ service, className = '' }) => {
+    // Mapping backend fields to local variables
     const {
         id,
         name,
+        slug,
         type,
         location,
-        price,
-        originalPrice,
-        rating,
-        reviewCount,
-        duration,
-        maxGuests,
-        images,
-        highlights = [],
+        base_price,
+        rating_avg,
+        total_bookings,
+        duration_days,
+        duration_nights,
+        max_guests,
+        media = [],
+        tags = [],
         provider,
-        images_count,
-        soldCount,
+        media_count,
     } = service;
 
     const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
     const isFavorited = isInWishlist(id);
 
-    const discount = originalPrice ? Math.round((1 - price / originalPrice) * 100) : null;
-    const mainImage = images?.[0] || 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800';
+    // Format data
+    const price = base_price;
+    const rating = rating_avg || 0;
+    const soldCount = total_bookings || 0;
+    const locationName = location?.name || 'Việt Nam';
+    const mainImage = media.find(m => m.is_cover)?.url || media[0]?.url || 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800';
+    
+    // Duration label
+    const duration = duration_days 
+        ? `${duration_days} ngày ${duration_nights ? duration_nights + ' đêm' : ''}`
+        : 'Trong ngày';
+
     const typeLabel = type === 'tour' ? 'Tour' : 'Lưu trú';
     const typeColor = type === 'tour' ? 'bg-amber-500' : 'bg-sky-600';
 
@@ -45,7 +56,7 @@ const ServiceCard = ({ service, className = '' }) => {
 
     return (
         <Link
-            to={`/service/${id}`}
+            to={`/service/${slug}`}
             className={`group block bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 ${className}`}
         >
             {/* Image */}
@@ -55,13 +66,6 @@ const ServiceCard = ({ service, className = '' }) => {
                     alt={name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-
-                {/* Discount badge */}
-                {discount && (
-                    <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                        -{discount}%
-                    </span>
-                )}
 
                 {/* Type badge */}
                 <span className={`absolute top-3 right-3 ${typeColor} text-white text-xs font-bold px-2.5 py-1 rounded-full`}>
@@ -83,7 +87,7 @@ const ServiceCard = ({ service, className = '' }) => {
 
                 {/* Sold count */}
                 <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <span>Đã bán {soldCount || 0}</span>
+                    <span>Đã bán {soldCount}</span>
                 </div>
             </div>
 
@@ -92,7 +96,7 @@ const ServiceCard = ({ service, className = '' }) => {
                 {/* Location */}
                 <div className="flex items-center gap-1 text-sky-600 text-xs font-semibold mb-2">
                     <MapPin size={12} />
-                    <span>{location}</span>
+                    <span>{locationName}</span>
                 </div>
 
                 {/* Name */}
@@ -103,27 +107,19 @@ const ServiceCard = ({ service, className = '' }) => {
                 {/* Provider */}
                 <div className="flex items-center gap-1.5 mb-3">
                     <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                        {provider?.name?.[0] || 'P'}
+                        {provider?.business_name?.[0] || 'P'}
                     </div>
-                    <span className="text-xs text-gray-500">{provider?.name}</span>
-                    {provider?.verified && (
-                        <svg className="w-3.5 h-3.5 text-sky-500" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" />
-                        </svg>
-                    )}
+                    <span className="text-xs text-gray-500">{provider?.business_name || 'Hệ thống'}</span>
                 </div>
 
-                {/* Highlights */}
-                {highlights.length > 0 && (
+                {/* Tags */}
+                {tags && tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-3">
-                        {highlights.slice(0, 3).map((h, i) => (
+                        {tags.slice(0, 3).map((t, i) => (
                             <span key={i} className="text-[11px] text-slate-500 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-                                {h}
+                                {t}
                             </span>
                         ))}
-                        {highlights.length > 3 && (
-                            <span className="text-[11px] text-slate-400">+{highlights.length - 3}</span>
-                        )}
                     </div>
                 )}
 
@@ -135,7 +131,7 @@ const ServiceCard = ({ service, className = '' }) => {
                     </span>
                     <span className="flex items-center gap-1">
                         <Users size={12} />
-                        Tối đa {maxGuests}
+                        Tối đa {max_guests || 'N/A'}
                     </span>
                 </div>
 
@@ -145,30 +141,24 @@ const ServiceCard = ({ service, className = '' }) => {
                         <Star size={12} className="text-amber-400 fill-amber-400" />
                         <span className="text-xs font-bold text-amber-700">{rating}</span>
                     </div>
-                    <span className="text-xs text-gray-400">({reviewCount} đánh giá)</span>
                 </div>
 
                 {/* Price */}
                 <div className="flex items-end justify-between pt-3 border-t border-gray-100">
                     <div>
                         <span className="text-lg font-black text-sky-700">{formatPrice(price)}</span>
-                        {type === 'accommodation' && (
+                        {type === 'hotel' || type === 'homestay' ? (
                             <span className="text-xs text-gray-400"> / đêm</span>
-                        )}
+                        ) : null}
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">/{images_count} ảnh</span>
+                        <span className="text-xs text-gray-400">/{media_count || media.length} ảnh</span>
                     </div>
                 </div>
-
-                {originalPrice && (
-                    <div className="text-xs text-gray-400 line-through mt-0.5">
-                        {formatPrice(originalPrice)}
-                    </div>
-                )}
             </div>
         </Link>
     );
 };
+
 
 export default ServiceCard;

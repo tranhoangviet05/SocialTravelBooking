@@ -23,12 +23,16 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
+import { useAdminData } from '../../contexts/AdminDataContext';
+
 const ProviderManagement = () => {
-    const [providers, setProviders] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { 
+        providers, meta, fetchProviders, loadingStates, setProviders 
+    } = useAdminData();
+
+    const providerMeta = meta.providers || { current_page: 1, last_page: 1, total: 0 };
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
-    const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [statusModal, setStatusModal] = useState({ open: false, provider: null });
     const [newStatus, setNewStatus] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
@@ -36,34 +40,20 @@ const ProviderManagement = () => {
     const [detailModal, setDetailModal] = useState({ open: false, provider: null, loading: false });
 
     const toast = useNotification();
+    
+    const loading = loadingStates.providers && providers.length === 0;
 
     useEffect(() => {
-        fetchProviders();
-    }, [filterStatus]);
-
-    const fetchProviders = async (page = 1) => {
-        setLoading(true);
-        try {
-            const params = { page, per_page: 15 };
-            if (searchTerm) params.search = searchTerm;
-            if (filterStatus) params.status = filterStatus;
-
-            const response = await adminApi.getAllProviders(params);
-            if (response.success) {
-                setProviders(response.data);
-                setMeta(response.meta || { current_page: 1, last_page: 1, total: 0 });
-            }
-        } catch (error) {
-            console.error('Failed to fetch providers:', error);
-            toast?.error?.('Không thể tải danh sách nhà cung cấp');
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchProviders(false, 1, { search: searchTerm, status: filterStatus });
+    }, [fetchProviders, filterStatus]);
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchProviders();
+        fetchProviders(true, 1, { search: searchTerm, status: filterStatus });
+    };
+
+    const handlePageChange = (newPage) => {
+        fetchProviders(true, newPage, { search: searchTerm, status: filterStatus });
     };
 
     const handleViewDetail = async (providerId) => {
@@ -143,7 +133,7 @@ const ProviderManagement = () => {
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Nhà cung cấp</h2>
                         <p className="text-gray-500 text-sm mt-1 font-medium">
-                            Phê duyệt hồ sơ kinh doanh và quản lý {meta.total} đối tác.
+                            Phê duyệt hồ sơ kinh doanh và quản lý {providerMeta.total} đối tác.
                         </p>
                     </div>
                 </div>
@@ -184,7 +174,7 @@ const ProviderManagement = () => {
                         <AdminTable
                             headers={['Doanh nghiệp', 'Loại hình', 'Đại diện', 'Ngày tham gia', 'Trạng thái', '']}
                             title="Danh sách đối tác"
-                            description={`${meta.total} nhà cung cấp đã đăng ký.`}
+                            description={`${providerMeta.total} nhà cung cấp đã đăng ký.`}
                         >
                             {providers.length > 0 ? providers.map((p) => (
                                 <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
@@ -251,22 +241,22 @@ const ProviderManagement = () => {
                         </AdminTable>
 
                         {/* Pagination */}
-                        {meta.last_page > 1 && (
+                        {providerMeta.last_page > 1 && (
                             <div className="flex items-center justify-between bg-white px-8 py-4 rounded-2xl border border-gray-100 mt-4">
                                 <p className="text-sm text-gray-500 font-medium">
-                                    Trang {meta.current_page} / {meta.last_page} ({meta.total} bản ghi)
+                                    Trang {providerMeta.current_page} / {providerMeta.last_page} ({providerMeta.total} bản ghi)
                                 </p>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => fetchProviders(meta.current_page - 1)}
-                                        disabled={meta.current_page <= 1}
+                                        onClick={() => handlePageChange(providerMeta.current_page - 1)}
+                                        disabled={providerMeta.current_page <= 1}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all font-bold"
                                     >
                                         <ChevronLeft size={20} />
                                     </button>
                                     <button
-                                        onClick={() => fetchProviders(meta.current_page + 1)}
-                                        disabled={meta.current_page >= meta.last_page}
+                                        onClick={() => handlePageChange(providerMeta.current_page + 1)}
+                                        disabled={providerMeta.current_page >= providerMeta.last_page}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all font-bold"
                                     >
                                         <ChevronRight size={20} />

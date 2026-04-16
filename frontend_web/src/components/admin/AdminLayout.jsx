@@ -1,12 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
-    LayoutDashboard, Bell, ChevronRight
+    LayoutDashboard, Bell, ChevronRight, RefreshCw
 } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
+import { useAdminData } from '../../contexts/AdminDataContext';
 
 const AdminLayout = ({ children }) => {
     const location = useLocation();
+    const { reloadAll } = useAdminData();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await reloadAll();
+        setIsRefreshing(false);
+    };
 
     // Logic sinh Breadcrumbs đơn giản dựa trên path
     const getBreadcrumbs = () => {
@@ -64,7 +73,16 @@ const AdminLayout = ({ children }) => {
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-end">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className={`flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50 ${isRefreshing ? 'cursor-not-allowed' : ''}`}
+                        >
+                            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                            {isRefreshing ? 'Đang tải...' : 'Làm mới dữ liệu'}
+                        </button>
+
                         <button className="relative p-2.5 rounded-xl text-slate-400 hover:bg-slate-50 transition-all cursor-pointer">
                             <Bell size={20} />
                             <span className="absolute top-2 right-2 w-2 h-2 bg-sky-500 rounded-full border-2 border-white ring-2 ring-sky-500/20"></span>

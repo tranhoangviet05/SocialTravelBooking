@@ -1,36 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useProviderData } from '../../contexts/ProviderDataContext';
 import { 
     Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, 
     TrendingUp, Calendar, History, Loader2, DollarSign,
     ArrowRightLeft, BadgeCheck
 } from 'lucide-react';
-import ProviderLayout from '../../components/provider/ProviderLayout';
-import providerApi from '../../api/providerApi';
-
+... (around 9: MyWallet start)
 const MyWallet = () => {
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState({ wallet: null, transactions: [], total_earned: 0 });
-    const [report, setReport] = useState([]);
+    const { 
+        wallet, walletReport: report, fetchWallet, fetchWalletReport, loadingStates 
+    } = useProviderData();
+
+    const loading = (loadingStates.wallet && !wallet) || (loadingStates.walletReport && report.length === 0);
 
     useEffect(() => {
-        fetchWalletData();
-    }, []);
-
-    const fetchWalletData = async () => {
-        setLoading(true);
-        try {
-            const [walletRes, reportRes] = await Promise.all([
-                providerApi.getWallet(),
-                providerApi.getWalletReport()
-            ]);
-            if (walletRes.success) setData(walletRes.data);
-            if (reportRes.success) setReport(reportRes.data);
-        } catch (err) {
-            console.error('Wallet fetch error:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchWallet();
+        fetchWalletReport();
+    }, [fetchWallet, fetchWalletReport]);
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -57,19 +43,17 @@ const MyWallet = () => {
 
     if (loading) {
         return (
-            <ProviderLayout>
-                <div className="flex flex-col items-center justify-center py-40">
-                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải dữ liệu tài chính...</p>
-                </div>
-            </ProviderLayout>
+            <div className="flex flex-col items-center justify-center py-40">
+                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
+                <p className="text-slate-400 font-bold">Đang tải dữ liệu tài chính...</p>
+            </div>
         );
     }
 
-    const wallet = data.wallet || { balance: 0, locked_balance: 0 };
+    const walletObj = wallet?.wallet || { balance: 0, locked_balance: 0 };
 
     return (
-        <ProviderLayout>
+        <>
             <div className="space-y-6 max-w-6xl mx-auto">
                 {/* Header */}
                 <div>
@@ -92,11 +76,11 @@ const MyWallet = () => {
                                 <BadgeCheck className="text-white/40 group-hover:text-white/100 transition-all" size={24} />
                             </div>
                             <h3 className="text-5xl font-black mb-1 font-mono tracking-tighter">
-                                {formatPrice(wallet.balance)}
+                                {formatPrice(walletObj.balance)}
                             </h3>
                             <div className="flex items-center gap-3 text-white/70 mt-6 pt-6 border-t border-white/10">
                                 <TrendingUp size={16} />
-                                <p className="text-sm font-medium">Tổng doanh thu thực nhận: <span className="text-white font-bold ml-1">{formatPrice(data.total_earned)}</span></p>
+                                <p className="text-sm font-medium">Tổng doanh thu thực nhận: <span className="text-white font-bold ml-1">{formatPrice(wallet?.total_earned || 0)}</span></p>
                             </div>
                         </div>
                         {/* Decorative Circles */}
@@ -108,7 +92,7 @@ const MyWallet = () => {
                     <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex flex-col justify-between">
                         <div>
                             <span className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-4">Đang đóng băng</span>
-                            <h4 className="text-3xl font-black text-slate-900 tracking-tighter">{formatPrice(wallet.locked_balance)}</h4>
+                            <h4 className="text-3xl font-black text-slate-900 tracking-tighter">{formatPrice(walletObj.locked_balance)}</h4>
                             <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Tiền từ các đơn đang xử lý hoặc chưa hoàn thành chuyến đi. Sẽ được giải ngân sau khi đơn hàng kết thúc.</p>
                         </div>
                         <button className="mt-8 w-full py-4 bg-slate-900 text-white rounded-2xl text-sm font-black hover:bg-slate-800 transition-all shadow-lg active:scale-95">
@@ -127,15 +111,15 @@ const MyWallet = () => {
                             </div>
                         </div>
 
-                        {data.transactions.length === 0 ? (
+                        {!wallet?.transactions || wallet.transactions.length === 0 ? (
                             <div className="bg-white rounded-[2rem] border border-dashed border-slate-200 py-20 flex flex-col items-center">
                                 <ArrowRightLeft size={40} className="text-slate-200 mb-3" />
                                 <p className="text-slate-400 font-bold">Chưa có giao dịch nào phát sinh</p>
                             </div>
                         ) : (
                             <div className="bg-white rounded-[2rem] border border-slate-50 shadow-sm overflow-hidden">
-                                {data.transactions.map((t, idx) => (
-                                    <div key={t.id} className={`p-5 flex items-center justify-between hover:bg-slate-50 transition-all ${idx !== data.transactions.length - 1 ? 'border-bottom border-slate-50' : ''}`}>
+                                {wallet.transactions.map((t, idx) => (
+                                    <div key={t.id} className={`p-5 flex items-center justify-between hover:bg-slate-50 transition-all ${idx !== wallet.transactions.length - 1 ? 'border-bottom border-slate-50' : ''}`}>
                                         <div className="flex items-center gap-4">
                                             {getTransactionIcon(t.type)}
                                             <div>
@@ -196,12 +180,12 @@ const MyWallet = () => {
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <style>{`
-                .border-bottom { border-bottom: 1px solid #f8fafc; }
-            `}</style>
-        </ProviderLayout>
+                <style>{`
+                    .border-bottom { border-bottom: 1px solid #f8fafc; }
+                `}</style>
+            </div>
+        </>
     );
 };
 

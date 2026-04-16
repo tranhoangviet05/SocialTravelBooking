@@ -1,39 +1,32 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import Echo from 'laravel-echo';
-import io from 'socket.io-client';
+import { db } from '../firebase/firebase.config';
+import { doc, onSnapshot } from 'firebase/firestore';
 
-window.io = io;
+const RealtimeContext = createContext(null);
 
-const SocketContext = createContext(null);
-
-export const useSocket = () => useContext(SocketContext);
+export const useRealtime = () => useContext(RealtimeContext);
 
 export const SocketProvider = ({ children }) => {
-    const [echo, setEcho] = useState(null);
+    const [listeners, setListeners] = useState({});
 
-    useEffect(() => {
-        const echoInstance = new Echo({
-            broadcaster: 'reverb',
-            key: import.meta.env.VITE_REVERB_APP_KEY || 'itbeph5n2lkt9zsc6wje',
-            wsHost: import.meta.env.VITE_REVERB_HOST || 'localhost',
-            wsPort: import.meta.env.VITE_REVERB_PORT || 8080,
-            wssPort: import.meta.env.VITE_REVERB_PORT || 8080,
-            forceTLS: (import.meta.env.VITE_REVERB_SCHEME || 'http') === 'https',
-            enabledTransports: ['ws', 'wss'],
-        });
+    // Hàm để đăng ký lắng nghe một channel
+    const listen = (channel, callback) => {
+        if (!channel) return;
 
-        setEcho(echoInstance);
-
-        return () => {
-            if (echoInstance) {
-                echoInstance.disconnect();
+        const docRef = doc(db, 'realtime_sync', channel);
+        
+        // Trả về hàm unsubscribe
+        return onSnapshot(docRef, (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                callback(data);
             }
-        };
-    }, []);
+        });
+    };
 
     return (
-        <SocketContext.Provider value={echo}>
+        <RealtimeContext.Provider value={{ listen }}>
             {children}
-        </SocketContext.Provider>
+        </RealtimeContext.Provider>
     );
 };

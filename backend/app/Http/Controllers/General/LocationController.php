@@ -6,15 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\General\LocationRequest;
 use App\Http\Resources\General\LocationResource;
 use App\Services\LocationService;
+use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
     protected $locationService;
+    protected $realtimeService;
 
-    public function __construct(LocationService $locationService)
+    public function __construct(LocationService $locationService, RealtimeService $realtimeService)
     {
         $this->locationService = $locationService;
+        $this->realtimeService = $realtimeService;
     }
 
     /**
@@ -59,6 +62,9 @@ class LocationController extends Controller
         $location = $this->locationService->createLocation($request->validated());
         $location->load('parent');
 
+        // Realtime signal
+        $this->realtimeService->broadcastAdmin('LocationCreated', $location->toArray());
+
         return (new LocationResource($location))->additional([
             'success' => true,
             'message' => 'Thêm địa điểm thành công'
@@ -73,6 +79,8 @@ class LocationController extends Controller
         $location = $this->locationService->updateLocation($id, $request->validated());
         if ($location) {
             $location->load('parent');
+            // Realtime signal
+            $this->realtimeService->broadcastAdmin('LocationUpdated', $location->toArray());
         }
 
         if (!$location) {
@@ -101,6 +109,11 @@ class LocationController extends Controller
                     'success' => false,
                     'message' => 'Không tìm thấy địa điểm hoặc xóa thất bại'
                 ], 404);
+            }
+
+            if ($deleted) {
+                // Realtime signal
+                $this->realtimeService->broadcastAdmin('LocationDeleted', ['id' => $id]);
             }
 
             return response()->json([

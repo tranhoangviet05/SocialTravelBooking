@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useSocket } from './SocketContext';
+import { useRealtime } from './SocketContext';
 import { useAuth } from './AuthContext';
 import locationApi from '../api/locationApi';
 import categoryApi from '../api/categoryApi';
@@ -17,7 +17,7 @@ export const useAdminData = () => {
 
 export const AdminDataProvider = ({ children }) => {
     const { currentUser } = useAuth();
-    const echo = useSocket();
+    const { listen } = useRealtime();
 
     // Data states
     const [stats, setStats] = useState(null);
@@ -197,26 +197,45 @@ export const AdminDataProvider = ({ children }) => {
         finally { setOneLoading('automation', false); }
     }, [loadedStates.automation]);
 
-    // --- Real-time Listeners ---
+    // --- Real-time Listeners (Firebase Firestore version) ---
     useEffect(() => {
-        if (!echo) return;
+        if (!listen) return;
 
-        const channel = echo.channel('admin-data');
-        
-        channel.listen('.LocationCreated', () => fetchLocations(true))
-               .listen('.LocationUpdated', () => fetchLocations(true))
-               .listen('.LocationDeleted', () => fetchLocations(true))
-               .listen('.CategoryCreated', () => fetchCategories(true))
-               .listen('.CategoryUpdated', () => fetchCategories(true))
-               .listen('.CategoryDeleted', () => fetchCategories(true))
-               .listen('.ServiceUpdated', () => fetchServices(true))
-               .listen('.BookingCreated', () => fetchBookings(true))
-               .listen('.ReviewCreated', () => fetchReviews(true));
+        const unsubscribe = listen('admin-data', (signal) => {
+            const { event } = signal;
+            
+            console.log('Realtime signal received:', event);
+
+            switch (event) {
+                case 'LocationCreated':
+                case 'LocationUpdated':
+                case 'LocationDeleted':
+                    fetchLocations(true);
+                    break;
+                case 'CategoryCreated':
+                case 'CategoryUpdated':
+                case 'CategoryDeleted':
+                    fetchCategories(true);
+                    break;
+                case 'ServiceUpdated':
+                    fetchServices(true);
+                    break;
+                case 'BookingCreated':
+                    fetchBookings(true);
+                    break;
+                case 'ReviewCreated':
+                    fetchReviews(true);
+                    break;
+                default:
+                    // Có thể reloadAll() nếu không biết rõ sự kiện
+                    break;
+            }
+        });
 
         return () => {
-            echo.leaveChannel('admin-data');
+            if (unsubscribe) unsubscribe();
         };
-    }, [echo, fetchLocations, fetchCategories, fetchServices, fetchBookings, fetchReviews]);
+    }, [listen, fetchLocations, fetchCategories, fetchServices, fetchBookings, fetchReviews]);
 
     const reloadAll = useCallback(async () => {
         // Only reload what is already loaded

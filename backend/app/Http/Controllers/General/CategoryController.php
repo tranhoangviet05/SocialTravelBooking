@@ -6,15 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\General\CategoryRequest;
 use App\Http\Resources\General\CategoryResource;
 use App\Services\CategoryService;
+use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
     protected $categoryService;
+    protected $realtimeService;
 
-    public function __construct(CategoryService $categoryService)
+    public function __construct(CategoryService $categoryService, RealtimeService $realtimeService)
     {
         $this->categoryService = $categoryService;
+        $this->realtimeService = $realtimeService;
     }
 
     /**
@@ -60,6 +63,9 @@ class CategoryController extends Controller
     {
         $category = $this->categoryService->createCategory($request->validated());
 
+        // Realtime signal
+        $this->realtimeService->broadcastAdmin('CategoryCreated', $category->toArray());
+
         return (new CategoryResource($category))->additional([
             'success' => true,
             'message' => 'Thêm danh mục mới thành công'
@@ -78,6 +84,11 @@ class CategoryController extends Controller
                 'success' => false,
                 'message' => 'Không tìm thấy danh mục'
             ], 404);
+        }
+
+        if ($category) {
+            // Realtime signal
+            $this->realtimeService->broadcastAdmin('CategoryUpdated', $category->toArray());
         }
 
         return (new CategoryResource($category))->additional([
@@ -99,6 +110,11 @@ class CategoryController extends Controller
                     'success' => false,
                     'message' => 'Không tìm thấy danh mục'
                 ], 404);
+            }
+
+            if ($deleted) {
+                // Realtime signal
+                $this->realtimeService->broadcastAdmin('CategoryDeleted', ['id' => $id]);
             }
 
             return response()->json([

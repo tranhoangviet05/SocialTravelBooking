@@ -5,6 +5,7 @@ import { WishlistProvider } from './contexts/WishlistContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AdminDataProvider } from './contexts/AdminDataContext';
 import { ProviderDataProvider } from './contexts/ProviderDataContext';
+import { SocketProvider } from './contexts/SocketContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import ProviderLayout from './components/provider/ProviderLayout';
@@ -53,84 +54,85 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <NotificationProvider>
-          <AdminDataProvider>
-            <ProviderDataProvider>
-              <Routes>
-                {/* === TRANG CÔNG KHAI & TOURIST === */}
-                {/* Bọc trong MainLayout (Header + Footer) và WishlistProvider */}
-                <Route element={
-                  <WishlistProvider>
-                    <MainLayout />
-                  </WishlistProvider>
-                }>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/service/:slug" element={<ServiceDetailPage />} />
+        <SocketProvider>
+          <NotificationProvider>
+            <AdminDataProvider>
+              <ProviderDataProvider>
+                <Routes>
+                  {/* ... Existing Routes ... */}
+                  <Route element={
+                    <WishlistProvider>
+                      <MainLayout />
+                    </WishlistProvider>
+                  }>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/search" element={<SearchPage />} />
+                    <Route path="/service/:slug" element={<ServiceDetailPage />} />
 
-                  {/* Các route yêu cầu đăng nhập đối với Tourist */}
-                  <Route element={<ProtectedRoute allowedRoles={['tourist', 'provider']} />}>
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/my-bookings" element={<MyBookingsPage />} />
-                    <Route path="/cart" element={<CartPage />} />
-                    <Route path="/wishlist" element={<WishlistPage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/success" element={<SuccessPage />} />
-                    <Route path="/onboarding" element={<Onboarding />} />
+                    {/* Các route yêu cầu đăng nhập đối với Tourist */}
+                    <Route element={<ProtectedRoute allowedRoles={['tourist', 'provider']} />}>
+                      <Route path="/profile" element={<ProfilePage />} />
+                      <Route path="/my-bookings" element={<MyBookingsPage />} />
+                      <Route path="/cart" element={<CartPage />} />
+                      <Route path="/wishlist" element={<WishlistPage />} />
+                      <Route path="/checkout" element={<CheckoutPage />} />
+                      <Route path="/success" element={<SuccessPage />} />
+                      <Route path="/onboarding" element={<Onboarding />} />
+                    </Route>
+                  </Route> {/* Close MainLayout */}
+
+                  {/* === CỘNG ĐỒNG / MẠNG XÃ HỘI === */}
+                  {/* Bảo vệ bởi SocialRoute: phải đăng nhập và đã kích hoạt social_active */}
+                  <Route element={<SocialRoute />}>
+                    <Route path="/newsfeed" element={<NewsFeed />}>
+                      <Route index element={<NewsFeedHome />} />
+                      <Route path="search" element={<NewsFeedSearch />} />
+                      <Route path="profile" element={<NewsFeedProfile />} />
+                    </Route>
                   </Route>
-                </Route> {/* Close MainLayout */}
 
-                {/* === CỘNG ĐỒNG / MẠNG XÃ HỘI === */}
-                {/* Bảo vệ bởi SocialRoute: phải đăng nhập và đã kích hoạt social_active */}
-                <Route element={<SocialRoute />}>
-                  <Route path="/newsfeed" element={<NewsFeed />}>
-                    <Route index element={<NewsFeedHome />} />
-                    <Route path="search" element={<NewsFeedSearch />} />
-                    <Route path="profile" element={<NewsFeedProfile />} />
+                  {/* === HỆ THỐNG QUẢN TRỊ (ADMIN) === */}
+                  <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                    <Route path={API_ENDPOINTS.ADMIN_DASHBOARD} element={<DashboardManagement />} />
+                    <Route path={API_ENDPOINTS.LOCATIONS_ADMIN} element={<LocationManagement />} />
+                    <Route path={API_ENDPOINTS.CATEGORIES_ADMIN} element={<CategoryManagement />} />
+                    <Route path={API_ENDPOINTS.USERS_ADMIN} element={<UserManagement />} />
+                    <Route path={API_ENDPOINTS.PROVIDERS_ADMIN} element={<ProviderManagement />} />
+                    <Route path={API_ENDPOINTS.SERVICES_ADMIN} element={<ServiceManagement />} />
+                    <Route path={API_ENDPOINTS.BOOKINGS_ADMIN} element={<BookingManagement />} />
+                    <Route path={API_ENDPOINTS.REVIEWS_ADMIN} element={<ReviewManagement />} />
+                    <Route path={API_ENDPOINTS.COUPONS_ADMIN} element={<CouponManagement />} />
+                    <Route path={API_ENDPOINTS.AUTOMATION_ADMIN} element={<AutomationManagement />} />
+                    <Route path={API_ENDPOINTS.REPORTS_ADMIN} element={<ReportManagement />} />
+                    <Route path={API_ENDPOINTS.SETTINGS_ADMIN} element={<SettingManagement />} />
+
+                    {/* Fallback routes for admin */}
+                    <Route path="/admin/services" element={<ServiceManagement />} />
+                    <Route path="/admin/hotels" element={<ServiceManagement />} />
+                    <Route path="/admin/tours" element={<ServiceManagement />} />
+                    <Route path="/admin/stats" element={<DashboardManagement />} />
                   </Route>
-                </Route>
 
-                {/* === HỆ THỐNG QUẢN TRỊ (ADMIN) === */}
-                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                  <Route path={API_ENDPOINTS.ADMIN_DASHBOARD} element={<DashboardManagement />} />
-                  <Route path={API_ENDPOINTS.LOCATIONS_ADMIN} element={<LocationManagement />} />
-                  <Route path={API_ENDPOINTS.CATEGORIES_ADMIN} element={<CategoryManagement />} />
-                  <Route path={API_ENDPOINTS.USERS_ADMIN} element={<UserManagement />} />
-                  <Route path={API_ENDPOINTS.PROVIDERS_ADMIN} element={<ProviderManagement />} />
-                  <Route path={API_ENDPOINTS.SERVICES_ADMIN} element={<ServiceManagement />} />
-                  <Route path={API_ENDPOINTS.BOOKINGS_ADMIN} element={<BookingManagement />} />
-                  <Route path={API_ENDPOINTS.REVIEWS_ADMIN} element={<ReviewManagement />} />
-                  <Route path={API_ENDPOINTS.COUPONS_ADMIN} element={<CouponManagement />} />
-                  <Route path={API_ENDPOINTS.AUTOMATION_ADMIN} element={<AutomationManagement />} />
-                  <Route path={API_ENDPOINTS.REPORTS_ADMIN} element={<ReportManagement />} />
-                  <Route path={API_ENDPOINTS.SETTINGS_ADMIN} element={<SettingManagement />} />
+                  {/* === HỆ THỐNG NHÀ CUNG CẤP (PROVIDER) === */}
+                  <Route element={
+                    <ProtectedRoute allowedRoles={['provider']}>
+                      <ProviderLayout />
+                    </ProtectedRoute>
+                  }>
+                    <Route path={API_ENDPOINTS.PROVIDER_DASHBOARD} element={<ProviderDashboard />} />
+                    <Route path={API_ENDPOINTS.PROVIDER_SERVICES} element={<ProviderMyServices />} />
+                    <Route path={API_ENDPOINTS.PROVIDER_BOOKINGS} element={<ProviderMyBookings />} />
+                    <Route path={API_ENDPOINTS.PROVIDER_REVIEWS} element={<ProviderMyReviews />} />
+                    {/* Fallback endpoints without absolute object mapping in case they misalign */}
+                    <Route path="/provider/wallet" element={<ProviderMyWallet />} />
+                    <Route path="/provider/settings" element={<ProviderMySettings />} />
+                  </Route>
 
-                  {/* Fallback routes for admin */}
-                  <Route path="/admin/services" element={<ServiceManagement />} />
-                  <Route path="/admin/hotels" element={<ServiceManagement />} />
-                  <Route path="/admin/tours" element={<ServiceManagement />} />
-                  <Route path="/admin/stats" element={<DashboardManagement />} />
-                </Route>
-
-                {/* === HỆ THỐNG NHÀ CUNG CẤP (PROVIDER) === */}
-                <Route element={
-                  <ProtectedRoute allowedRoles={['provider']}>
-                    <ProviderLayout />
-                  </ProtectedRoute>
-                }>
-                  <Route path={API_ENDPOINTS.PROVIDER_DASHBOARD} element={<ProviderDashboard />} />
-                  <Route path={API_ENDPOINTS.PROVIDER_SERVICES} element={<ProviderMyServices />} />
-                  <Route path={API_ENDPOINTS.PROVIDER_BOOKINGS} element={<ProviderMyBookings />} />
-                  <Route path={API_ENDPOINTS.PROVIDER_REVIEWS} element={<ProviderMyReviews />} />
-                  {/* Fallback endpoints without absolute object mapping in case they misalign */}
-                  <Route path="/provider/wallet" element={<ProviderMyWallet />} />
-                  <Route path="/provider/settings" element={<ProviderMySettings />} />
-                </Route>
-
-              </Routes>
-            </ProviderDataProvider>
-          </AdminDataProvider>
-        </NotificationProvider>
+                </Routes>
+              </ProviderDataProvider>
+            </AdminDataProvider>
+          </NotificationProvider>
+        </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
   );

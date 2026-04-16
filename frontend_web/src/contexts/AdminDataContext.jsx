@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import locationApi from '../api/locationApi';
 import categoryApi from '../api/categoryApi';
@@ -16,6 +17,7 @@ export const useAdminData = () => {
 
 export const AdminDataProvider = ({ children }) => {
     const { currentUser } = useAuth();
+    const echo = useSocket();
 
     // Data states
     const [stats, setStats] = useState(null);
@@ -195,6 +197,27 @@ export const AdminDataProvider = ({ children }) => {
         finally { setOneLoading('automation', false); }
     }, [loadedStates.automation]);
 
+    // --- Real-time Listeners ---
+    useEffect(() => {
+        if (!echo) return;
+
+        const channel = echo.channel('admin-data');
+        
+        channel.listen('.LocationCreated', () => fetchLocations(true))
+               .listen('.LocationUpdated', () => fetchLocations(true))
+               .listen('.LocationDeleted', () => fetchLocations(true))
+               .listen('.CategoryCreated', () => fetchCategories(true))
+               .listen('.CategoryUpdated', () => fetchCategories(true))
+               .listen('.CategoryDeleted', () => fetchCategories(true))
+               .listen('.ServiceUpdated', () => fetchServices(true))
+               .listen('.BookingCreated', () => fetchBookings(true))
+               .listen('.ReviewCreated', () => fetchReviews(true));
+
+        return () => {
+            echo.leaveChannel('admin-data');
+        };
+    }, [echo, fetchLocations, fetchCategories, fetchServices, fetchBookings, fetchReviews]);
+
     const reloadAll = useCallback(async () => {
         // Only reload what is already loaded
         const reloads = [];
@@ -213,13 +236,42 @@ export const AdminDataProvider = ({ children }) => {
         await Promise.all(reloads);
     }, [loadedStates, fetchStats, fetchLocations, fetchCategories, fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, fetchCoupons, fetchReports, fetchSettings, fetchAutomation]);
 
+    // Helpers for CRUD updates (client-side state sync)
+    const addLocation = (loc) => setLocations(prev => [loc, ...prev]);
+    const updateLocation = (loc) => setLocations(prev => prev.map(l => l.id === loc.id ? loc : l));
+    const removeLocation = (id) => setLocations(prev => prev.filter(l => l.id !== id));
+
+    const addCategory = (cat) => setCategories(prev => [cat, ...prev]);
+    const updateCategory = (cat) => setCategories(prev => prev.map(c => c.id === cat.id ? cat : c));
+    const removeCategory = (id) => setCategories(prev => prev.filter(c => c.id !== id));
+
+    const addCoupon = (cpn) => setCoupons(prev => [cpn, ...prev]);
+    const updateCoupon = (cpn) => setCoupons(prev => prev.map(c => c.id === cpn.id ? cpn : c));
+    const removeCoupon = (id) => setCoupons(prev => prev.filter(c => c.id !== id));
+
     const value = {
-        stats, locations, categories, users, providers, services, bookings, reviews, coupons, reports, settings, automation,
-        meta,
-        loadingStates, loadedStates,
-        fetchStats, fetchLocations, fetchCategories, fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, fetchCoupons, fetchReports, fetchSettings, fetchAutomation,
-        reloadAll,
-        setUsers, setProviders, setServices, setBookings, setReviews, setCoupons, setReports, setSettings, setAutomation, setMeta // Setters
+        users, providers, services, bookings, reviews, coupons, reports, settings, automation, stats, meta, locations, categories,
+        loadingStates,
+        // Specific flags for convenience
+        isLoadingUsers: loadingStates.users,
+        isLoadingProviders: loadingStates.providers,
+        isLoadingServices: loadingStates.services,
+        isLoadingBookings: loadingStates.bookings,
+        isLoadingReviews: loadingStates.reviews,
+        isLoadingLocations: loadingStates.locations,
+        isLoadingCategories: loadingStates.categories,
+        
+        // Fetch functions
+        fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, 
+        fetchLocations, fetchCategories, fetchStats, fetchCoupons, fetchSettings, fetchAutomation,
+        
+        // Update helpers (Client-side state sync)
+        setUsers, setProviders, setServices, setBookings, setReviews, setCoupons, setReports, setSettings, setAutomation, setMeta,
+        addLocation, updateLocation, removeLocation,
+        addCategory, updateCategory, removeCategory,
+        addCoupon, updateCoupon, removeCoupon,
+        
+        reloadAll
     };
 
     return (

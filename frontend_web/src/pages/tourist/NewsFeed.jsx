@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import CreatePostModal from '../../components/tourist/news_feed/CreatePostModal';
 import Sidebar from '../../components/tourist/news_feed/Slidebar';
 import RightSidebar from '../../components/tourist/news_feed/FollowerRecommend';
-import FloatingMessageButton from '../../components/tourist/news_feed/FloatingMessageButon';
+import FloatingMessageButton from '../../components/tourist/news_feed/FloatingMessageButton';
 
 const NewsFeed = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

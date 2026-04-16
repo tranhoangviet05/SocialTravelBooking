@@ -11,41 +11,40 @@ class SocialService
 {
     /**
      * Kích hoạt hồ sơ mạng xã hội lần đầu (Onboarding).
-     * - Tạo bản ghi social_profiles
-     * - Đặt social_active = true trong users
      */
     public function activateSocialProfile(User $user, array $data): bool
     {
         return DB::transaction(function () use ($user, $data) {
             try {
-                // Cập nhật display_name, avatar_url nếu được gửi lên
+                // 1. Cập nhật thông tin cơ bản của User
                 if (!empty($data['displayName'])) {
                     $user->display_name = $data['displayName'];
                 }
-                if (!empty($data['avatarUrl']) || !empty($data['avatar_url'])) {
-                    $user->avatar_url = $data['avatarUrl'] ?? $data['avatar_url'];
+                if (!empty($data['avatarUrl'])) {
+                    $user->avatar_url = $data['avatarUrl'];
                 }
-
-                // Đánh dấu đã hoàn thành onboarding
+                
                 $user->social_active = true;
                 $user->save();
 
-                // Tạo hoặc cập nhật social_profile
+                // 2. Tạo hoặc cập nhật social_profile
+                // Chúng ta dùng updateOrCreate để đề phòng trường hợp bản ghi đã tồn tại
                 SocialProfile::updateOrCreate(
                     ['user_id' => $user->id],
                     [
                         'username'        => $data['username'],
-                        'bio'             => $data['bio'] ?? null,
+                        'bio'             => $data['bio'] ?? '',
                         'is_verified'     => false,
                         'followers_count' => 0,
                         'following_count' => 0,
                         'posts_count'     => 0,
+                        'website_url'     => $data['websiteUrl'] ?? null,
                     ]
                 );
 
                 return true;
             } catch (Exception $e) {
-                logger()->error('Lỗi kích hoạt hồ sơ xã hội: ' . $e->getMessage());
+                Log::error('SocialService@activateSocialProfile error: ' . $e->getMessage());
                 throw $e;
             }
         });

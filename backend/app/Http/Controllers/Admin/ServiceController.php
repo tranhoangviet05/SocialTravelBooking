@@ -7,16 +7,9 @@ use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
-use App\Services\RealtimeService;
 
 class ServiceController extends Controller
 {
-    protected $realtimeService;
-
-    public function __construct(RealtimeService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
     /**
      * Lấy danh sách TẤT CẢ dịch vụ (Admin xem toàn bộ, bao gồm draft/rejected)
      * GET /api/admin/services
@@ -114,12 +107,6 @@ class ServiceController extends Controller
             $service = Service::create($validated);
             $service->load(['provider.user:id,display_name,email', 'category:id,name', 'location:id,name']);
 
-            // Realtime update
-            $this->realtimeService->broadcastAdmin('ServiceUpdated', $service->toArray());
-            if ($service->provider_id) {
-                $this->realtimeService->broadcastProvider($service->provider_id, 'ServiceUpdated', $service->toArray());
-            }
-
             return response()->json([
                 'success' => true,
                 'message' => 'Tạo dịch vụ thành công',
@@ -176,12 +163,6 @@ class ServiceController extends Controller
             $service->update($validated);
             $service->load(['provider.user:id,display_name,email', 'category:id,name', 'location:id,name']);
 
-            // Realtime update
-            $this->realtimeService->broadcastAdmin('ServiceUpdated', $service->toArray());
-            if ($service->provider_id) {
-                $this->realtimeService->broadcastProvider($service->provider_id, 'ServiceUpdated', $service->toArray());
-            }
-
             return response()->json([
                 'success' => true,
                 'message' => 'Cập nhật dịch vụ thành công',
@@ -211,12 +192,6 @@ class ServiceController extends Controller
         }
 
         $service->delete(); // Soft delete vì model có SoftDeletes
-
-        // Realtime update
-        $this->realtimeService->broadcastAdmin('ServiceDeleted', ['id' => $id]);
-        if ($service->provider_id) {
-            $this->realtimeService->broadcastProvider($service->provider_id, 'ServiceDeleted', ['id' => $id]);
-        }
 
         return response()->json([
             'success' => true,
@@ -248,12 +223,6 @@ class ServiceController extends Controller
             $service->rejection_reason = $request->rejection_reason;
         }
         $service->save();
-
-        // Realtime signal for both Admin and Provider
-        $this->realtimeService->broadcastAdmin('ServiceUpdated', $service->toArray());
-        if ($service->provider_id) {
-            $this->realtimeService->broadcastProvider($service->provider_id, 'ServiceUpdated', $service->toArray());
-        }
 
         return response()->json([
             'success' => true,

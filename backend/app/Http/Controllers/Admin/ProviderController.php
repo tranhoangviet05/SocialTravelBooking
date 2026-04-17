@@ -5,18 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ProviderProfile;
 use App\Models\User;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ProviderController extends Controller
 {
-    protected $realtimeService;
 
-    public function __construct(RealtimeService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
     /**
      * Lấy danh sách tất cả nhà cung cấp
      * GET /api/admin/providers
@@ -120,25 +114,6 @@ class ProviderController extends Controller
             }
 
             $provider->save();
-
-            // ========================
-            // REALTIME NOTIFICATION
-            // ========================
-            if ($request->status === 'approved') {
-                $this->realtimeService->broadcastAdmin('ProviderApproved', [
-                    'provider_id' => $provider->id,
-                    'business_name' => $provider->business_name,
-                    'user_name' => $provider->user?->display_name,
-                    'approved_at' => $provider->approved_at?->toISOString(),
-                ]);
-            } elseif ($request->status === 'rejected') {
-                $this->realtimeService->broadcastAdmin('ProviderRejected', [
-                    'provider_id' => $provider->id,
-                    'business_name' => $provider->business_name,
-                    'user_name' => $provider->user?->display_name,
-                    'rejection_reason' => $request->rejection_reason,
-                ]);
-            }
 
             return response()->json([
                 'success' => true,

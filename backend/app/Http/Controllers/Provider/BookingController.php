@@ -5,17 +5,10 @@ namespace App\Http\Controllers\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\ProviderProfile;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
-    protected $realtimeService;
-
-    public function __construct(RealtimeService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
 
     private function getProvider(Request $request)
     {
@@ -107,25 +100,6 @@ class BookingController extends Controller
         }
 
         $booking->save();
-
-        // ========================
-        // REALTIME NOTIFICATION
-        // ========================
-        $eventName = $newStatus === 'cancelled' ? 'BookingCancelled'
-            : ($newStatus === 'confirmed' ? 'BookingConfirmed' : 'BookingUpdated');
-
-        // Notify Admin
-        $this->realtimeService->broadcastAdmin('BookingUpdated', [
-            'booking_id' => $booking->id,
-            'booking_code' => $booking->booking_code,
-            'service_id' => $booking->service_id,
-            'service_name' => $booking->service?->name,
-            'contact_name' => $booking->contact_name,
-            'old_status' => $currentStatus,
-            'new_status' => $newStatus,
-            'provider_id' => $provider->id,
-            'updated_at' => $booking->updated_at?->toISOString(),
-        ]);
 
         return response()->json([
             'success' => true,

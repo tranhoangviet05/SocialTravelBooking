@@ -7,7 +7,6 @@ use App\Models\Booking;
 use App\Models\Service;
 use App\Models\ProviderProfile;
 use App\Models\Coupon;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -15,12 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
 {
-    protected $realtimeService;
 
-    public function __construct(RealtimeService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
 
     /**
      * Tạo đơn đặt chỗ mới (Tourist)
@@ -109,38 +103,6 @@ class BookingController extends Controller
             });
 
             $booking->load(['service:id,name,slug,type,base_price', 'user:id,display_name,email']);
-
-            // ========================
-            // REALTIME NOTIFICATION
-            // ========================
-            // 1. Broadcast cho Admin
-            $this->realtimeService->broadcastAdmin('BookingCreated', [
-                'booking_id'    => $booking->id,
-                'booking_code'  => $booking->booking_code,
-                'service_id'   => $service->id,
-                'service_name' => $service->name,
-                'contact_name' => $booking->contact_name,
-                'contact_email'=> $booking->contact_email,
-                'contact_phone'=> $booking->contact_phone,
-                'total_amount' => $totalAmount,
-                'status'       => $booking->status,
-                'created_at'   => $booking->created_at?->toISOString(),
-            ]);
-
-            // 2. Broadcast cho Provider liên quan
-            if ($service->provider_id) {
-                $this->realtimeService->broadcastProvider($service->provider_id, 'BookingCreated', [
-                    'booking_id'    => $booking->id,
-                    'booking_code'  => $booking->booking_code,
-                    'service_id'   => $service->id,
-                    'service_name' => $service->name,
-                    'customer_name' => $booking->contact_name,
-                    'customer_email'=> $booking->contact_email,
-                    'total_amount' => $totalAmount,
-                    'status'       => $booking->status,
-                    'created_at'   => $booking->created_at?->toISOString(),
-                ]);
-            }
 
             return response()->json([
                 'success' => true,

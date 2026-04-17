@@ -9,16 +9,10 @@ use App\Models\ServiceMedia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use App\Services\RealtimeService;
 
 class ServiceController extends Controller
 {
-    protected $realtimeService;
 
-    public function __construct(RealtimeService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
     /**
      * Helper: Lấy profile của nhà cung cấp từ user đang đăng nhập
      */
@@ -40,14 +34,31 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Không tìm thấy thông tin nhà cung cấp.'], 404);
         }
 
-        $services = Service::with(['category', 'location', 'media'])
-            ->where('provider_id', $provider->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
+        $type = $request->get('type');
+
+        $query = Service::with(['category', 'location', 'media'])
+            ->where('provider_id', $provider->id);
+
+        if ($search) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+        if ($type && $type !== 'all') {
+            $query->where('type', $type);
+        }
+
+        $services = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $services
+            'data' => $services->items(),
+            'meta' => [
+                'current_page' => $services->currentPage(),
+                'last_page' => $services->lastPage(),
+                'per_page' => $services->perPage(),
+                'total' => $services->total(),
+            ]
         ]);
     }
 
@@ -76,7 +87,7 @@ class ServiceController extends Controller
         ]);
 
         try {
-            return DB::transaction(function () use ($validated, $provider) {
+            DB::transaction(function () use ($validated, $provider, &$service) {
                 // Tạo slug
                 $slug = Str::slug($validated['name']) . '-' . Str::random(5);
 
@@ -109,17 +120,15 @@ class ServiceController extends Controller
                         ]);
                     }
                 }
-                
-                return $service;
             });
 
-            // Gửi realtime signal bên ngoài transaction để lấy dữ liệu json hoàn chỉnh
-            $this->realtimeService->broadcastAdmin('ServiceUpdated', $service->toArray());
+            // Load relations cho response
+            $service->load('media');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Đã tạo dịch vụ thành công, vui lòng chờ Admin duyệt.',
-                'data' => $service->load('media')
+                'data' => $service
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -182,9 +191,6 @@ class ServiceController extends Controller
 
         $service->update($validated);
 
-        // Notify Admin to review changes
-        $this->realtimeService->broadcastAdmin('ServiceUpdated', $service->toArray());
-
         return response()->json([
             'success' => true,
             'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
@@ -205,9 +211,6 @@ class ServiceController extends Controller
         }
 
         $service->delete();
-
-        // Notify Admin about deletion
-        $this->realtimeService->broadcastAdmin('ServiceUpdated', ['id' => $id]);
 
         return response()->json([
             'success' => true,

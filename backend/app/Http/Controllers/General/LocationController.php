@@ -6,18 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\General\LocationRequest;
 use App\Http\Resources\General\LocationResource;
 use App\Services\LocationService;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
     protected $locationService;
-    protected $realtimeService;
 
-    public function __construct(LocationService $locationService, RealtimeService $realtimeService)
+    public function __construct(LocationService $locationService)
     {
         $this->locationService = $locationService;
-        $this->realtimeService = $realtimeService;
     }
 
     /**
@@ -26,12 +23,37 @@ class LocationController extends Controller
      */
     public function index(Request $request)
     {
-        $filters = $request->only(['is_popular', 'root_only']);
-        $locations = $this->locationService->getAllLocations($filters);
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
+        $isPopular = $request->get('is_popular');
 
-        return LocationResource::collection($locations)->additional([
+        $filters = $request->only(['root_only']);
+        $filters['is_popular'] = filter_var($isPopular, FILTER_VALIDATE_BOOLEAN);
+
+        $query = Location::with(['parent']);
+
+        if ($search) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+        if (isset($filters['is_popular'])) {
+            $query->where('is_popular', $filters['is_popular']);
+        }
+        if (!empty($filters['root_only'])) {
+            $query->whereNull('parent_id');
+        }
+
+        $paginated = $query->orderBy('name', 'asc')->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
             'success' => true,
-            'message' => 'Lấy danh sách địa điểm thành công'
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ]
         ]);
     }
 
@@ -62,9 +84,6 @@ class LocationController extends Controller
         $location = $this->locationService->createLocation($request->validated());
         $location->load('parent');
 
-        // Realtime signal
-        $this->realtimeService->broadcastAdmin('LocationCreated', $location->toArray());
-
         return (new LocationResource($location))->additional([
             'success' => true,
             'message' => 'Thêm địa điểm thành công'
@@ -77,18 +96,14 @@ class LocationController extends Controller
     public function update(LocationRequest $request, $id)
     {
         $location = $this->locationService->updateLocation($id, $request->validated());
-        if ($location) {
-            $location->load('parent');
-            // Realtime signal
-            $this->realtimeService->broadcastAdmin('LocationUpdated', $location->toArray());
-        }
-
         if (!$location) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy địa điểm để cập nhật'
             ], 404);
         }
+
+        $location->load('parent');
 
         return (new LocationResource($location))->additional([
             'success' => true,
@@ -109,11 +124,6 @@ class LocationController extends Controller
                     'success' => false,
                     'message' => 'Không tìm thấy địa điểm hoặc xóa thất bại'
                 ], 404);
-            }
-
-            if ($deleted) {
-                // Realtime signal
-                $this->realtimeService->broadcastAdmin('LocationDeleted', ['id' => $id]);
             }
 
             return response()->json([

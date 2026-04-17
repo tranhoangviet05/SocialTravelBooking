@@ -6,31 +6,44 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\General\CategoryRequest;
 use App\Http\Resources\General\CategoryResource;
 use App\Services\CategoryService;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
     protected $categoryService;
-    protected $realtimeService;
 
-    public function __construct(CategoryService $categoryService, RealtimeService $realtimeService)
+    public function __construct(CategoryService $categoryService)
     {
         $this->categoryService = $categoryService;
-        $this->realtimeService = $realtimeService;
     }
 
     /**
      * Lấy danh sách danh mục
      * Endpoint: GET /api/general/get/categories
      */
-    public function index()
+    public function index(Request $request)
     {
-        $categories = $this->categoryService->getAllCategories();
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
 
-        return CategoryResource::collection($categories)->additional([
+        $query = Category::orderBy('name', 'asc');
+
+        if ($search) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+
+        $paginated = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
             'success' => true,
-            'message' => 'Lấy danh sách danh mục thành công'
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ]
         ]);
     }
 
@@ -63,9 +76,6 @@ class CategoryController extends Controller
     {
         $category = $this->categoryService->createCategory($request->validated());
 
-        // Realtime signal
-        $this->realtimeService->broadcastAdmin('CategoryCreated', $category->toArray());
-
         return (new CategoryResource($category))->additional([
             'success' => true,
             'message' => 'Thêm danh mục mới thành công'
@@ -84,11 +94,6 @@ class CategoryController extends Controller
                 'success' => false,
                 'message' => 'Không tìm thấy danh mục'
             ], 404);
-        }
-
-        if ($category) {
-            // Realtime signal
-            $this->realtimeService->broadcastAdmin('CategoryUpdated', $category->toArray());
         }
 
         return (new CategoryResource($category))->additional([
@@ -110,11 +115,6 @@ class CategoryController extends Controller
                     'success' => false,
                     'message' => 'Không tìm thấy danh mục'
                 ], 404);
-            }
-
-            if ($deleted) {
-                // Realtime signal
-                $this->realtimeService->broadcastAdmin('CategoryDeleted', ['id' => $id]);
             }
 
             return response()->json([

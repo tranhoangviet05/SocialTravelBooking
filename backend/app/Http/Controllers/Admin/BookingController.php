@@ -5,18 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Service;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
 {
-    protected $realtimeService;
-
-    public function __construct(RealtimeService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
     /**
      * Lấy danh sách tất cả đơn đặt chỗ
      * GET /api/admin/bookings
@@ -140,34 +133,6 @@ class BookingController extends Controller
 
             $booking->save();
             $booking->load(['user:id,display_name,email', 'service:id,name']);
-
-            // ========================
-            // REALTIME NOTIFICATION
-            // ========================
-            $eventName = $request->status === 'cancelled' ? 'BookingCancelled'
-                : ($request->status === 'confirmed' ? 'BookingConfirmed' : 'BookingUpdated');
-
-            $this->realtimeService->broadcastAdmin('BookingUpdated', [
-                'booking_id' => $booking->id,
-                'booking_code' => $booking->booking_code,
-                'service_id' => $booking->service_id,
-                'service_name' => $booking->service?->name,
-                'contact_name' => $booking->contact_name,
-                'old_status' => $booking->getOriginal('status'),
-                'new_status' => $booking->status,
-                'updated_at' => $booking->updated_at?->toISOString(),
-            ]);
-
-            if ($booking->provider_id) {
-                $this->realtimeService->broadcastProvider($booking->provider_id, $eventName, [
-                    'booking_id' => $booking->id,
-                    'booking_code' => $booking->booking_code,
-                    'service_name' => $booking->service?->name,
-                    'customer_name' => $booking->contact_name,
-                    'new_status' => $booking->status,
-                    'updated_at' => $booking->updated_at?->toISOString(),
-                ]);
-            }
 
             return response()->json([
                 'success' => true,

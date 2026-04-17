@@ -1,63 +1,21 @@
+import React, { useState } from 'react';
 import { useLocation, Link, Outlet } from 'react-router-dom';
 import {
-    LayoutDashboard, Bell, ChevronRight, RefreshCw
+    LayoutDashboard, ChevronRight, RefreshCw
 } from 'lucide-react';
 import ProviderSidebar from './ProviderSidebar';
 import { useProviderData } from '../../contexts/ProviderDataContext';
-import { RealtimeNotificationProvider, useRealtimeNotification } from '../../contexts/RealtimeNotificationContext';
-import NotificationPanel from '../common/NotificationPanel';
-import { useState, useEffect } from 'react';
-
-const NotificationBell = ({ color = 'emerald' }) => {
-    const { unreadCount, toggleOpen, notifications, isOpen, setIsOpen, markAllRead, markRead, clearAll } = useRealtimeNotification();
-
-    return (
-        <>
-            <button
-                onClick={toggleOpen}
-                className="relative p-2.5 rounded-xl text-slate-400 hover:bg-slate-50 transition-all cursor-pointer"
-            >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 border-2 border-white">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                )}
-            </button>
-            <NotificationPanel
-                notifications={notifications}
-                unreadCount={unreadCount}
-                isOpen={isOpen}
-                setIsOpen={setIsOpen}
-                markAllRead={markAllRead}
-                markRead={markRead}
-                clearAll={clearAll}
-            />
-        </>
-    );
-};
-
-const ProviderRealtimeWrapper = ({ children }) => {
-    const { settings } = useProviderData();
-    const [channel, setChannel] = useState(null);
-
-    useEffect(() => {
-        if (settings?.id) {
-            setChannel(`provider-${settings.id}`);
-        }
-    }, [settings?.id]);
-
-    if (!channel) return children;
-
-    return (
-        <RealtimeNotificationProvider channel={channel} role="provider">
-            {children}
-        </RealtimeNotificationProvider>
-    );
-};
 
 const ProviderLayout = () => {
     const location = useLocation();
+    const { reloadAll } = useProviderData();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await reloadAll();
+        setIsRefreshing(false);
+    };
 
     const getBreadcrumbs = () => {
         const pathnames = location.pathname.split('/').filter((x) => x);
@@ -87,53 +45,41 @@ const ProviderLayout = () => {
         });
     };
 
-    const { reloadAll } = useProviderData();
-    const [isRefreshing, setIsRefreshing] = useState(false);
-
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        await reloadAll();
-        setIsRefreshing(false);
-    };
-
     return (
-        <ProviderRealtimeWrapper>
-            <div className="flex min-h-screen bg-[#F8FAFC]">
-                <ProviderSidebar />
-                <div className="flex-1 ml-64 flex flex-col">
-                    <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-[40]">
-                        <div className="flex items-center">
-                            <div className="flex items-center text-slate-400">
-                                <LayoutDashboard size={18} />
-                                {getBreadcrumbs()}
-                            </div>
+        <div className="flex min-h-screen bg-[#F8FAFC]">
+            <ProviderSidebar />
+            <div className="flex-1 ml-64 flex flex-col">
+                <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-[40]">
+                    <div className="flex items-center">
+                        <div className="flex items-center text-slate-400">
+                            <LayoutDashboard size={18} />
+                            {getBreadcrumbs()}
                         </div>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={handleRefresh}
-                                disabled={isRefreshing}
-                                className={`flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50 ${isRefreshing ? 'cursor-not-allowed' : ''}`}
-                            >
-                                <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-                                {isRefreshing ? 'Đang tải...' : 'Làm mới dữ liệu'}
-                            </button>
-                            <NotificationBell color="emerald" />
-                        </div>
-                    </header>
-                    <main className="flex-1 p-10 animate-[fadeIn_0.4s_ease-out]">
-                        <Outlet />
-                    </main>
-                </div>
-                <style>{`
-                    @keyframes fadeIn {
-                        from { opacity: 0; transform: translateY(10px); }
-                        to { opacity: 1; transform: translateY(0); }
-                    }
-                    .no-scrollbar::-webkit-scrollbar { display: none; }
-                    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                `}</style>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className={`flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50 ${isRefreshing ? 'cursor-not-allowed' : ''}`}
+                        >
+                            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                            {isRefreshing ? 'Đang tải...' : 'Làm mới dữ liệu'}
+                        </button>
+                    </div>
+                </header>
+                <main className="flex-1 p-10 animate-[fadeIn_0.4s_ease-out]">
+                    <Outlet />
+                </main>
             </div>
-        </ProviderRealtimeWrapper>
+            <style>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+        </div>
     );
 };
 

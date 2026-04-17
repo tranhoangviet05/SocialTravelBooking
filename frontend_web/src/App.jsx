@@ -5,7 +5,6 @@ import { WishlistProvider } from './contexts/WishlistContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AdminDataProvider } from './contexts/AdminDataContext';
 import { ProviderDataProvider } from './contexts/ProviderDataContext';
-import { SocketProvider } from './contexts/SocketContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import ProviderLayout from './components/provider/ProviderLayout';
@@ -54,11 +53,10 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <SocketProvider>
-          <NotificationProvider>
-            <AdminDataProvider>
-              <ProviderDataProvider>
-                <Routes>
+        <NotificationProvider>
+          <AdminDataProvider>
+            <ProviderDataProvider>
+              <Routes>
                   {/* ... Existing Routes ... */}
                   <Route element={
                     <WishlistProvider>
@@ -132,7 +130,6 @@ function App() {
               </ProviderDataProvider>
             </AdminDataProvider>
           </NotificationProvider>
-        </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
   );

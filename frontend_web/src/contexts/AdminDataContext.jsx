@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRealtime } from './SocketContext';
 import { useAuth } from './AuthContext';
 import locationApi from '../api/locationApi';
 import categoryApi from '../api/categoryApi';
@@ -17,7 +16,6 @@ export const useAdminData = () => {
 
 export const AdminDataProvider = ({ children }) => {
     const { currentUser } = useAuth();
-    const { listen } = useRealtime();
 
     // Data states
     const [stats, setStats] = useState(null);
@@ -38,6 +36,8 @@ export const AdminDataProvider = ({ children }) => {
         services: { current_page: 1, last_page: 1, total: 0 },
         bookings: { current_page: 1, last_page: 1, total: 0 },
         reviews: { current_page: 1, last_page: 1, total: 0 },
+        locations: { current_page: 1, last_page: 1, total: 0 },
+        categories: { current_page: 1, last_page: 1, total: 0 },
     });
 
     // Loading states
@@ -67,25 +67,33 @@ export const AdminDataProvider = ({ children }) => {
         finally { setOneLoading('stats', false); }
     }, [loadedStates.stats]);
 
-    const fetchLocations = useCallback(async (force = false) => {
-        if (loadedStates.locations && !force) return;
+    const fetchLocations = useCallback(async (force = false, page = 1, params = {}) => {
+        if (loadedStates.locations && !force && page === meta.locations.current_page && Object.keys(params).length === 0) return;
         setOneLoading('locations', true);
         try {
-            const res = await locationApi.getAll();
-            if (res.success) { setLocations(res.data); setOneLoaded('locations', true); }
+            const res = await adminApi.getAllLocations({ page, per_page: 8, ...params });
+            if (res.success) {
+                setLocations(res.data);
+                if (res.meta) setMeta(prev => ({ ...prev, locations: res.meta }));
+                setOneLoaded('locations', true);
+            }
         } catch (e) { console.error('AdminData: locations', e); }
         finally { setOneLoading('locations', false); }
-    }, [loadedStates.locations]);
+    }, [loadedStates.locations, meta.locations.current_page]);
 
-    const fetchCategories = useCallback(async (force = false) => {
-        if (loadedStates.categories && !force) return;
+    const fetchCategories = useCallback(async (force = false, page = 1, params = {}) => {
+        if (loadedStates.categories && !force && page === meta.categories.current_page && Object.keys(params).length === 0) return;
         setOneLoading('categories', true);
         try {
-            const res = await categoryApi.getAll();
-            if (res.success) { setCategories(res.data); setOneLoaded('categories', true); }
+            const res = await adminApi.getAllCategories({ page, per_page: 8, ...params });
+            if (res.success) {
+                setCategories(res.data);
+                if (res.meta) setMeta(prev => ({ ...prev, categories: res.meta }));
+                setOneLoaded('categories', true);
+            }
         } catch (e) { console.error('AdminData: categories', e); }
         finally { setOneLoading('categories', false); }
-    }, [loadedStates.categories]);
+    }, [loadedStates.categories, meta.categories.current_page]);
 
     const fetchUsers = useCallback(async (force = false, page = 1) => {
         if (loadedStates.users && !force && page === meta.users.current_page) return;
@@ -115,11 +123,16 @@ export const AdminDataProvider = ({ children }) => {
         finally { setOneLoading('providers', false); }
     }, [loadedStates.providers, meta.providers.current_page]);
 
-    const fetchServices = useCallback(async (force = false, page = 1) => {
+    const fetchServices = useCallback(async (force = false, params = {}) => {
+        const page = params.page || 1;
+        const queryParams = { page, per_page: params.per_page || 15 };
+        if (params.search) queryParams.search = params.search;
+        if (params.type) queryParams.type = params.type;
+        if (params.status) queryParams.status = params.status;
         if (loadedStates.services && !force && page === meta.services.current_page) return;
         setOneLoading('services', true);
         try {
-            const res = await adminApi.getAllServices({ page });
+            const res = await adminApi.getAllServices(queryParams);
             if (res.success) { 
                 setServices(res.data); 
                 if (res.meta) setMeta(prev => ({ ...prev, services: res.meta }));
@@ -196,55 +209,6 @@ export const AdminDataProvider = ({ children }) => {
         } catch (e) { console.error('AdminData: automation', e); }
         finally { setOneLoading('automation', false); }
     }, [loadedStates.automation]);
-
-    // --- Real-time Listeners (Firebase Firestore version) ---
-    useEffect(() => {
-        if (!listen) return;
-
-        const unsubscribe = listen('admin-data', (signal) => {
-            const { event } = signal;
-
-            console.log('Realtime signal received:', event);
-
-            switch (event) {
-                case 'LocationCreated':
-                case 'LocationUpdated':
-                case 'LocationDeleted':
-                    fetchLocations(true);
-                    break;
-                case 'CategoryCreated':
-                case 'CategoryUpdated':
-                case 'CategoryDeleted':
-                    fetchCategories(true);
-                    break;
-                case 'ServiceUpdated':
-                case 'ServiceDeleted':
-                    fetchServices(true);
-                    break;
-                case 'BookingCreated':
-                case 'BookingUpdated':
-                    fetchBookings(true);
-                    break;
-                case 'ReviewCreated':
-                    fetchReviews(true);
-                    break;
-                case 'new_user':
-                case 'user_registered':
-                    fetchUsers(true);
-                    break;
-                case 'ProviderApproved':
-                case 'ProviderRejected':
-                    fetchProviders(true);
-                    break;
-                default:
-                    break;
-            }
-        });
-
-        return () => {
-            if (unsubscribe) unsubscribe();
-        };
-    }, [listen, fetchLocations, fetchCategories, fetchServices, fetchBookings, fetchReviews, fetchUsers, fetchProviders]);
 
     const reloadAll = useCallback(async () => {
         // Only reload what is already loaded

@@ -1,43 +1,12 @@
 import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
-    LayoutDashboard, Bell, ChevronRight, RefreshCw
+    LayoutDashboard, ChevronRight, RefreshCw
 } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
 import { useAdminData } from '../../contexts/AdminDataContext';
-import { RealtimeNotificationProvider, useRealtimeNotification } from '../../contexts/RealtimeNotificationContext';
-import NotificationPanel from '../common/NotificationPanel';
 
-const NotificationBell = () => {
-    const { unreadCount, toggleOpen, notifications, isOpen, setIsOpen, markAllRead, markRead, clearAll } = useRealtimeNotification();
-
-    return (
-        <>
-            <button
-                onClick={toggleOpen}
-                className="relative p-2.5 rounded-xl text-slate-400 hover:bg-slate-50 transition-all cursor-pointer"
-            >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 border-2 border-white">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                )}
-            </button>
-            <NotificationPanel
-                notifications={notifications}
-                unreadCount={unreadCount}
-                isOpen={isOpen}
-                setIsOpen={setIsOpen}
-                markAllRead={markAllRead}
-                markRead={markRead}
-                clearAll={clearAll}
-            />
-        </>
-    );
-};
-
-const AdminLayoutInner = ({ children }) => {
+const AdminLayout = ({ children }) => {
     const location = useLocation();
     const { reloadAll } = useAdminData();
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -102,7 +71,6 @@ const AdminLayoutInner = ({ children }) => {
                             <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
                             {isRefreshing ? 'Đang tải...' : 'Làm mới dữ liệu'}
                         </button>
-                        <NotificationBell />
                     </div>
                 </header>
                 <main className="flex-1 p-10 animate-[fadeIn_0.4s_ease-out]">
@@ -118,14 +86,6 @@ const AdminLayoutInner = ({ children }) => {
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
         </div>
-    );
-};
-
-const AdminLayout = ({ children }) => {
-    return (
-        <RealtimeNotificationProvider channel="admin-data" role="admin">
-            <AdminLayoutInner>{children}</AdminLayoutInner>
-        </RealtimeNotificationProvider>
     );
 };
 

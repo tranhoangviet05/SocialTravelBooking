@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import NoProviderProfile from '../../components/provider/NoProviderProfile';
 import providerApi from '../../api/providerApi';
+import { uploadImage } from '../../utils/cloudinary';
 
 // --- Toast ---
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -145,10 +146,9 @@ const MyServices = () => {
             let imageUrls = previewUrls.filter(url => url.startsWith('http'));
 
             if (selectedFiles.length > 0) {
-                const uploadRes = await providerApi.uploadFiles(selectedFiles);
-                if (uploadRes.success) {
-                    imageUrls = [...imageUrls, ...uploadRes.urls];
-                }
+                const uploadPromises = selectedFiles.map(file => uploadImage(file));
+                const uploadedUrls = await Promise.all(uploadPromises);
+                imageUrls = [...imageUrls, ...uploadedUrls];
             }
 
             const payload = {
@@ -169,7 +169,7 @@ const MyServices = () => {
             if (res.success) {
                 showToast(editMode ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
                 setShowModal(false);
-                fetchServices();
+                fetchServices(true); // Force reload to get the newly created or updated service
             }
         } catch (err) {
             showToast(err.response?.data?.message || 'Lỗi xử lý', 'error');

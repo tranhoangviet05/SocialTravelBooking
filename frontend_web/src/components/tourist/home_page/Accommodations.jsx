@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Heart } from 'lucide-react';
 import ServiceCard from '../services/ServiceCard';
 import axios from 'axios';
+import { useWishlist } from '../../../contexts/WishlistContext';
 
 const Accommodations = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [accommodations, setAccommodations] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
     useEffect(() => {
         const fetchAccommodations = async () => {
             try {
-                // Gọi API lấy dịch vụ thật từ DB
                 const response = await axios.get('http://localhost:8000/api/general/get/services');
                 if (response.data.success) {
-                    // Lọc lấy các dịch vụ là Khách sạn hoặc Homestay
                     const filtered = response.data.data.filter(s => 
                         s.type === 'hotel' || s.type === 'homestay'
                     );
@@ -38,6 +38,15 @@ const Accommodations = () => {
     const prevSlide = () => {
         if (currentIndex > 0) {
             setCurrentIndex(currentIndex - 1);
+        }
+    };
+
+    const handleWishlist = (e, item) => {
+        e.preventDefault();
+        if (isInWishlist(item.id)) {
+            removeFromWishlist(item.id);
+        } else {
+            addToWishlist(item);
         }
     };
 
@@ -76,11 +85,23 @@ const Accommodations = () => {
                         style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
                     >
                         {accommodations.map(item => (
-                            <ServiceCard 
-                                key={item.id} 
-                                service={item} 
-                                className="min-w-[calc(25%-18px)]"
-                            />
+                            <div key={item.id} className="relative min-w-[calc(25%-18px)]">
+                                <ServiceCard 
+                                    service={item} 
+                                    className="min-w-[calc(25%-18px)]"
+                                />
+                                <button 
+                                    onClick={(e) => handleWishlist(e, item)}
+                                    className={`absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center shadow-sm transition-all cursor-pointer ${
+                                        isInWishlist(item.id) 
+                                            ? 'bg-rose-500 text-white hover:bg-rose-600' 
+                                            : 'bg-white/90 text-gray-400 hover:text-rose-500 hover:bg-white'
+                                    }`}
+                                    title={isInWishlist(item.id) ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+                                >
+                                    <Heart size={16} className={isInWishlist(item.id) ? 'fill-current' : ''} />
+                                </button>
+                            </div>
                         ))}
                     </div>
                 </div>

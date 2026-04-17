@@ -203,7 +203,7 @@ export const AdminDataProvider = ({ children }) => {
 
         const unsubscribe = listen('admin-data', (signal) => {
             const { event } = signal;
-            
+
             console.log('Realtime signal received:', event);
 
             switch (event) {
@@ -218,16 +218,25 @@ export const AdminDataProvider = ({ children }) => {
                     fetchCategories(true);
                     break;
                 case 'ServiceUpdated':
+                case 'ServiceDeleted':
                     fetchServices(true);
                     break;
                 case 'BookingCreated':
+                case 'BookingUpdated':
                     fetchBookings(true);
                     break;
                 case 'ReviewCreated':
                     fetchReviews(true);
                     break;
+                case 'new_user':
+                case 'user_registered':
+                    fetchUsers(true);
+                    break;
+                case 'ProviderApproved':
+                case 'ProviderRejected':
+                    fetchProviders(true);
+                    break;
                 default:
-                    // Có thể reloadAll() nếu không biết rõ sự kiện
                     break;
             }
         });
@@ -235,7 +244,7 @@ export const AdminDataProvider = ({ children }) => {
         return () => {
             if (unsubscribe) unsubscribe();
         };
-    }, [listen, fetchLocations, fetchCategories, fetchServices, fetchBookings, fetchReviews]);
+    }, [listen, fetchLocations, fetchCategories, fetchServices, fetchBookings, fetchReviews, fetchUsers, fetchProviders]);
 
     const reloadAll = useCallback(async () => {
         // Only reload what is already loaded

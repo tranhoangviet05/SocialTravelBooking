@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRealtime } from './SocketContext';
 import { useAuth } from './AuthContext';
 import providerApi from '../api/providerApi';
 
@@ -14,6 +15,7 @@ export const useProviderData = () => {
 
 export const ProviderDataProvider = ({ children }) => {
     const { currentUser } = useAuth();
+    const { listen } = useRealtime();
 
     // Data states
     const [stats, setStats] = useState(null);
@@ -175,6 +177,43 @@ export const ProviderDataProvider = ({ children }) => {
         } catch (err) { console.error('ProviderData: fetchSystemData error', err); }
         finally { setOneLoading('system', false); }
     }, [loadedStates.system]);
+
+    // --- Realtime Listeners ---
+    useEffect(() => {
+        if (!listen || !settings?.id) return;
+
+        const channel = `provider-${settings.id}`;
+        
+        const unsubscribe = listen(channel, (signal) => {
+            const { event } = signal;
+            console.log(`Provider realtime signal [${channel}]:`, event);
+            
+            switch (event) {
+                case 'ServiceUpdated':
+                case 'ServiceDeleted':
+                    fetchServices(true);
+                    fetchStats(true); // Cập nhật lại số liệu dashboard
+                    break;
+                case 'BookingCreated':
+                case 'BookingUpdated':
+                    fetchBookings(true);
+                    fetchStats(true);
+                    break;
+                case 'ReviewCreated':
+                    fetchReviews(true);
+                    break;
+                case 'WalletUpdated':
+                    fetchWallet(true);
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [listen, settings?.id, fetchServices, fetchStats, fetchBookings, fetchReviews, fetchWallet]);
 
     const reloadAll = useCallback(async () => {
         await Promise.all([

@@ -7,9 +7,16 @@ use Illuminate\Support\Str;
 
 class AuthService
 {
+    protected $realtimeService;
+
+    public function __construct(\App\Services\RealtimeService $realtimeService)
+    {
+        $this->realtimeService = $realtimeService;
+    }
+
     /**
      * Đồng bộ người dùng từ dữ liệu Firebase
-     * 
+     *
      * @param array $firebaseData [uid, email, name, picture]
      * @return array [user, is_new_user]
      */
@@ -48,6 +55,17 @@ class AuthService
                 'avatar_url' => $firebaseData['picture'] ?? null,
                 'role' => $requestedRole,
                 'status' => 'active',
+            ]);
+
+            // ========================
+            // REALTIME NOTIFICATION - Báo cho Admin khi có user mới
+            // ========================
+            $this->realtimeService->broadcastAdmin('new_user', [
+                'user_id' => $user->id,
+                'user_name' => $user->display_name,
+                'user_email' => $user->email,
+                'role' => $user->role,
+                'created_at' => $user->created_at?->toISOString(),
             ]);
         } else {
             // Cập nhật thông tin mới nhất từ Firebase (nếu có)

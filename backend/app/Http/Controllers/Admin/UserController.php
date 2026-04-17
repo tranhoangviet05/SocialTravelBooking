@@ -5,11 +5,18 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\ProviderProfile;
+use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
+    protected $realtimeService;
+
+    public function __construct(RealtimeService $realtimeService)
+    {
+        $this->realtimeService = $realtimeService;
+    }
     /**
      * Lấy danh sách tất cả người dùng
      */

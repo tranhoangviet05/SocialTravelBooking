@@ -41,7 +41,7 @@ const ReviewManagement = () => {
     const fetchReviews = async (page = 1) => {
         setLoading(true);
         try {
-            const params = { page, per_page: 15 };
+            const params = { page, per_page: 8 };
             if (searchTerm) params.search = searchTerm;
             if (filterRating) params.rating = filterRating;
             if (filterReplied) params.replied = filterReplied;

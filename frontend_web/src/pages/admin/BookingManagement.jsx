@@ -42,7 +42,7 @@ const BookingManagement = () => {
     const fetchBookings = async (page = 1) => {
         setLoading(true);
         try {
-            const params = { page, per_page: 15 };
+            const params = { page, per_page: 8 };
             if (searchTerm) params.search = searchTerm;
             if (filterStatus) params.status = filterStatus;
             if (filterPayment) params.payment_status = filterPayment;

@@ -25,50 +25,50 @@ import AdminTable from '../../components/admin/AdminTable';
 import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAdminData } from '../../contexts/AdminDataContext';
 
 const ServiceManagement = () => {
-    const [services, setServices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { services, meta, loadingStates, fetchServices, setServices } = useAdminData();
+
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
-    const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [actionMenuId, setActionMenuId] = useState(null);
     const [statusModal, setStatusModal] = useState({ open: false, service: null });
     const [newStatus, setNewStatus] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [updating, setUpdating] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const toast = useNotification();
 
+    const activeMeta = meta?.services || { current_page: 1, last_page: 1, total: 0 };
+
+    const doFetchServices = async (page = 1) => {
+        const params = { page, per_page: 8 };
+        if (searchTerm) params.search = searchTerm;
+        if (filterType) params.type = filterType;
+        if (filterStatus) params.status = filterStatus;
+        await fetchServices(true, params);
+    };
+
     useEffect(() => {
-        fetchServices();
-    }, [filterType, filterStatus]);
+        fetchServices(false, { page: 1, per_page: 8 });
+    }, []);
 
-    const fetchServices = async (page = 1) => {
-        setLoading(true);
-        try {
-            const params = { page, per_page: 15 };
-            if (searchTerm) params.search = searchTerm;
-            if (filterType) params.type = filterType;
-            if (filterStatus) params.status = filterStatus;
+    useEffect(() => {
+        doFetchServices(currentPage);
+    }, [filterType, filterStatus, currentPage]);
 
-            const response = await adminApi.getAllServices(params);
-            if (response.success) {
-                setServices(response.data);
-                setMeta(response.meta || { current_page: 1, last_page: 1, total: 0 });
-            }
-        } catch (error) {
-            console.error('Failed to fetch services:', error);
-            toast?.error?.('Không thể tải danh sách dịch vụ');
-        } finally {
-            setLoading(false);
-        }
+    const fetchPage = async (page = 1) => {
+        setCurrentPage(page);
+        await doFetchServices(page);
     };
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchServices();
+        setCurrentPage(1);
+        doFetchServices(1);
     };
 
     const handleStatusUpdate = async () => {
@@ -168,7 +168,7 @@ const ServiceManagement = () => {
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Dịch vụ & Tours</h2>
                         <p className="text-gray-500 text-sm mt-1 font-medium">
-                            Quản lý {meta.total} dịch vụ trên toàn hệ thống.
+                            Quản lý {activeMeta.total} dịch vụ trên toàn hệ thống.
                         </p>
                     </div>
                 </div>
@@ -212,7 +212,7 @@ const ServiceManagement = () => {
                 </div>
 
                 {/* Table */}
-                {loading ? (
+                {loadingStates.isLoadingServices ? (
                     <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
                         <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
                         <p className="text-slate-400 font-bold">Đang tải danh sách dịch vụ...</p>
@@ -222,7 +222,7 @@ const ServiceManagement = () => {
                         <AdminTable
                             headers={['Dịch vụ', 'Loại', 'Nhà cung cấp', 'Giá cơ bản', 'Đánh giá', 'Trạng thái', '']}
                             title="Tất cả dịch vụ"
-                            description={`Tổng cộng ${meta.total} dịch vụ.`}
+                            description={`Tổng cộng ${activeMeta.total} dịch vụ.`}
                         >
                             {services.length > 0 ? services.map((svc) => (
                                 <tr key={svc.id} className="hover:bg-gray-50/50 transition-colors group relative">
@@ -305,22 +305,22 @@ const ServiceManagement = () => {
                         </AdminTable>
 
                         {/* Pagination */}
-                        {meta.last_page > 1 && (
+                        {activeMeta.last_page > 1 && (
                             <div className="flex items-center justify-between bg-white px-8 py-4 rounded-2xl border border-gray-100">
                                 <p className="text-sm text-gray-500 font-medium">
-                                    Trang {meta.current_page} / {meta.last_page} ({meta.total} kết quả)
+                                    Trang {activeMeta.current_page} / {activeMeta.last_page} ({activeMeta.total} kết quả)
                                 </p>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => fetchServices(meta.current_page - 1)}
-                                        disabled={meta.current_page <= 1}
+                                        onClick={() => fetchPage(activeMeta.current_page - 1)}
+                                        disabled={activeMeta.current_page <= 1}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all"
                                     >
                                         <ChevronLeft size={20} />
                                     </button>
                                     <button
-                                        onClick={() => fetchServices(meta.current_page + 1)}
-                                        disabled={meta.current_page >= meta.last_page}
+                                        onClick={() => fetchPage(activeMeta.current_page + 1)}
+                                        disabled={activeMeta.current_page >= activeMeta.last_page}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all"
                                     >
                                         <ChevronRight size={20} />

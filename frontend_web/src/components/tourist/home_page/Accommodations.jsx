@@ -68,17 +68,15 @@ const Accommodations = () => {
                     </div>
                 </div>
 
-                <div className="relative">
+                <div className="overflow-hidden">
                     <div
-                        className="flex gap-6 transition-transform duration-500 ease-out"
-                        style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
+                        className="flex transition-transform duration-500 ease-out -mx-3"
+                        style={{ transform: `translateX(calc(-${currentIndex} * 25%))` }}
                     >
                         {accommodations.map(item => (
-                            <ServiceCard
-                                key={item.id}
-                                service={item}
-                                className="min-w-[calc(25%-18px)]"
-                            />
+                            <div key={item.id} className="w-1/4 shrink-0 px-3">
+                                <ServiceCard service={item} />
+                            </div>
                         ))}
                     </div>
                 </div>

@@ -5,7 +5,6 @@ import {
     TrendingUp, Calendar, History, Loader2, DollarSign,
     ArrowRightLeft, BadgeCheck
 } from 'lucide-react';
-... (around 9: MyWallet start)
 const MyWallet = () => {
     const { 
         wallet, walletReport: report, fetchWallet, fetchWalletReport, loadingStates 

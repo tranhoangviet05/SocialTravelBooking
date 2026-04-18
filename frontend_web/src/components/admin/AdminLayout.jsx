@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
-    LayoutDashboard, Bell, ChevronRight, RefreshCw
+    LayoutDashboard, ChevronRight, RefreshCw
 } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
 import { useAdminData } from '../../contexts/AdminDataContext';
@@ -17,14 +17,11 @@ const AdminLayout = ({ children }) => {
         setIsRefreshing(false);
     };
 
-    // Logic sinh Breadcrumbs đơn giản dựa trên path
     const getBreadcrumbs = () => {
         const pathnames = location.pathname.split('/').filter((x) => x);
         return pathnames.map((name, index) => {
             const routeTo = `/${pathnames.slice(0, index + 1).join('/')}`;
             const isLast = index === pathnames.length - 1;
-
-            // Map tên hiển thị
             let label = name.charAt(0).toUpperCase() + name.slice(1);
             if (name === 'admin') label = 'Quản trị';
             if (name === 'users') label = 'Người dùng';
@@ -39,7 +36,6 @@ const AdminLayout = ({ children }) => {
             if (name === 'reports') label = 'Báo cáo';
             if (name === 'settings') label = 'Cài đặt';
             if (name === 'dashboard') label = 'Bảng điều khiển';
-
             return (
                 <div key={routeTo} className="flex items-center">
                     <ChevronRight size={14} className="mx-2 text-slate-300" />
@@ -57,24 +53,17 @@ const AdminLayout = ({ children }) => {
 
     return (
         <div className="flex min-h-screen bg-[#F8FAFC]">
-            {/* Sidebar chuyên biệt */}
             <AdminSidebar />
-
-            {/* Main Content Area */}
             <div className="flex-1 ml-64 flex flex-col">
-                {/* Top bar */}
                 <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-[40]">
-                    {/* Left: Breadcrumbs & Page Info */}
                     <div className="flex items-center">
                         <div className="flex items-center text-slate-400">
                             <LayoutDashboard size={18} />
                             {getBreadcrumbs()}
                         </div>
                     </div>
-
-                    {/* Right: Actions */}
                     <div className="flex items-center gap-4">
-                        <button 
+                        <button
                             onClick={handleRefresh}
                             disabled={isRefreshing}
                             className={`flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50 ${isRefreshing ? 'cursor-not-allowed' : ''}`}
@@ -82,20 +71,12 @@ const AdminLayout = ({ children }) => {
                             <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
                             {isRefreshing ? 'Đang tải...' : 'Làm mới dữ liệu'}
                         </button>
-
-                        <button className="relative p-2.5 rounded-xl text-slate-400 hover:bg-slate-50 transition-all cursor-pointer">
-                            <Bell size={20} />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-sky-500 rounded-full border-2 border-white ring-2 ring-sky-500/20"></span>
-                        </button>
                     </div>
                 </header>
-
-                {/* Page Content */}
                 <main className="flex-1 p-10 animate-[fadeIn_0.4s_ease-out]">
                     {children}
                 </main>
             </div>
-
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(10px); }

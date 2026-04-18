@@ -11,11 +11,9 @@ const Accommodations = () => {
     useEffect(() => {
         const fetchAccommodations = async () => {
             try {
-                // Gọi API lấy dịch vụ thật từ DB
                 const response = await axios.get('http://localhost:8000/api/general/get/services');
                 if (response.data.success) {
-                    // Lọc lấy các dịch vụ là Khách sạn hoặc Homestay
-                    const filtered = response.data.data.filter(s => 
+                    const filtered = response.data.data.filter(s =>
                         s.type === 'hotel' || s.type === 'homestay'
                     );
                     setAccommodations(filtered);
@@ -53,14 +51,14 @@ const Accommodations = () => {
                         <p className="text-gray-500 font-medium">Từ homestay ấm cúng đến resort sang trọng</p>
                     </div>
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             onClick={prevSlide}
                             disabled={currentIndex === 0}
                             className={`p-3 rounded-xl border transition-all ${currentIndex === 0 ? 'border-gray-100 text-gray-300' : 'border-gray-200 text-gray-600 hover:bg-gray-50 active:scale-95'}`}
                         >
                             <ChevronLeft size={20} />
                         </button>
-                        <button 
+                        <button
                             onClick={nextSlide}
                             disabled={currentIndex >= accommodations.length - 4}
                             className={`p-3 rounded-xl border transition-all ${currentIndex >= accommodations.length - 4 ? 'border-gray-100 text-gray-300' : 'border-gray-200 text-gray-600 hover:bg-gray-50 active:scale-95'}`}
@@ -71,14 +69,14 @@ const Accommodations = () => {
                 </div>
 
                 <div className="relative">
-                    <div 
+                    <div
                         className="flex gap-6 transition-transform duration-500 ease-out"
                         style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
                     >
                         {accommodations.map(item => (
-                            <ServiceCard 
-                                key={item.id} 
-                                service={item} 
+                            <ServiceCard
+                                key={item.id}
+                                service={item}
                                 className="min-w-[calc(25%-18px)]"
                             />
                         ))}

@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
 import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
-    CheckCircle, AlertCircle, Star, Users, LayoutGrid, Image as ImageIcon,
-    UploadCloud, Clock
+    CheckCircle, AlertCircle, Image as ImageIcon,
+    UploadCloud, Clock, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import NoProviderProfile from '../../components/provider/NoProviderProfile';
 import providerApi from '../../api/providerApi';
+import { uploadImage } from '../../utils/cloudinary';
 
-// --- Toast ---
 const Toast = ({ message, type = 'success', onClose }) => {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
     return (
@@ -19,7 +19,6 @@ const Toast = ({ message, type = 'success', onClose }) => {
     );
 };
 
-// --- Confirm Modal ---
 const ConfirmModal = ({ message, onConfirm, onCancel }) => (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[150]">
         <div className="bg-white rounded-3xl p-8 w-[400px] shadow-2xl">
@@ -39,45 +38,94 @@ const ConfirmModal = ({ message, onConfirm, onCancel }) => (
         </div>
     </div>
 );
+
+const Pagination = ({ meta, onPageChange }) => {
+    if (!meta || meta.last_page <= 1) return null;
+    const { current_page, last_page, total } = meta;
+    return (
+        <div className="flex items-center justify-between mt-6">
+            <p className="text-sm text-slate-400 font-medium">Tổng: <span className="font-bold text-slate-600">{total}</span> dịch vụ</p>
+            <div className="flex items-center gap-1">
+                <button
+                    onClick={() => onPageChange(current_page - 1)}
+                    disabled={current_page <= 1}
+                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                    <ChevronLeft size={18} />
+                </button>
+                {Array.from({ length: last_page }, (_, i) => i + 1).map(page => (
+                    <button
+                        key={page}
+                        onClick={() => onPageChange(page)}
+                        className={`min-w-[36px] h-9 rounded-xl text-sm font-bold transition-all ${
+                            page === current_page
+                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
+                                : 'text-slate-500 hover:bg-slate-100'
+                        }`}
+                    >
+                        {page}
+                    </button>
+                ))}
+                <button
+                    onClick={() => onPageChange(current_page + 1)}
+                    disabled={current_page >= last_page}
+                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                    <ChevronRight size={18} />
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const MyServices = () => {
-    const { 
-        services, locations, categories, 
-        fetchServices, fetchSystemData, 
-        loadingStates, 
-        setServices 
+    const {
+        services, locations, categories,
+        fetchServices, fetchSystemData,
+        loadingStates,
+        setServices, servicesMeta
     } = useProviderData();
 
     const loading = (loadingStates.services && services.length === 0) || (loadingStates.system && locations.length === 0);
     const [hasProfile, setHasProfile] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
-    
-    // Modals & Forms
+    const [currentPage, setCurrentPage] = useState(1);
+
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [currentServiceId, setCurrentServiceId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    
-    // Images
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
     const fileInputRef = useRef(null);
 
     const initialForm = {
         name: '', type: 'tour', category_id: '', location_id: '',
-        base_price: '', description: '', address: '', max_guests: '', 
+        base_price: '', description: '', address: '', max_guests: '',
         price_unit: 'per_person', duration_days: '', duration_nights: ''
     };
     const [form, setForm] = useState(initialForm);
     const [toast, setToast] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
 
-    useEffect(() => { 
-        fetchServices().catch(err => {
+    const doFetch = useCallback((page = 1) => {
+        fetchServices(true, {
+            page,
+            per_page: 8,
+            search: searchTerm || undefined,
+            type: typeFilter !== 'all' ? typeFilter : undefined,
+        }).catch(err => {
             if (err.response?.status === 404 || err.response?.status === 403) setHasProfile(false);
-        }); 
-        fetchSystemData(); 
-    }, [fetchServices, fetchSystemData]);
+        });
+    }, [fetchServices, searchTerm, typeFilter]);
+
+    useEffect(() => { fetchSystemData(); }, [fetchSystemData]);
+
+    useEffect(() => {
+        doFetch(1);
+        setCurrentPage(1);
+    }, [searchTerm, typeFilter]);
 
     const showToast = (msg, type = 'success') => setToast({ message: msg, type });
 
@@ -87,21 +135,17 @@ const MyServices = () => {
             showToast('Bạn chỉ có thể tải lên tối đa 5 ảnh', 'error');
             return;
         }
-        const newFiles = [...selectedFiles, ...files];
-        setSelectedFiles(newFiles);
+        setSelectedFiles(prev => [...prev, ...files]);
         const newPreviews = files.map(file => URL.createObjectURL(file));
-        setPreviewUrls([...previewUrls, ...newPreviews]);
+        setPreviewUrls(prev => [...prev, ...newPreviews]);
     };
 
     const removeFile = (index) => {
         const newFiles = [...selectedFiles];
         newFiles.splice(index, 1);
         setSelectedFiles(newFiles);
-
         const newPreviews = [...previewUrls];
-        if (newPreviews[index].startsWith('blob:')) {
-            URL.revokeObjectURL(newPreviews[index]);
-        }
+        if (newPreviews[index].startsWith('blob:')) URL.revokeObjectURL(newPreviews[index]);
         newPreviews.splice(index, 1);
         setPreviewUrls(newPreviews);
     };
@@ -145,10 +189,8 @@ const MyServices = () => {
             let imageUrls = previewUrls.filter(url => url.startsWith('http'));
 
             if (selectedFiles.length > 0) {
-                const uploadRes = await providerApi.uploadFiles(selectedFiles);
-                if (uploadRes.success) {
-                    imageUrls = [...imageUrls, ...uploadRes.urls];
-                }
+                const uploadedUrls = await Promise.all(selectedFiles.map(file => uploadImage(file)));
+                imageUrls = [...imageUrls, ...uploadedUrls];
             }
 
             const payload = {
@@ -162,14 +204,14 @@ const MyServices = () => {
                 images: imageUrls
             };
 
-            const res = editMode 
+            const res = editMode
                 ? await providerApi.updateService(currentServiceId, payload)
                 : await providerApi.createService(payload);
 
             if (res.success) {
                 showToast(editMode ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
                 setShowModal(false);
-                fetchServices();
+                doFetch(currentPage);
             }
         } catch (err) {
             showToast(err.response?.data?.message || 'Lỗi xử lý', 'error');
@@ -180,11 +222,21 @@ const MyServices = () => {
         try {
             const res = await providerApi.deleteService(confirmDelete.id);
             if (res.success) {
-                setServices(services.filter(s => s.id !== confirmDelete.id));
+                if (services.length === 1 && currentPage > 1) {
+                    doFetch(currentPage - 1);
+                    setCurrentPage(p => p - 1);
+                } else {
+                    doFetch(currentPage);
+                }
                 showToast('Đã xóa dịch vụ.');
             }
         } catch { showToast('Lỗi khi xóa', 'error'); }
         finally { setConfirmDelete(null); }
+    };
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+        doFetch(page);
     };
 
     const getStatusBadge = (status) => {
@@ -209,21 +261,14 @@ const MyServices = () => {
         return <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${t.cls}`}>{t.label}</span>;
     };
 
-    const filteredServices = services.filter(s => {
-        const matchSearch = s.name?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchType = typeFilter === 'all' || s.type === typeFilter;
-        return matchSearch && matchType;
-    });
-
     return (
         <>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Dịch vụ của tôi</h2>
                         <p className="text-gray-500 text-sm mt-1 font-medium">
-                            Quản lý các dịch vụ bạn đang cung cấp. {services.length > 0 && <span className="ml-2 text-emerald-600 font-bold">{services.length} dịch vụ</span>}
+                            Quản lý các dịch vụ bạn đang cung cấp.
                         </p>
                     </div>
                     <button onClick={handleOpenCreate} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
@@ -231,11 +276,15 @@ const MyServices = () => {
                     </button>
                 </div>
 
-                {/* Filters */}
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input type="text" placeholder="Tìm kiếm dịch vụ..." className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <input
+                            type="text" placeholder="Tìm kiếm dịch vụ..."
+                            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium shadow-sm"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
                     </div>
                     <div className="flex gap-2">
                         {['all', 'tour', 'hotel', 'homestay', 'vehicle'].map(opt => (
@@ -246,46 +295,51 @@ const MyServices = () => {
                     </div>
                 </div>
 
-                {/* List */}
-                {loading ? <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-emerald-500" size={40} /></div> : (
-                    <div className="grid gap-4">
-                        {filteredServices.map(service => (
-                            <div key={service.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                                        <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
-                                            {service.media?.[0]?.url ? <img src={service.media[0].url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
+                {loading ? (
+                    <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-emerald-500" size={40} /></div>
+                ) : services.length === 0 ? (
+                    <div className="py-20 text-center text-slate-400 font-medium">Không có dịch vụ nào.</div>
+                ) : (
+                    <>
+                        <div className="grid gap-4">
+                            {services.map(service => (
+                                <div key={service.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
+                                                {service.media?.[0]?.url ? <img src={service.media[0].url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black text-slate-900 truncate">{service.name}</h3>
+                                                <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
+                                                <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
+                                                    <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
+                                                    {(service.duration_days || service.duration_nights) && (
+                                                        <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h3 className="text-sm font-black text-slate-900 truncate">{service.name}</h3>
-                                            <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
-                                            <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
-                                                <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
-                                                {(service.duration_days || service.duration_nights) && (
-                                                    <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
-                                                )}
-                                                <span className="flex items-center gap-1"><LayoutGrid size={11} /> {service.category?.name || '---'}</span>
+                                        <div className="flex items-center gap-6">
+                                            <div className="text-right">
+                                                <p className="text-lg font-black text-emerald-600">{Number(service.base_price).toLocaleString()}₫</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl"><Edit3 size={16} /></button>
+                                                <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl"><Trash2 size={16} /></button>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-6">
-                                        <div className="text-right">
-                                            <p className="text-lg font-black text-emerald-600">{Number(service.base_price).toLocaleString()}₫</p>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                            {service.status !== 'active' && <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl"><Edit3 size={16} /></button>}
-                                            <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl"><Trash2 size={16} /></button>
-                                        </div>
-                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+
+                        <Pagination meta={servicesMeta} onPageChange={handlePageChange} />
+                    </>
                 )}
             </div>
 
-            {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowModal(false)}>
                     <div className="bg-white rounded-[2.5rem] p-8 w-[720px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -293,9 +347,8 @@ const MyServices = () => {
                             <h3 className="text-xl font-black text-slate-900">{editMode ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}</h3>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
                         </div>
-                        
+
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Image Upload Section */}
                             <div>
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Hình ảnh dịch vụ (Tối đa 5 ảnh)</label>
                                 <div className="grid grid-cols-5 gap-3">
@@ -322,7 +375,7 @@ const MyServices = () => {
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Tên dịch vụ *</label>
                                     <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20" placeholder="VD: Tour Trekking Langbiang" />
                                 </div>
-                                
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
                                         <option value="tour">🗺️ Tour du lịch</option>
@@ -346,7 +399,14 @@ const MyServices = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex items-center gap-2">
-                                        <input type="number" value={form.duration_days} onChange={e => setForm({...form, duration_days: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Số ngày (VD: 3)" />
+                                        <input type="number" value={form.duration_days} onChange={e => {
+                                            const days = e.target.value;
+                                            setForm({
+                                                ...form,
+                                                duration_days: days,
+                                                duration_nights: days && Number(days) > 0 ? String(Number(days) - 1) : form.duration_nights
+                                            });
+                                        }} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Số ngày (VD: 3)" />
                                         <span className="text-xs font-bold text-slate-400">Ngày</span>
                                     </div>
                                     <div className="flex items-center gap-2">

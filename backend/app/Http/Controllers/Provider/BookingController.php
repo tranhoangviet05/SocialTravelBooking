@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
+
     private function getProvider(Request $request)
     {
         $user = $request->input('user');
@@ -29,7 +30,6 @@ class BookingController extends Controller
             ->where('provider_id', $provider->id)
             ->orderBy('created_at', 'desc');
 
-        // Lọc theo trạng thái
         if ($request->has('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
@@ -78,7 +78,6 @@ class BookingController extends Controller
 
         $newStatus = $request->status;
 
-        // Validate chuyển trạng thái hợp lệ
         $validTransitions = [
             'pending' => ['confirmed', 'cancelled'],
             'confirmed' => ['ongoing', 'cancelled'],

@@ -18,6 +18,7 @@ export const ProviderDataProvider = ({ children }) => {
     // Data states
     const [stats, setStats] = useState(null);
     const [services, setServices] = useState([]);
+    const [servicesMeta, setServicesMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [bookings, setBookings] = useState([]);
     const [reviews, setReviews] = useState([]);
     const [wallet, setWallet] = useState(null);
@@ -83,13 +84,14 @@ export const ProviderDataProvider = ({ children }) => {
         finally { setOneLoading('stats', false); }
     }, [loadedStates.stats]);
 
-    const fetchServices = useCallback(async (force = false) => {
-        if (loadedStates.services && !force) return;
+    const fetchServices = useCallback(async (force = false, params = {}) => {
+        if (loadedStates.services && !force && !params.page) return;
         setOneLoading('services', true);
         try {
-            const res = await providerApi.getServices();
+            const res = await providerApi.getServices(params);
             if (res.success) {
                 setServices(res.data);
+                setServicesMeta(res.meta || { current_page: 1, last_page: 1, total: 0 });
                 setOneLoaded('services', true);
             }
         } catch (err) { console.error('ProviderData: fetchServices error', err); }
@@ -191,10 +193,11 @@ export const ProviderDataProvider = ({ children }) => {
 
     const value = {
         stats, services, bookings, reviews, wallet, walletReport, settings, locations, categories,
+        servicesMeta,
         loadingStates, loadedStates,
         fetchStats, fetchServices, fetchBookings, fetchReviews, fetchWallet, fetchWalletReport, fetchSettings, fetchSystemData,
         reloadAll,
-        setServices, setBookings, setReviews, setSettings // Optional setters for manual update
+        setServices, setBookings, setReviews, setSettings
     };
 
     return (

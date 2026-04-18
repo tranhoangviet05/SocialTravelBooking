@@ -36,6 +36,8 @@ export const AdminDataProvider = ({ children }) => {
         services: { current_page: 1, last_page: 1, total: 0 },
         bookings: { current_page: 1, last_page: 1, total: 0 },
         reviews: { current_page: 1, last_page: 1, total: 0 },
+        locations: { current_page: 1, last_page: 1, total: 0 },
+        categories: { current_page: 1, last_page: 1, total: 0 },
     });
 
     // Loading states
@@ -65,25 +67,33 @@ export const AdminDataProvider = ({ children }) => {
         finally { setOneLoading('stats', false); }
     }, [loadedStates.stats]);
 
-    const fetchLocations = useCallback(async (force = false) => {
-        if (loadedStates.locations && !force) return;
+    const fetchLocations = useCallback(async (force = false, page = 1, params = {}) => {
+        if (loadedStates.locations && !force && page === meta.locations.current_page && Object.keys(params).length === 0) return;
         setOneLoading('locations', true);
         try {
-            const res = await locationApi.getAll();
-            if (res.success) { setLocations(res.data); setOneLoaded('locations', true); }
+            const res = await adminApi.getAllLocations({ page, per_page: 8, ...params });
+            if (res.success) {
+                setLocations(res.data);
+                if (res.meta) setMeta(prev => ({ ...prev, locations: res.meta }));
+                setOneLoaded('locations', true);
+            }
         } catch (e) { console.error('AdminData: locations', e); }
         finally { setOneLoading('locations', false); }
-    }, [loadedStates.locations]);
+    }, [loadedStates.locations, meta.locations.current_page]);
 
-    const fetchCategories = useCallback(async (force = false) => {
-        if (loadedStates.categories && !force) return;
+    const fetchCategories = useCallback(async (force = false, page = 1, params = {}) => {
+        if (loadedStates.categories && !force && page === meta.categories.current_page && Object.keys(params).length === 0) return;
         setOneLoading('categories', true);
         try {
-            const res = await categoryApi.getAll();
-            if (res.success) { setCategories(res.data); setOneLoaded('categories', true); }
+            const res = await adminApi.getAllCategories({ page, per_page: 8, ...params });
+            if (res.success) {
+                setCategories(res.data);
+                if (res.meta) setMeta(prev => ({ ...prev, categories: res.meta }));
+                setOneLoaded('categories', true);
+            }
         } catch (e) { console.error('AdminData: categories', e); }
         finally { setOneLoading('categories', false); }
-    }, [loadedStates.categories]);
+    }, [loadedStates.categories, meta.categories.current_page]);
 
     const fetchUsers = useCallback(async (force = false, page = 1) => {
         if (loadedStates.users && !force && page === meta.users.current_page) return;
@@ -113,11 +123,16 @@ export const AdminDataProvider = ({ children }) => {
         finally { setOneLoading('providers', false); }
     }, [loadedStates.providers, meta.providers.current_page]);
 
-    const fetchServices = useCallback(async (force = false, page = 1) => {
+    const fetchServices = useCallback(async (force = false, params = {}) => {
+        const page = params.page || 1;
+        const queryParams = { page, per_page: params.per_page || 15 };
+        if (params.search) queryParams.search = params.search;
+        if (params.type) queryParams.type = params.type;
+        if (params.status) queryParams.status = params.status;
         if (loadedStates.services && !force && page === meta.services.current_page) return;
         setOneLoading('services', true);
         try {
-            const res = await adminApi.getAllServices({ page });
+            const res = await adminApi.getAllServices(queryParams);
             if (res.success) { 
                 setServices(res.data); 
                 if (res.meta) setMeta(prev => ({ ...prev, services: res.meta }));
@@ -213,13 +228,42 @@ export const AdminDataProvider = ({ children }) => {
         await Promise.all(reloads);
     }, [loadedStates, fetchStats, fetchLocations, fetchCategories, fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, fetchCoupons, fetchReports, fetchSettings, fetchAutomation]);
 
+    // Helpers for CRUD updates (client-side state sync)
+    const addLocation = (loc) => setLocations(prev => [loc, ...prev]);
+    const updateLocation = (loc) => setLocations(prev => prev.map(l => l.id === loc.id ? loc : l));
+    const removeLocation = (id) => setLocations(prev => prev.filter(l => l.id !== id));
+
+    const addCategory = (cat) => setCategories(prev => [cat, ...prev]);
+    const updateCategory = (cat) => setCategories(prev => prev.map(c => c.id === cat.id ? cat : c));
+    const removeCategory = (id) => setCategories(prev => prev.filter(c => c.id !== id));
+
+    const addCoupon = (cpn) => setCoupons(prev => [cpn, ...prev]);
+    const updateCoupon = (cpn) => setCoupons(prev => prev.map(c => c.id === cpn.id ? cpn : c));
+    const removeCoupon = (id) => setCoupons(prev => prev.filter(c => c.id !== id));
+
     const value = {
-        stats, locations, categories, users, providers, services, bookings, reviews, coupons, reports, settings, automation,
-        meta,
-        loadingStates, loadedStates,
-        fetchStats, fetchLocations, fetchCategories, fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, fetchCoupons, fetchReports, fetchSettings, fetchAutomation,
-        reloadAll,
-        setUsers, setProviders, setServices, setBookings, setReviews, setCoupons, setReports, setSettings, setAutomation, setMeta // Setters
+        users, providers, services, bookings, reviews, coupons, reports, settings, automation, stats, meta, locations, categories,
+        loadingStates,
+        // Specific flags for convenience
+        isLoadingUsers: loadingStates.users,
+        isLoadingProviders: loadingStates.providers,
+        isLoadingServices: loadingStates.services,
+        isLoadingBookings: loadingStates.bookings,
+        isLoadingReviews: loadingStates.reviews,
+        isLoadingLocations: loadingStates.locations,
+        isLoadingCategories: loadingStates.categories,
+        
+        // Fetch functions
+        fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, 
+        fetchLocations, fetchCategories, fetchStats, fetchCoupons, fetchSettings, fetchAutomation,
+        
+        // Update helpers (Client-side state sync)
+        setUsers, setProviders, setServices, setBookings, setReviews, setCoupons, setReports, setSettings, setAutomation, setMeta,
+        addLocation, updateLocation, removeLocation,
+        addCategory, updateCategory, removeCategory,
+        addCoupon, updateCoupon, removeCoupon,
+        
+        reloadAll
     };
 
     return (

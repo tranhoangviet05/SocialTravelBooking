@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class ServiceController extends Controller
 {
+
     /**
      * Helper: Lấy profile của nhà cung cấp từ user đang đăng nhập
      */
@@ -33,14 +34,31 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Không tìm thấy thông tin nhà cung cấp.'], 404);
         }
 
-        $services = Service::with(['category', 'location', 'media'])
-            ->where('provider_id', $provider->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
+        $type = $request->get('type');
+
+        $query = Service::with(['category', 'location', 'media'])
+            ->where('provider_id', $provider->id);
+
+        if ($search) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+        if ($type && $type !== 'all') {
+            $query->where('type', $type);
+        }
+
+        $services = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $services
+            'data' => $services->items(),
+            'meta' => [
+                'current_page' => $services->currentPage(),
+                'last_page' => $services->lastPage(),
+                'per_page' => $services->perPage(),
+                'total' => $services->total(),
+            ]
         ]);
     }
 
@@ -69,7 +87,7 @@ class ServiceController extends Controller
         ]);
 
         try {
-            return DB::transaction(function () use ($validated, $provider) {
+            DB::transaction(function () use ($validated, $provider, &$service) {
                 // Tạo slug
                 $slug = Str::slug($validated['name']) . '-' . Str::random(5);
 
@@ -102,13 +120,16 @@ class ServiceController extends Controller
                         ]);
                     }
                 }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Đã tạo dịch vụ thành công, vui lòng chờ Admin duyệt.',
-                    'data' => $service->load('media')
-                ], 201);
             });
+
+            // Load relations cho response
+            $service->load('media');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã tạo dịch vụ thành công, vui lòng chờ Admin duyệt.',
+                'data' => $service
+            ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -147,14 +168,8 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền sửa dịch vụ này.'], 403);
         }
 
-        // --- CHẶN SỬA NẾU ĐÃ DUYỆT ---
-        if ($service->status === 'active') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Dịch vụ đã được duyệt và đang hoạt động, không thể chỉnh sửa. Vui lòng liên hệ Admin nếu muốn thay đổi thông tin.'
-            ], 422);
-        }
-
+        // XÓA CHẶN STATUS ACTIVE: Cho phép sửa nhưng sẽ đưa về chờ duyệt
+        
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'type' => 'sometimes|string',

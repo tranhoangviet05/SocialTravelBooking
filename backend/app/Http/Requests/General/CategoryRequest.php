@@ -22,6 +22,8 @@ class CategoryRequest extends FormRequest
         return [
             'name'     => 'required|string|max:100',
             'slug'     => 'nullable|string|max:100|unique:categories,slug,' . $this->route('id'),
+            'icon'     => 'nullable|string|max:50',
+            'description' => 'nullable|string'
         ];
     }
 

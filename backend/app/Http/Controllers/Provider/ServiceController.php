@@ -217,4 +217,129 @@ class ServiceController extends Controller
             'message' => 'Đã xóa dịch vụ thành công.'
         ]);
     }
+
+    // =============================================
+    // LỊCH TRÌNH (Schedules) - Dành cho Tour
+    // =============================================
+
+    public function getSchedules(Request $request, $id)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::with('schedules')->findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền truy cập.'], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $service->schedules->sortBy('day_number')->values()
+        ]);
+    }
+
+    public function storeSchedule(Request $request, $id)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $validated = $request->validate([
+            'day_number' => 'required|integer|min:1',
+            'title'      => 'required|string|max:255',
+            'description'=> 'nullable|string',
+            'activities' => 'nullable|array',
+            'meals'      => 'nullable|array',
+        ]);
+
+        $schedule = $service->schedules()->create($validated);
+
+        return response()->json(['success' => true, 'data' => $schedule], 201);
+    }
+
+    public function updateSchedule(Request $request, $id, $scheduleId)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $schedule = \App\Models\ServiceSchedule::where('service_id', $id)->findOrFail($scheduleId);
+
+        $validated = $request->validate([
+            'day_number' => 'sometimes|integer|min:1',
+            'title'      => 'sometimes|string|max:255',
+            'description'=> 'nullable|string',
+            'activities' => 'nullable|array',
+            'meals'      => 'nullable|array',
+        ]);
+
+        $schedule->update($validated);
+
+        return response()->json(['success' => true, 'data' => $schedule]);
+    }
+
+    public function destroySchedule(Request $request, $id, $scheduleId)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $schedule = \App\Models\ServiceSchedule::where('service_id', $id)->findOrFail($scheduleId);
+        $schedule->delete();
+
+        return response()->json(['success' => true, 'message' => 'Đã xóa ngày trong lịch trình.']);
+    }
+
+    // =============================================
+    // TIỆN NGHI / BAO GỒM / KHÔNG BAO GỒM
+    // =============================================
+
+    public function updateAmenities(Request $request, $id)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $validated = $request->validate([
+            'amenities' => 'nullable|array',
+            'amenities.*' => 'string|max:100',
+            'includes' => 'nullable|array',
+            'includes.*' => 'string|max:100',
+            'excludes' => 'nullable|array',
+            'excludes.*' => 'string|max:100',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:50',
+        ]);
+
+        // amenities, includes, excludes là jsonb - có thể update bình thượng
+        $service->update([
+            'amenities' => $validated['amenities'] ?? $service->amenities ?? [],
+            'includes'  => $validated['includes'] ?? $service->includes ?? [],
+            'excludes'  => $validated['excludes'] ?? $service->excludes ?? [],
+        ]);
+
+        // tags là text[] trong PostgreSQL - phải dùng DB::statement
+        if (array_key_exists('tags', $validated)) {
+            $tags = $validated['tags'] ?? [];
+            $tagsFormatted = '{' . implode(',', array_map(fn($t) => '"' . addslashes($t) . '"', $tags)) . '}';
+            DB::statement('UPDATE services SET tags = ? WHERE id = ?', [$tagsFormatted, $service->id]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã cập nhật tiện nghi dịch vụ.',
+            'data'    => $service->fresh()
+        ]);
+    }
 }

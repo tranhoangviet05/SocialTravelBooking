@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, Bell, Shield, Database, Globe, Percent, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
-import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -54,18 +53,15 @@ const SettingManagement = () => {
 
     if (loading) {
         return (
-            <AdminLayout>
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải cấu hình...</p>
-                </div>
-            </AdminLayout>
+            <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
+                <p className="text-slate-400 font-bold">Đang tải cấu hình...</p>
+            </div>
         );
     }
 
     return (
-        <AdminLayout>
-            <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 max-w-4xl">
                 <div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">Cài đặt hệ thống</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Cấu hình tham số vận hành sàn và các thiết lập bảo mật.</p>
@@ -215,10 +211,9 @@ const SettingManagement = () => {
                             {submitting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                             Lưu cấu hình hệ thống
                         </button>
-                    </div>
                 </div>
             </div>
-        </AdminLayout>
+        </div>
     );
 };
 

@@ -3,16 +3,16 @@ import { useProviderData } from '../../contexts/ProviderDataContext';
 import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
     CheckCircle, AlertCircle, Image as ImageIcon,
-    UploadCloud, Clock, ChevronLeft, ChevronRight
+    UploadCloud, Clock, ChevronLeft, ChevronRight,
+    CalendarDays, Star, Settings2, ChevronDown, ChevronUp
 } from 'lucide-react';
-import NoProviderProfile from '../../components/provider/NoProviderProfile';
 import providerApi from '../../api/providerApi';
 import { uploadImage } from '../../utils/cloudinary';
 
 const Toast = ({ message, type = 'success', onClose }) => {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
     return (
-        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl animate-[slideInUp_0.3s_ease-out] ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
+        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
             {type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
             <p className="text-sm font-bold">{message}</p>
         </div>
@@ -46,31 +46,15 @@ const Pagination = ({ meta, onPageChange }) => {
         <div className="flex items-center justify-between mt-6">
             <p className="text-sm text-slate-400 font-medium">Tổng: <span className="font-bold text-slate-600">{total}</span> dịch vụ</p>
             <div className="flex items-center gap-1">
-                <button
-                    onClick={() => onPageChange(current_page - 1)}
-                    disabled={current_page <= 1}
-                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
+                <button onClick={() => onPageChange(current_page - 1)} disabled={current_page <= 1} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
                     <ChevronLeft size={18} />
                 </button>
                 {Array.from({ length: last_page }, (_, i) => i + 1).map(page => (
-                    <button
-                        key={page}
-                        onClick={() => onPageChange(page)}
-                        className={`min-w-[36px] h-9 rounded-xl text-sm font-bold transition-all ${
-                            page === current_page
-                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                                : 'text-slate-500 hover:bg-slate-100'
-                        }`}
-                    >
+                    <button key={page} onClick={() => onPageChange(page)} className={`min-w-[36px] h-9 rounded-xl text-sm font-bold transition-all ${page === current_page ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-slate-500 hover:bg-slate-100'}`}>
                         {page}
                     </button>
                 ))}
-                <button
-                    onClick={() => onPageChange(current_page + 1)}
-                    disabled={current_page >= last_page}
-                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
+                <button onClick={() => onPageChange(current_page + 1)} disabled={current_page >= last_page} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
                     <ChevronRight size={18} />
                 </button>
             </div>
@@ -78,6 +62,299 @@ const Pagination = ({ meta, onPageChange }) => {
     );
 };
 
+// ============================================================================
+// SCHEDULE MODAL (lịch trình tour)
+// ============================================================================
+const ScheduleModal = ({ service, onClose, showToast }) => {
+    const [schedules, setSchedules] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [editItem, setEditItem] = useState(null); // null = đang thêm mới
+    const [showForm, setShowForm] = useState(false);
+    const [confirmDel, setConfirmDel] = useState(null);
+
+    const emptyForm = { day_number: '', title: '', description: '' };
+    const [form, setForm] = useState(emptyForm);
+
+    useEffect(() => {
+        providerApi.getSchedules(service.id)
+            .then(res => setSchedules(res.data || []))
+            .catch(() => showToast('Không tải được lịch trình', 'error'))
+            .finally(() => setLoading(false));
+    }, [service.id]);
+
+    const maxDays = service.duration_days || Infinity;
+    const canAddMore = schedules.length < maxDays;
+
+    const openCreate = () => {
+        if (!canAddMore) { showToast(`Tour chỉ có ${maxDays} ngày, không thể thêm thêm!`, 'error'); return; }
+        setEditItem(null);
+        setForm({ ...emptyForm, day_number: (schedules.length + 1).toString() });
+        setShowForm(true);
+    };
+    const openEdit = (s) => { setEditItem(s); setForm({ day_number: s.day_number, title: s.title, description: s.description || '' }); setShowForm(true); };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const dayNum = Number(form.day_number);
+            if (!editItem && dayNum > maxDays) {
+                showToast(`Ngày ${dayNum} vượt quá thời lượng tour (${maxDays} ngày)!`, 'error');
+                setSaving(false);
+                return;
+            }
+            const existingDay = schedules.find(s => s.day_number === dayNum && s.id !== editItem?.id);
+            if (existingDay) {
+                showToast(`Ngày ${dayNum} đã tồn tại trong lịch trình!`, 'error');
+                setSaving(false);
+                return;
+            }
+            const payload = {
+                day_number: dayNum,
+                title: form.title,
+                description: form.description
+            };
+            if (editItem) {
+                const res = await providerApi.updateSchedule(service.id, editItem.id, payload);
+                setSchedules(prev => prev.map(s => s.id === editItem.id ? res.data : s));
+                showToast('Đã cập nhật ngày lịch trình!');
+            } else {
+                const res = await providerApi.createSchedule(service.id, payload);
+                setSchedules(prev => [...prev, res.data].sort((a, b) => a.day_number - b.day_number));
+                showToast('Đã thêm ngày mới!');
+            }
+            setShowForm(false);
+        } catch {
+            showToast('Lỗi lưu dữ liệu', 'error');
+        } finally { setSaving(false); }
+    };
+
+    const handleDelete = async () => {
+        try {
+            await providerApi.deleteSchedule(service.id, confirmDel.id);
+            setSchedules(prev => prev.filter(s => s.id !== confirmDel.id));
+            showToast('Đã xóa ngày lịch trình.');
+        } catch { showToast('Lỗi xóa', 'error'); }
+        finally { setConfirmDel(null); }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[110]" onClick={onClose}>
+            <div className="bg-white rounded-[2rem] w-[680px] max-h-[85vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                            <CalendarDays size={22} className="text-sky-500" />
+                            Lịch trình Tour
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                            <p className="text-sm text-slate-400 font-medium">{service.name}</p>
+                            {maxDays !== Infinity && (
+                                <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${
+                                    schedules.length >= maxDays
+                                        ? 'bg-rose-50 text-rose-500'
+                                        : 'bg-sky-50 text-sky-600'
+                                }`}>
+                                    {schedules.length}/{maxDays} ngày
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={openCreate}
+                            disabled={!canAddMore}
+                            title={!canAddMore ? `Đã đủ ${maxDays} ngày lịch trình` : 'Thêm ngày'}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                                canAddMore
+                                    ? 'bg-sky-600 text-white hover:bg-sky-700'
+                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            }`}
+                        >
+                            <Plus size={16} /> Thêm ngày
+                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
+                    </div>
+                </div>
+
+                {/* Form thêm/sửa */}
+                {showForm && (
+                    <form onSubmit={handleSave} className="px-8 py-5 bg-sky-50 border-b border-sky-100">
+                        <h4 className="text-sm font-black text-sky-700 mb-4">{editItem ? `Sửa Ngày ${editItem.day_number}` : 'Thêm ngày mới'}</h4>
+                        <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày số *</label>
+                                <input required type="number" min="1" value={form.day_number}
+                                    onChange={e => setForm({ ...form, day_number: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20" />
+                            </div>
+                        <div className="mt-3">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tiêu đề ngày *</label>
+                            <input required value={form.title}
+                                onChange={e => setForm({ ...form, title: e.target.value })}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                                placeholder="VD: Đà Nẵng - Bà Nà Hills" />
+                        </div>
+                        <div className="mt-3">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mô tả hoạt động</label>
+                            <textarea rows={3} value={form.description}
+                                onChange={e => setForm({ ...form, description: e.target.value })}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                                placeholder="Chi tiết các hoạt động trong ngày..." />
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                            <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold">Hủy</button>
+                            <button type="submit" disabled={saving} className="flex-1 py-2 bg-sky-600 text-white rounded-xl text-sm font-black disabled:opacity-60">
+                                {saving ? <Loader2 size={16} className="animate-spin mx-auto" /> : (editItem ? 'Cập nhật' : 'Thêm ngày')}
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                {/* Danh sách */}
+                <div className="flex-1 overflow-y-auto px-8 py-5 space-y-3">
+                    {loading ? (
+                        <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-sky-500" size={32} /></div>
+                    ) : schedules.length === 0 ? (
+                        <div className="py-12 text-center text-slate-400">
+                            <CalendarDays size={40} className="mx-auto mb-3 opacity-30" />
+                            <p className="font-bold">Chưa có lịch trình nào.</p>
+                            <p className="text-sm mt-1">Nhấn "Thêm ngày" để bắt đầu tạo lịch trình.</p>
+                        </div>
+                    ) : (
+                        schedules.sort((a, b) => a.day_number - b.day_number).map(s => (
+                            <div key={s.id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
+                                <div className="w-10 h-10 bg-sky-600 text-white rounded-2xl flex items-center justify-center font-black text-sm flex-shrink-0 shadow-lg shadow-sky-200">{s.day_number}</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-black text-slate-800 text-sm">{s.title}</p>
+                                        {s.time && <span className="text-xs font-bold text-sky-500 bg-sky-50 px-2 py-0.5 rounded-lg">{s.time}</span>}
+                                    </div>
+                                    {s.description && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{s.description}</p>}
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button onClick={() => openEdit(s)} className="p-1.5 hover:bg-sky-100 text-slate-400 hover:text-sky-600 rounded-xl"><Edit3 size={14} /></button>
+                                    <button onClick={() => setConfirmDel(s)} className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl"><Trash2 size={14} /></button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+            {confirmDel && <ConfirmModal message={`Xóa Ngày ${confirmDel.day_number}: "${confirmDel.title}"?`} onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />}
+        </div>
+    );
+};
+
+// ============================================================================
+// AMENITIES MODAL (tiện nghi / bao gồm / không bao gồm)
+// ============================================================================
+const AmenitiesModal = ({ service, onClose, showToast, onSaved }) => {
+    const [form, setForm] = useState({
+        amenities: (service.amenities || []).join('\n'),
+        includes: (service.includes || []).join('\n'),
+        excludes: (service.excludes || []).join('\n'),
+        tags: (service.tags || []).join('\n'),
+    });
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const payload = {
+                amenities: form.amenities.split('\n').map(s => s.trim()).filter(Boolean),
+                includes: form.includes.split('\n').map(s => s.trim()).filter(Boolean),
+                excludes: form.excludes.split('\n').map(s => s.trim()).filter(Boolean),
+                tags: form.tags.split('\n').map(s => s.trim()).filter(Boolean),
+            };
+            await providerApi.updateAmenities(service.id, payload);
+            showToast('Đã lưu tiện nghi dịch vụ!');
+            onSaved(payload);
+            onClose();
+        } catch {
+            showToast('Lỗi khi lưu', 'error');
+        } finally { setSaving(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[110]" onClick={onClose}>
+            <div className="bg-white rounded-[2rem] w-[720px] max-h-[85vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                            <Star size={22} className="text-amber-500" />
+                            Tiện nghi & Chi tiết
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-0.5 font-medium">{service.name}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                        {/* Bao gồm */}
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-wider mb-2 text-emerald-600">✅ Bao gồm</label>
+                            <p className="text-[10px] text-slate-400 mb-2 font-medium">Mỗi mục một dòng</p>
+                            <textarea rows={5}
+                                value={form.includes}
+                                onChange={e => setForm(f => ({ ...f, includes: e.target.value }))}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                placeholder={"Bữa sáng\nVé vào cửa\nHướng dẫn viên"}
+                            />
+                        </div>
+                        {/* Không bao gồm */}
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-wider mb-2 text-rose-500">❌ Không bao gồm</label>
+                            <p className="text-[10px] text-slate-400 mb-2 font-medium">Mỗi mục một dòng</p>
+                            <textarea rows={5}
+                                value={form.excludes}
+                                onChange={e => setForm(f => ({ ...f, excludes: e.target.value }))}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                                placeholder={"Vé máy bay\nChi phí cá nhân\nBảo hiểm du lịch"}
+                            />
+                        </div>
+                    </div>
+                    {/* Tiện nghi */}
+                    <div>
+                        <label className="block text-xs font-black uppercase tracking-wider mb-2 text-sky-600">🌟 Tiện nghi (Khách sạn/Homestay)</label>
+                        <p className="text-[10px] text-slate-400 mb-2 font-medium">Mỗi mục một dòng</p>
+                        <textarea rows={5}
+                            value={form.amenities}
+                            onChange={e => setForm(f => ({ ...f, amenities: e.target.value }))}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                            placeholder={"WiFi miễn phí\nHồ bơi\nSân tập gym\nĐiều hòa"}
+                        />
+                    </div>
+                    {/* Tags */}
+                    <div>
+                        <label className="block text-xs font-black uppercase tracking-wider mb-2 text-purple-600">🏷️ Tags (từ khóa tìm kiếm)</label>
+                        <p className="text-[10px] text-slate-400 mb-2 font-medium">Mỗi mục một dòng</p>
+                        <textarea rows={3}
+                            value={form.tags}
+                            onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                            placeholder={"lịch sử\nthiên nhiên\ngia đình\nkỳ nghỉ"}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-4 px-8 py-5 border-t border-slate-100">
+                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold">Hủy</button>
+                    <button onClick={handleSave} disabled={saving} className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-black shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+                        {saving ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Lưu thay đổi'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 const MyServices = () => {
     const {
         services, locations, categories,
@@ -99,6 +376,10 @@ const MyServices = () => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
     const fileInputRef = useRef(null);
+
+    // Modals mới
+    const [scheduleService, setScheduleService] = useState(null);
+    const [amenitiesService, setAmenitiesService] = useState(null);
 
     const initialForm = {
         name: '', type: 'tour', category_id: '', location_id: '',
@@ -267,9 +548,7 @@ const MyServices = () => {
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Dịch vụ của tôi</h2>
-                        <p className="text-gray-500 text-sm mt-1 font-medium">
-                            Quản lý các dịch vụ bạn đang cung cấp.
-                        </p>
+                        <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý các dịch vụ bạn đang cung cấp.</p>
                     </div>
                     <button onClick={handleOpenCreate} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
                         <Plus size={18} /> Thêm dịch vụ
@@ -303,11 +582,13 @@ const MyServices = () => {
                     <>
                         <div className="grid gap-4">
                             {services.map(service => (
-                                <div key={service.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                                <div key={service.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-4 flex-1 min-w-0">
                                             <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
-                                                {service.media?.[0]?.url ? <img src={service.media[0].url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
+                                                {service.media?.[0]?.url
+                                                    ? <img src={service.media[0].url} className="w-full h-full object-cover" alt={service.name} />
+                                                    : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
                                             </div>
                                             <div>
                                                 <h3 className="text-sm font-black text-slate-900 truncate">{service.name}</h3>
@@ -320,14 +601,44 @@ const MyServices = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-6">
+                                        <div className="flex items-center gap-4">
                                             <div className="text-right">
                                                 <p className="text-lg font-black text-emerald-600">{Number(service.base_price).toLocaleString()}₫</p>
                                                 <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng'}</p>
                                             </div>
+
+                                            {/* Action buttons */}
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl"><Edit3 size={16} /></button>
-                                                <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl"><Trash2 size={16} /></button>
+                                                {/* Lịch trình - chỉ cho tour */}
+                                                {service.type === 'tour' && (
+                                                    <button
+                                                        onClick={() => setScheduleService(service)}
+                                                        title="Quản lý lịch trình"
+                                                        className="p-2 text-slate-300 hover:text-sky-600 hover:bg-sky-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                    >
+                                                        <CalendarDays size={15} />
+                                                        <span className="text-[9px] font-bold leading-none">Lịch trình</span>
+                                                    </button>
+                                                )}
+
+                                                {/* Tiện nghi - cho hotel/homestay và cả tour (includes/excludes) */}
+                                                <button
+                                                    onClick={() => setAmenitiesService(service)}
+                                                    title="Tiện nghi & Chi tiết"
+                                                    className="p-2 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                >
+                                                    <Star size={15} />
+                                                    <span className="text-[9px] font-bold leading-none">Tiện nghi</span>
+                                                </button>
+
+                                                <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5">
+                                                    <Edit3 size={15} />
+                                                    <span className="text-[9px] font-bold leading-none">Sửa</span>
+                                                </button>
+                                                <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl flex flex-col items-center gap-0.5">
+                                                    <Trash2 size={15} />
+                                                    <span className="text-[9px] font-bold leading-none">Xóa</span>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -340,6 +651,7 @@ const MyServices = () => {
                 )}
             </div>
 
+            {/* Modal Tạo/Sửa dịch vụ */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowModal(false)}>
                     <div className="bg-white rounded-[2.5rem] p-8 w-[720px] max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -354,7 +666,7 @@ const MyServices = () => {
                                 <div className="grid grid-cols-5 gap-3">
                                     {previewUrls.map((url, idx) => (
                                         <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border bg-slate-50 group">
-                                            <img src={url} className="w-full h-full object-cover" />
+                                            <img src={url} className="w-full h-full object-cover" alt="" />
                                             <button type="button" onClick={() => removeFile(idx)} className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all">
                                                 <X size={12} />
                                             </button>
@@ -373,58 +685,54 @@ const MyServices = () => {
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Tên dịch vụ *</label>
-                                    <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20" placeholder="VD: Tour Trekking Langbiang" />
+                                    <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:outline-none" placeholder="VD: Tour Trekking Langbiang" />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                    <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="tour">🗺️ Tour du lịch</option>
                                         <option value="hotel">🏨 Khách sạn</option>
                                         <option value="homestay">🏡 Homestay</option>
                                         <option value="vehicle">🚌 Phương tiện</option>
                                     </select>
-                                    <select required value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                    <select required value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="">-- Danh mục --</option>
                                         {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                                     </select>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <select required value={form.location_id} onChange={e => setForm({...form, location_id: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                    <select required value={form.location_id} onChange={e => setForm({ ...form, location_id: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="">-- Địa điểm --</option>
                                         {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                                     </select>
-                                    <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Địa chỉ chi tiết" />
+                                    <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Địa chỉ chi tiết" />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex items-center gap-2">
                                         <input type="number" value={form.duration_days} onChange={e => {
                                             const days = e.target.value;
-                                            setForm({
-                                                ...form,
-                                                duration_days: days,
-                                                duration_nights: days && Number(days) > 0 ? String(Number(days) - 1) : form.duration_nights
-                                            });
-                                        }} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Số ngày (VD: 3)" />
+                                            setForm({ ...form, duration_days: days, duration_nights: days && Number(days) > 0 ? String(Number(days) - 1) : form.duration_nights });
+                                        }} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Số ngày (VD: 3)" />
                                         <span className="text-xs font-bold text-slate-400">Ngày</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <input type="number" value={form.duration_nights} onChange={e => setForm({...form, duration_nights: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Số đêm (VD: 2)" />
+                                        <input type="number" value={form.duration_nights} onChange={e => setForm({ ...form, duration_nights: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Số đêm (VD: 2)" />
                                         <span className="text-xs font-bold text-slate-400">Đêm</span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-4">
-                                    <input required type="number" value={form.base_price} onChange={e => setForm({...form, base_price: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Giá (VNĐ)" />
-                                    <select value={form.price_unit} onChange={e => setForm({...form, price_unit: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold">
+                                    <input required type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Giá (VNĐ)" />
+                                    <select value={form.price_unit} onChange={e => setForm({ ...form, price_unit: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="per_person">/ người</option>
                                         <option value="per_room">/ phòng</option>
                                     </select>
-                                    <input type="number" value={form.max_guests} onChange={e => setForm({...form, max_guests: e.target.value})} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold" placeholder="Khách tối đa" />
+                                    <input type="number" value={form.max_guests} onChange={e => setForm({ ...form, max_guests: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Khách tối đa" />
                                 </div>
 
-                                <textarea rows={4} value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold resize-none" placeholder="Mô tả dịch vụ..." />
+                                <textarea rows={4} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold resize-none focus:outline-none" placeholder="Mô tả dịch vụ..." />
                             </div>
 
                             <div className="flex gap-4 pt-4">
@@ -436,6 +744,25 @@ const MyServices = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Modal Lịch Trình */}
+            {scheduleService && (
+                <ScheduleModal
+                    service={scheduleService}
+                    onClose={() => setScheduleService(null)}
+                    showToast={showToast}
+                />
+            )}
+
+            {/* Modal Tiện Nghi */}
+            {amenitiesService && (
+                <AmenitiesModal
+                    service={amenitiesService}
+                    onClose={() => setAmenitiesService(null)}
+                    showToast={showToast}
+                    onSaved={() => doFetch(currentPage)}
+                />
             )}
 
             {confirmDelete && <ConfirmModal message={`Xóa dịch vụ "${confirmDelete.name}"?`} onConfirm={handleDeleteConfirm} onCancel={() => setConfirmDelete(null)} />}

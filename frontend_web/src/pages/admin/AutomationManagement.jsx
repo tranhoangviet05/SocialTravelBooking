@@ -13,7 +13,6 @@ import {
     Loader2
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
-import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -63,8 +62,7 @@ const AutomationManagement = () => {
     };
 
     return (
-        <AdminLayout>
-            <div className="space-y-8">
+        <div className="space-y-8">
                 <div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">Tự động hóa (n8n Workflow)</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý các kịch bản Marketing và Chăm sóc khách hàng tự động thông qua n8n.</p>
@@ -189,9 +187,8 @@ const AutomationManagement = () => {
                             </div>
                         </div>
                     ))}
-                </div>
             </div>
-        </AdminLayout>
+        </div>
     );
 };
 

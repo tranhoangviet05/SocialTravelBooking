@@ -30,9 +30,9 @@ const AMENITY_ICONS = {
 const getAmenityIcon = (text) => {
     const lower = (text || '').toLowerCase();
     for (const [key, Icon] of Object.entries(AMENITY_ICONS)) {
-        if (lower.includes(key)) return <Icon size={16} />;
+        if (lower.includes(key)) return Icon;
     }
-    return <CheckCircle2 size={16} />;
+    return CheckCircle2;
 };
 
 const Tab = ({ id, label, active, onClick }) => (
@@ -78,7 +78,7 @@ const AmenityBadge = ({ text }) => {
     const Icon = getAmenityIcon(text);
     return (
         <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-sky-500"><Icon /></span>
+            <span className="text-sky-500"><Icon size={16} /></span>
             <span className="text-sm font-medium text-slate-700">{text}</span>
         </div>
     );

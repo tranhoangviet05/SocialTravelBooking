@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Tag, RotateCw, Search, Loader2,
-    Edit2, Trash2, ExternalLink, ChevronLeft, ChevronRight
+    Edit2, Trash2, ExternalLink, ChevronLeft, ChevronRight,
+    Hotel, Map, Utensils, Car, Camera, Sunset, 
+    Palmtree, Bike, Waves, Compass, Landmark, Ticket
 } from 'lucide-react';
 import CategoryModal from '../../components/admin/category/CategoryModal';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAdminData } from '../../contexts/AdminDataContext';
 import adminApi from '../../api/adminApi';
+
+const ICON_MAP = {
+    Hotel, Map, Utensils, Car, Camera, Sunset, 
+    Palmtree, Bike, Waves, Compass, Landmark, Ticket, Tag
+};
 
 const Pagination = ({ meta, onPageChange }) => {
     if (!meta || meta.last_page <= 1) return null;
@@ -175,10 +182,13 @@ const CategoryManagement = () => {
                                             <td className="px-6 py-4"><span className="text-xs font-bold text-slate-400">#{cat.id}</span></td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 shadow-sm border border-slate-100">
-                                                        <Tag size={18} />
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+                                                        {(() => {
+                                                            const IconComp = ICON_MAP[cat.icon] || Tag;
+                                                            return <IconComp size={18} />;
+                                                        })()}
                                                     </div>
-                                                    <p className="font-bold text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{cat.name}</p>
+                                                    <p className="font-bold text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors uppercase text-xs tracking-wider">{cat.name}</p>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

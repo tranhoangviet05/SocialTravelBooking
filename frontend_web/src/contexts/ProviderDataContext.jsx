@@ -164,19 +164,28 @@ export const ProviderDataProvider = ({ children }) => {
     }, [loadedStates.settings]);
 
     const fetchSystemData = useCallback(async (force = false) => {
-        if (loadedStates.system && !force) return;
+        if (loadedStates.system && !force && locations.length > 0) return;
         setOneLoading('system', true);
         try {
+            // Lấy toàn bộ địa điểm và danh mục (không phân trang)
             const [locRes, catRes] = await Promise.all([
                 providerApi.getPublicLocations(),
                 providerApi.getPublicCategories()
             ]);
-            if (locRes.success) setLocations(locRes.data);
-            if (catRes.success) setCategories(catRes.data);
+            
+            if (locRes.data) setLocations(locRes.data);
+            else if (locRes.success) setLocations(locRes.data || []);
+
+            if (catRes.data) setCategories(catRes.data); 
+            else if (catRes.success) setCategories(catRes.data || []);
+
             setOneLoaded('system', true);
-        } catch (err) { console.error('ProviderData: fetchSystemData error', err); }
-        finally { setOneLoading('system', false); }
-    }, [loadedStates.system]);
+        } catch (err) { 
+            console.error('ProviderData: fetchSystemData error', err); 
+        } finally { 
+            setOneLoading('system', false); 
+        }
+    }, [loadedStates.system, locations.length]);
 
     const reloadAll = useCallback(async () => {
         await Promise.all([

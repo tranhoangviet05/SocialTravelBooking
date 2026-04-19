@@ -7,6 +7,7 @@ import { AdminDataProvider } from './contexts/AdminDataContext';
 import { ProviderDataProvider } from './contexts/ProviderDataContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
+import AdminLayout from './components/admin/AdminLayout';
 import ProviderLayout from './components/provider/ProviderLayout';
 import PlaceholderContent from './components/common/PlaceholderContent';
 import HomePage from './pages/tourist/Home';
@@ -90,7 +91,11 @@ function App() {
                   </Route>
 
                   {/* === HỆ THỐNG QUẢN TRỊ (ADMIN) === */}
-                  <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                  <Route element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <AdminLayout />
+                    </ProtectedRoute>
+                  }>
                     <Route path={API_ENDPOINTS.ADMIN_DASHBOARD} element={<DashboardManagement />} />
                     <Route path={API_ENDPOINTS.LOCATIONS_ADMIN} element={<LocationManagement />} />
                     <Route path={API_ENDPOINTS.CATEGORIES_ADMIN} element={<CategoryManagement />} />

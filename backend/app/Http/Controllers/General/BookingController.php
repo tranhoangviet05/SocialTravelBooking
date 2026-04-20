@@ -23,7 +23,7 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'service_id'   => 'required|integer|exists:services,id',
+            'service_id'   => 'required|uuid|exists:services,id',
             'check_in_date' => 'required|date|after_or_equal:today',
             'check_out_date' => 'nullable|date|after:check_in_date',
             'num_adults'  => 'required|integer|min:1|max:50',
@@ -33,7 +33,7 @@ class BookingController extends Controller
             'contact_phone' => 'required|string|max:20',
             'special_requests' => 'nullable|string|max:1000',
             'coupon_code'  => 'nullable|string|max:50',
-            'payment_method' => 'required|in:wallet,momo,vnpay,banking',
+            'payment_method' => 'required|in:wallet,momo,vnpay,banking,sepay',
         ]);
 
         try {
@@ -75,10 +75,10 @@ class BookingController extends Controller
             $totalAmount = max(0, $subtotal - $discountAmount);
 
             // Tạo booking
-            $booking = DB::transaction(function () use ($request, $service, $adultCount, $childCount, $subtotal, $discountAmount, $totalAmount, $appliedCoupon) {
+            $booking = DB::transaction(function () use ($request, $service, $adultCount, $childCount, $subtotal, $discountAmount, $totalAmount, $appliedCoupon, $basePrice) {
                 $booking = Booking::create([
                     'booking_code' => 'BK-' . strtoupper(Str::random(6)) . '-' . date('ymd'),
-                    'user_id' => $request->input('user.id'),
+                    'user_id' => $request->user->id,
                     'service_id' => $service->id,
                     'provider_id' => $service->provider_id,
                     'check_in_date' => $request->check_in_date,
@@ -92,6 +92,7 @@ class BookingController extends Controller
                     'coupon_id' => $appliedCoupon?->id,
                     'coupon_code' => $appliedCoupon?->code,
                     'discount_amount' => $discountAmount,
+                    'unit_price' => $basePrice,
                     'subtotal' => $subtotal,
                     'total_amount' => $totalAmount,
                     'payment_method' => $request->payment_method,
@@ -127,7 +128,7 @@ class BookingController extends Controller
      */
     public function myBookings(Request $request)
     {
-        $userId = $request->input('user.id');
+        $userId = $request->user->id;
 
         $bookings = Booking::with(['service:id,name,slug,type,base_price,images'])
             ->where('user_id', $userId)

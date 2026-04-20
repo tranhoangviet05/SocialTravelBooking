@@ -75,6 +75,25 @@ const SepayQRPanel = ({ paymentData, onPollingSuccess, bookingId }) => {
     const intervalRef = useRef(null);
     const pollRef = useRef(null);
 
+    // Kiểm tra thủ công khi bấm nút
+    const handleManualCheck = async () => {
+        if (polling) return;
+        setPolling(true);
+        try {
+            const res = await bookingApi.checkPaymentStatus(bookingId);
+            if (res?.data?.payment_status === 'paid') {
+                setStatus('confirmed');
+                onPollingSuccess(res.data);
+            } else {
+                alert('Hệ thống chưa ghi nhận thanh toán của bạn. Vui lòng đợi trong giây lát hoặc liên hệ hỗ trợ.');
+            }
+        } catch (err) {
+            console.error('Manual check error:', err);
+        } finally {
+            setPolling(false);
+        }
+    };
+
     // Đếm ngược thời gian
     useEffect(() => {
         intervalRef.current = setInterval(() => {
@@ -201,9 +220,19 @@ const SepayQRPanel = ({ paymentData, onPollingSuccess, bookingId }) => {
             </div>
 
             {/* Auto check indicator */}
-            <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                <div className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-                Đang tự động kiểm tra trạng thái thanh toán...
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+                    <div className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                    Đang tự động kiểm tra trạng thái thanh toán...
+                </div>
+                <button
+                    onClick={handleManualCheck}
+                    disabled={polling}
+                    className="w-full flex items-center justify-center gap-2 py-3 mt-1 bg-white border border-slate-200 hover:border-sky-500 hover:bg-sky-50 text-slate-600 hover:text-sky-600 font-bold rounded-2xl text-xs transition-all disabled:opacity-50"
+                >
+                    {polling ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
+                    {polling ? 'Đang kiểm tra...' : 'Tôi đã chuyển khoản thành công — Nhấn để kiểm tra ngay'}
+                </button>
             </div>
         </div>
     );

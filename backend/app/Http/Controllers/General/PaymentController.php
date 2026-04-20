@@ -24,7 +24,7 @@ class PaymentController extends Controller
             'payment_method'  => 'required|in:sepay,wallet',
         ]);
 
-        $userId  = $request->input('user.id');
+        $userId  = $request->user->id;
         $booking = Booking::where('id', $request->booking_id)
             ->where('user_id', $userId)
             ->where('payment_status', 'pending')
@@ -144,8 +144,14 @@ class PaymentController extends Controller
      */
     public function sepayWebhook(Request $request)
     {
+        // Ghi log ngay lập tức để debug
+        Log::info('--- SEPAY WEBHOOK START ---');
+        Log::info('Headers:', $request->headers->all());
+        Log::info('Payload:', $request->all());
+
+        $data = $request->all();
+
         // Xác thực token bí mật từ SePay
-        // SePay gửi header: Authorization: Apikey <mã_token>
         $webhookToken = env('SEPAY_WEBHOOK_TOKEN', '');
         $authHeader = $request->header('Authorization');
 
@@ -156,29 +162,36 @@ class PaymentController extends Controller
             }
         }
 
-        $data = $request->all();
-        Log::info('SePay webhook received:', $data);
-
         // SePay gửi: transferAmount, transferContent, transactionDate, referenceCode, ...
         $content      = $data['transferContent'] ?? $data['content'] ?? '';
         $amount       = (float) ($data['transferAmount'] ?? $data['amount'] ?? 0);
 
         // Tìm booking từ nội dung chuyển khoản
-        preg_match('/BK-[A-Z0-9]+-\d+/i', $content, $matches);
-        $bookingCode = $matches[0] ?? null;
+        // Regex linh hoạt: tìm chuỗi bắt đầu bằng BK, theo sau là chữ cái và số (có thể có hoặc không có dấu gạch ngang)
+        preg_match('/BK-?[A-Z0-9]+-?\d+/i', $content, $matches);
+        $rawBookingCode = $matches[0] ?? null;
 
-        if (!$bookingCode) {
+        if (!$rawBookingCode) {
             Log::info('SePay webhook: No booking code found in content: ' . $content);
-            return response()->json(['success' => true, 'message' => 'Không tìm thấy mã đặt chỗ']); // 200 để SePay không retry
+            return response()->json(['success' => true, 'message' => 'Không tìm thấy mã đặt chỗ']);
         }
 
-        $booking = Booking::where('booking_code', $bookingCode)
+        // Tìm đơn hàng: thử khớp chính xác trước, nếu không được thì thử xóa dấu gạch ngang
+        $booking = Booking::where('booking_code', $rawBookingCode)
             ->where('payment_status', 'pending')
             ->first();
 
         if (!$booking) {
-            Log::info('SePay webhook: Booking not found or already paid: ' . $bookingCode);
-            return response()->json(['success' => true, 'message' => 'Đã xử lý']);
+            // Thử tìm bằng cách xóa dấu gạch ngang (dành cho trường hợp ngân hàng tự xóa dấu -)
+            $normalizedCode = str_replace('-', '', $rawBookingCode);
+            $booking = Booking::whereRaw("REPLACE(booking_code, '-', '') = ?", [$normalizedCode])
+                ->where('payment_status', 'pending')
+                ->first();
+        }
+
+        if (!$booking) {
+            Log::info('SePay webhook: Booking not found or already paid: ' . $rawBookingCode);
+            return response()->json(['success' => true, 'message' => 'Đã xử lý hoặc không tìm thấy']);
         }
 
         // Kiểm tra số tiền (cho phép sai lệch 1000 VND)
@@ -192,7 +205,7 @@ class PaymentController extends Controller
 
         // Cập nhật trạng thái booking
         DB::transaction(function () use ($booking, $data) {
-            $booking->payment_method = 'momo'; // map sepay -> momo trong enum hiện tại
+            $booking->payment_method = 'sepay';
             $booking->payment_status = 'paid';
             $booking->paid_at        = now();
             $booking->status         = 'confirmed';
@@ -211,7 +224,7 @@ class PaymentController extends Controller
      */
     public function checkStatus(Request $request, string $bookingId)
     {
-        $userId  = $request->input('user.id');
+        $userId  = $request->user->id;
         $booking = Booking::where('id', $bookingId)
             ->where('user_id', $userId)
             ->select(['id', 'booking_code', 'payment_status', 'status', 'paid_at', 'total_amount'])
@@ -240,7 +253,7 @@ class PaymentController extends Controller
      */
     public function walletBalance(Request $request)
     {
-        $userId = $request->input('user.id');
+        $userId = $request->user->id;
         $wallet = Wallet::where('user_id', $userId)->first();
 
         return response()->json([

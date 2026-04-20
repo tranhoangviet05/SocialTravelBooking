@@ -72,16 +72,18 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/auth/post/sync-social-profile', [\App\Http\Controllers\Social\SocialController::class, 'syncSocialProfile']);
 
     // ===========================================================
-    // TOURIST ROUTES (Khách du lịch)
+    // TOURIST ROUTES (Khách du lịch - Cần User Model)
     // ===========================================================
-    Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
-    Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
-    Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
+    Route::middleware('role:tourist,provider,admin')->group(function () {
+        Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
+        Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
+        Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
 
-    // Payment routes (Tourist)
-    Route::post('/payment/initiate', [\App\Http\Controllers\General\PaymentController::class, 'initiate']);
-    Route::get('/payment/status/{bookingId}', [\App\Http\Controllers\General\PaymentController::class, 'checkStatus']);
-    Route::get('/wallet/balance', [\App\Http\Controllers\General\PaymentController::class, 'walletBalance']);
+        // Payment routes
+        Route::post('/payment/initiate', [\App\Http\Controllers\General\PaymentController::class, 'initiate']);
+        Route::get('/payment/status/{bookingId}', [\App\Http\Controllers\General\PaymentController::class, 'checkStatus']);
+        Route::get('/wallet/balance', [\App\Http\Controllers\General\PaymentController::class, 'walletBalance']);
+    });
 
     // ===========================================================
     // ADMIN ROUTES (Quản trị viên)

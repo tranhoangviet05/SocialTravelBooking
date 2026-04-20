@@ -7,6 +7,7 @@ use App\Http\Requests\General\LocationRequest;
 use App\Http\Resources\General\LocationResource;
 use App\Services\LocationService;
 use Illuminate\Http\Request;
+use App\Models\Location;
 
 class LocationController extends Controller
 {
@@ -41,6 +42,15 @@ class LocationController extends Controller
         }
         if (!empty($filters['root_only'])) {
             $query->whereNull('parent_id');
+        }
+
+        // Nếu yêu cầu tất cả (không phân trang)
+        if ($request->has('all')) {
+            $data = $query->orderBy('name', 'asc')->get();
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
         }
 
         $paginated = $query->orderBy('name', 'asc')->paginate($perPage, ['*'], 'page', $page);

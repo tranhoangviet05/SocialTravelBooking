@@ -15,7 +15,6 @@ import {
     ShieldOff
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
-import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -127,8 +126,7 @@ const ReportManagement = () => {
     };
 
     return (
-        <AdminLayout>
-            <div className="space-y-6">
+        <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Báo cáo & Vi phạm</h2>
@@ -237,7 +235,6 @@ const ReportManagement = () => {
                         )}
                     </>
                 )}
-            </div>
 
             {/* Resolve Modal */}
             {resolveModal.open && (
@@ -367,7 +364,7 @@ const ReportManagement = () => {
                     to { opacity: 1; transform: scale(1) translateY(0); }
                 }
             `}</style>
-        </AdminLayout>
+        </div>
     );
 };
 

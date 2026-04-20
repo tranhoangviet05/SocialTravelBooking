@@ -176,7 +176,7 @@ const LocationManagement = () => {
                                     <tr className="bg-slate-50/50">
                                         <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">ID</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">Địa điểm</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">Slug</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">Quốc gia</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Phổ biến</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Thao tác</th>
                                     </tr>
@@ -187,17 +187,26 @@ const LocationManagement = () => {
                                             <td className="px-6 py-4"><span className="text-xs font-bold text-slate-400">#{loc.id}</span></td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 shadow-sm border border-slate-100">
-                                                        <MapPin size={18} />
+                                                    <div className="w-12 h-12 rounded-xl bg-slate-50 overflow-hidden shadow-sm border border-slate-100 flex items-center justify-center">
+                                                        {loc.image_url ? (
+                                                            <img src={loc.image_url} alt={loc.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <MapPin size={18} className="text-slate-300" />
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{loc.name}</p>
-                                                        {loc.parent && <p className="text-xs text-slate-400 mt-0.5">{loc.parent.name}</p>}
+                                                        <p className="font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors uppercase text-xs">{loc.name}</p>
+                                                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">/{loc.slug}</p>
+                                                        {loc.parent && <p className="text-[10px] text-indigo-400 font-bold mt-1 uppercase flex items-center gap-1">
+                                                            <ChevronRight size={10} /> {loc.parent.name}
+                                                        </p>}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded-md text-slate-600">{loc.slug}</span>
+                                                <span className="text-xs font-black px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 uppercase">
+                                                    {loc.country_code || 'VN'}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 {loc.is_popular ? <Star size={16} className="inline fill-amber-500 text-amber-500" /> : <span className="text-slate-300 text-sm">—</span>}

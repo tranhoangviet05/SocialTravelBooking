@@ -42,6 +42,12 @@ Route::get('/general/get/services', [ServiceController::class, 'index']);
 Route::get('/general/get/services/detail/{slug}', [ServiceController::class, 'show']);
 Route::get('/general/get/services/latest', [ServiceController::class, 'latest']);
 
+// Mã giảm giá (Public)
+Route::get('/general/get/coupons', [\App\Http\Controllers\General\CouponController::class, 'index']);
+
+// Webhook SePay (Public - không cần auth, SePay gọi vào)
+Route::post('/payment/sepay/webhook', [\App\Http\Controllers\General\PaymentController::class, 'sepayWebhook']);
+
 // ========================
 // ROUTE BẢO VỆ (yêu cầu Firebase Auth)
 // ========================
@@ -70,11 +76,20 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/auth/post/sync-social-profile', [\App\Http\Controllers\Social\SocialController::class, 'syncSocialProfile']);
 
     // ===========================================================
-    // TOURIST ROUTES (Khách du lịch)
+    // TOURIST ROUTES (Khách du lịch - Cần User Model)
     // ===========================================================
-    Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
-    Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
-    Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
+    Route::middleware('role:tourist,provider,admin')->group(function () {
+        Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
+        Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
+        Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
+        Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
+
+        // Payment routes
+        Route::post('/payment/initiate', [\App\Http\Controllers\General\PaymentController::class, 'initiate']);
+        Route::get('/payment/status/{bookingId}', [\App\Http\Controllers\General\PaymentController::class, 'checkStatus']);
+        Route::get('/wallet/balance', [\App\Http\Controllers\General\PaymentController::class, 'walletBalance']);
+        Route::post('/coupons/apply', [\App\Http\Controllers\General\CouponController::class, 'apply']);
+    });
 
     // ===========================================================
     // ADMIN ROUTES (Quản trị viên)
@@ -173,6 +188,15 @@ Route::middleware('firebase.auth')->group(function () {
         Route::get('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'show']);
         Route::put('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'update']);
         Route::delete('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroy']);
+
+        // --- Lịch trình dịch vụ (Tour) ---
+        Route::get('/services/{id}/schedules', [\App\Http\Controllers\Provider\ServiceController::class, 'getSchedules']);
+        Route::post('/services/{id}/schedules', [\App\Http\Controllers\Provider\ServiceController::class, 'storeSchedule']);
+        Route::put('/services/{id}/schedules/{scheduleId}', [\App\Http\Controllers\Provider\ServiceController::class, 'updateSchedule']);
+        Route::delete('/services/{id}/schedules/{scheduleId}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroySchedule']);
+
+        // --- Tiện nghi / Bao gồm / Không bao gồm ---
+        Route::put('/services/{id}/amenities', [\App\Http\Controllers\Provider\ServiceController::class, 'updateAmenities']);
 
         // --- Quản lý Đơn đặt chỗ ---
         Route::get('/bookings', [\App\Http\Controllers\Provider\BookingController::class, 'index']);

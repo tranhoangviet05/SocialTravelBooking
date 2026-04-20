@@ -23,7 +23,7 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'service_id'   => 'required|integer|exists:services,id',
+            'service_id'   => 'required|uuid|exists:services,id',
             'check_in_date' => 'required|date|after_or_equal:today',
             'check_out_date' => 'nullable|date|after:check_in_date',
             'num_adults'  => 'required|integer|min:1|max:50',
@@ -33,7 +33,7 @@ class BookingController extends Controller
             'contact_phone' => 'required|string|max:20',
             'special_requests' => 'nullable|string|max:1000',
             'coupon_code'  => 'nullable|string|max:50',
-            'payment_method' => 'required|in:wallet,momo,vnpay,banking',
+            'payment_method' => 'required|in:wallet,momo,vnpay,banking,sepay',
         ]);
 
         try {
@@ -50,22 +50,17 @@ class BookingController extends Controller
             $appliedCoupon = null;
             if ($request->coupon_code) {
                 $coupon = Coupon::where('code', $request->coupon_code)
-                    ->where('is_active', true)
-                    ->whereNull('expires_at')
-                    ->first()
-                    ?? Coupon::where('code', $request->coupon_code)
-                        ->where('is_active', true)
-                        ->where('expires_at', '>', now())
-                        ->first();
+                    ->where(function ($query) {
+                        $query->whereNull('valid_until')
+                              ->orWhere('valid_until', '>', now());
+                    })
+                    ->first();
 
-                if ($coupon) {
-                    $coupon->increment('usage_count');
+                if ($coupon && (!$coupon->usage_limit || $coupon->used_count < $coupon->usage_limit)) {
+                    $coupon->increment('used_count');
                     $appliedCoupon = $coupon;
-                    if ($coupon->discount_type === 'percent') {
+                    if ($coupon->type === 'percent') {
                         $discountAmount = (int) ($subtotal * $coupon->discount_value / 100);
-                        if ($coupon->max_discount && $discountAmount > $coupon->max_discount) {
-                            $discountAmount = $coupon->max_discount;
-                        }
                     } else {
                         $discountAmount = (int) $coupon->discount_value;
                     }
@@ -75,10 +70,10 @@ class BookingController extends Controller
             $totalAmount = max(0, $subtotal - $discountAmount);
 
             // Tạo booking
-            $booking = DB::transaction(function () use ($request, $service, $adultCount, $childCount, $subtotal, $discountAmount, $totalAmount, $appliedCoupon) {
+            $booking = DB::transaction(function () use ($request, $service, $adultCount, $childCount, $subtotal, $discountAmount, $totalAmount, $appliedCoupon, $basePrice) {
                 $booking = Booking::create([
                     'booking_code' => 'BK-' . strtoupper(Str::random(6)) . '-' . date('ymd'),
-                    'user_id' => $request->input('user.id'),
+                    'user_id' => $request->user->id,
                     'service_id' => $service->id,
                     'provider_id' => $service->provider_id,
                     'check_in_date' => $request->check_in_date,
@@ -92,6 +87,7 @@ class BookingController extends Controller
                     'coupon_id' => $appliedCoupon?->id,
                     'coupon_code' => $appliedCoupon?->code,
                     'discount_amount' => $discountAmount,
+                    'unit_price' => $basePrice,
                     'subtotal' => $subtotal,
                     'total_amount' => $totalAmount,
                     'payment_method' => $request->payment_method,
@@ -127,9 +123,9 @@ class BookingController extends Controller
      */
     public function myBookings(Request $request)
     {
-        $userId = $request->input('user.id');
+        $userId = $request->user->id;
 
-        $bookings = Booking::with(['service:id,name,slug,type,base_price,images'])
+        $bookings = Booking::with(['service.media'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -142,14 +138,16 @@ class BookingController extends Controller
                         'name' => $bk->service->name,
                         'slug' => $bk->service->slug,
                         'type' => $bk->service->type,
-                        'price' => $bk->service->base_price ?? $bk->service->price,
-                        'image' => is_array($bk->service->images) ? ($bk->service->images[0] ?? null) : null,
+                        'price' => $bk->service->base_price,
+                        'image' => (count($bk->service->media) > 0) ? $bk->service->media[0]->url : null,
                     ] : null,
                     'check_in_date' => $bk->check_in_date,
                     'check_out_date' => $bk->check_out_date,
                     'num_adults' => $bk->num_adults,
                     'num_children' => $bk->num_children,
                     'total_amount' => $bk->total_amount,
+                    'contact_name' => $bk->contact_name,
+                    'contact_phone' => $bk->contact_phone,
                     'payment_method' => $bk->payment_method,
                     'payment_status' => $bk->payment_status,
                     'status' => $bk->status,
@@ -160,6 +158,34 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'data' => $bookings
+        ]);
+    }
+
+    /**
+     * Hủy đơn đặt chỗ (Tourist)
+     * POST /api/user/bookings/{id}/cancel
+     */
+    public function cancel(Request $request, $id)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
+
+        if ($booking->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Chỉ có thể hủy đơn đặt chỗ đang ở trạng thái chờ xử lý.'
+            ], 400);
+        }
+
+        $booking->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+            'cancel_reason' => 'Người dùng yêu cầu hủy'
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hủy đơn đặt chỗ thành công.'
         ]);
     }
 }

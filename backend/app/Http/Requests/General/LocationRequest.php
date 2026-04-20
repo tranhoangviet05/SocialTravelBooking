@@ -27,7 +27,8 @@ class LocationRequest extends FormRequest
             'parent_id'   => 'nullable|integer|exists:locations,id',
             'image_url'   => 'nullable|string',
             'is_popular'  => 'nullable|boolean',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
+            'country_code' => 'nullable|string|max:5'
         ];
     }
 

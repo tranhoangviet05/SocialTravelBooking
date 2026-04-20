@@ -91,17 +91,15 @@ const PopularActivities = () => {
                     ))}
                 </div>
 
-                <div className="relative">
+                <div className="overflow-hidden">
                     <div 
-                        className="flex gap-6 transition-transform duration-500 ease-out"
-                        style={{ transform: `translateX(-${currentIndex * 26.5}%)` }}
+                        className="flex transition-transform duration-500 ease-out -mx-3"
+                        style={{ transform: `translateX(calc(-${currentIndex} * 25%))` }}
                     >
                         {filteredTours.map(tour => (
-                            <ServiceCard 
-                                key={tour.id} 
-                                service={tour} 
-                                className="min-w-[calc(25%-18px)]"
-                            />
+                            <div key={tour.id} className="w-1/4 shrink-0 px-3">
+                                <ServiceCard service={tour} />
+                            </div>
                         ))}
                     </div>
                 </div>

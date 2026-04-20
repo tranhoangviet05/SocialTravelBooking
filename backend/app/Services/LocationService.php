@@ -52,6 +52,10 @@ class LocationService
             }
             $dataLocation['slug'] = $slug;
         }
+
+        if (!isset($dataLocation['description'])) {
+            $dataLocation['description'] = '';
+        }
         
         return Location::create($dataLocation);
     }
@@ -66,6 +70,10 @@ class LocationService
 
         if (isset($dataLocation['name']) && empty($dataLocation['slug'])) {
             $dataLocation['slug'] = Str::slug($dataLocation['name']);
+        }
+
+        if (array_key_exists('description', $dataLocation) && $dataLocation['description'] === null) {
+            $dataLocation['description'] = '';
         }
 
         $location->update($dataLocation);

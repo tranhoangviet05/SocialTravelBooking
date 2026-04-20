@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class ProviderController extends Controller
 {
+
     /**
      * Lấy danh sách tất cả nhà cung cấp
      * GET /api/admin/providers

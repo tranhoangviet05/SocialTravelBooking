@@ -10,15 +10,36 @@ use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
+
     /**
      * Lấy danh sách tất cả người dùng
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::orderBy('created_at', 'desc')->get();
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
+
+        $query = User::orderBy('created_at', 'desc');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('display_name', 'ilike', "%{$search}%")
+                  ->orWhere('email', 'ilike', "%{$search}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage, ['*'], 'page', $page);
+
         return response()->json([
             'success' => true,
-            'data' => $users
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ]
         ]);
     }
 

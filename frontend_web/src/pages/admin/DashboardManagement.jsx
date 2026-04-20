@@ -21,32 +21,19 @@ import {
 import AdminMetricCard from '../../components/admin/AdminMetricCard';
 import AdminTable from '../../components/admin/AdminTable';
 import AdminLayout from '../../components/admin/AdminLayout';
-import adminApi from '../../api/adminApi';
+import { useAdminData } from '../../contexts/AdminDataContext';
 
 const DashboardManagement = () => {
-    const [dashboardData, setDashboardData] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const { 
+        stats: dashboardData, fetchStats, loadingStates 
+    } = useAdminData();
+
+    const loading = loadingStates.stats && !dashboardData;
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetchDashboard();
-    }, []);
-
-    const fetchDashboard = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await adminApi.getDashboardStats();
-            if (response.success) {
-                setDashboardData(response.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch dashboard:', err);
-            setError('Không thể tải dữ liệu Dashboard. Vui lòng thử lại.');
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchStats();
+    }, [fetchStats]);
 
     // Format số lớn thành dạng đọc được (ví dụ: 1200000 → 1.2M₫)
     const formatRevenue = (value) => {
@@ -173,7 +160,7 @@ const DashboardManagement = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={fetchDashboard}
+                            onClick={() => fetchStats(true)}
                             className="bg-white border border-gray-100 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
                         >
                             Làm mới dữ liệu
@@ -210,7 +197,7 @@ const DashboardManagement = () => {
 
                     <div className="h-[350px] w-full">
                         {revenue_chart && revenue_chart.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                            <ResponsiveContainer width="100%" height={350}>
                                 <AreaChart data={revenue_chart}>
                                     <defs>
                                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">

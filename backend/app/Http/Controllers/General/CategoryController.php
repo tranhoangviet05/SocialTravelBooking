@@ -21,13 +21,29 @@ class CategoryController extends Controller
      * Lấy danh sách danh mục
      * Endpoint: GET /api/general/get/categories
      */
-    public function index()
+    public function index(Request $request)
     {
-        $categories = $this->categoryService->getAllCategories();
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
 
-        return CategoryResource::collection($categories)->additional([
+        $query = Category::orderBy('name', 'asc');
+
+        if ($search) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+
+        $paginated = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
             'success' => true,
-            'message' => 'Lấy danh sách danh mục thành công'
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ]
         ]);
     }
 

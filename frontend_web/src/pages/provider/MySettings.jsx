@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useProviderData } from '../../contexts/ProviderDataContext';
 import { 
     Store, MapPin, Briefcase, Save, Loader2, 
     CheckCircle, AlertCircle, Building2, UserCircle
 } from 'lucide-react';
-import ProviderLayout from '../../components/provider/ProviderLayout';
 import providerApi from '../../api/providerApi';
 
 // --- Toast ---
@@ -18,7 +18,10 @@ const Toast = ({ message, type = 'success', onClose }) => {
 };
 
 const MySettings = () => {
-    const [loading, setLoading] = useState(true);
+    const { 
+        settings, fetchSettings, loadingStates, setSettings 
+    } = useProviderData();
+
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState(null);
     const [profile, setProfile] = useState({
@@ -28,23 +31,19 @@ const MySettings = () => {
         status: ''
     });
 
+    const loading = loadingStates.settings && !settings;
+
     useEffect(() => {
         fetchSettings();
-    }, []);
+    }, [fetchSettings]);
+
+    useEffect(() => {
+        if (settings) {
+            setProfile(settings);
+        }
+    }, [settings]);
 
     const showToast = (msg, type = 'success') => setToast({ message: msg, type });
-
-    const fetchSettings = async () => {
-        setLoading(true);
-        try {
-            const res = await providerApi.getSettings();
-            if (res.success) setProfile(res.data);
-        } catch (err) {
-            showToast('Lỗi khi tải thông tin cấu hình', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleUpdate = async (e) => {
         e.preventDefault();
@@ -67,12 +66,10 @@ const MySettings = () => {
 
     if (loading) {
         return (
-            <ProviderLayout>
-                <div className="flex flex-col items-center justify-center py-40">
-                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải cấu hình cửa hàng...</p>
-                </div>
-            </ProviderLayout>
+            <div className="flex flex-col items-center justify-center py-40">
+                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
+                <p className="text-slate-400 font-bold">Đang tải cấu hình cửa hàng...</p>
+            </div>
         );
     }
 
@@ -87,7 +84,7 @@ const MySettings = () => {
     };
 
     return (
-        <ProviderLayout>
+        <>
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -181,7 +178,7 @@ const MySettings = () => {
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <style>{`@keyframes slideInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
-        </ProviderLayout>
+        </>
     );
 };
 

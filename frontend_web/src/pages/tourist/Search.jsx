@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, MapPin, Star, X, ChevronDown, Grid, LayoutList } from 'lucide-react';
 import ServiceCard from '../../components/tourist/services/ServiceCard';
 import { MOCK_SERVICES, MOCK_LOCATIONS } from '../../data/mockServices';
+import axios from 'axios';
 
 const ALL_TYPES = [
     { value: 'all', label: 'Tất cả' },
@@ -39,12 +40,32 @@ const SearchPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Search & filter state
+    const [services, setServices] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedType, setSelectedType] = useState('all');
     const [selectedLocation, setSelectedLocation] = useState('all');
     const [selectedPriceRange, setSelectedPriceRange] = useState(0);
     const [selectedDuration, setSelectedDuration] = useState('all');
     const [minRating, setMinRating] = useState(0);
+
+    // Fetch services from API
+    useEffect(() => {
+        const fetchServices = async () => {
+            setLoading(true);
+            try {
+                const response = await axios.get('http://localhost:8000/api/general/get/services');
+                if (response.data.success) {
+                    setServices(response.data.data);
+                }
+            } catch (error) {
+                console.error("Lỗi khi tải danh sách dịch vụ:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchServices();
+    }, []);
 
     // Sync state with URL parameter 'type' when component mounts or URL changes
     useEffect(() => {
@@ -70,7 +91,7 @@ const SearchPage = () => {
 
     // Filter & sort logic
     const filteredServices = useMemo(() => {
-        let result = [...MOCK_SERVICES];
+        let result = [...services];
 
         // Text search
         if (searchQuery.trim()) {
@@ -78,8 +99,7 @@ const SearchPage = () => {
             result = result.filter(
                 (s) =>
                     s.name.toLowerCase().includes(q) ||
-                    s.location.toLowerCase().includes(q) ||
-                    s.highlights.some((h) => h.toLowerCase().includes(q))
+                    s.location?.name?.toLowerCase().includes(q)
             );
         }
 
@@ -90,19 +110,19 @@ const SearchPage = () => {
 
         // Location filter
         if (selectedLocation !== 'all') {
-            result = result.filter((s) => s.location_slug === selectedLocation);
+            result = result.filter((s) => s.location?.slug === selectedLocation);
         }
 
         // Price filter
         const range = PRICE_RANGES[selectedPriceRange];
         if (range.min > 0 || range.max < Infinity) {
-            result = result.filter((s) => s.price >= range.min && s.price <= range.max);
+            result = result.filter((s) => s.base_price >= range.min && s.base_price <= range.max);
         }
 
         // Duration filter
         if (selectedDuration !== 'all') {
             result = result.filter((s) => {
-                const days = parseInt(s.duration);
+                const days = s.duration_days || 1;
                 if (selectedDuration === '5') return days >= 5;
                 return days === parseInt(selectedDuration);
             });
@@ -110,29 +130,29 @@ const SearchPage = () => {
 
         // Rating filter
         if (minRating > 0) {
-            result = result.filter((s) => s.rating >= minRating);
+            result = result.filter((s) => (s.rating_avg || 0) >= minRating);
         }
 
         // Sort
         switch (sortBy) {
             case 'rating':
-                result.sort((a, b) => b.rating - a.rating);
+                result.sort((a, b) => (b.rating_avg || 0) - (a.rating_avg || 0));
                 break;
             case 'price_asc':
-                result.sort((a, b) => a.price - b.price);
+                result.sort((a, b) => a.base_price - b.base_price);
                 break;
             case 'price_desc':
-                result.sort((a, b) => b.price - a.price);
+                result.sort((a, b) => b.base_price - a.base_price);
                 break;
             case 'newest':
-                result.sort((a, b) => b.id - a.id);
+                result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 break;
             default:
-                result.sort((a, b) => b.soldCount - a.soldCount);
+                result.sort((a, b) => (b.total_bookings || 0) - (a.total_bookings || 0));
         }
 
         return result;
-    }, [searchQuery, selectedType, selectedLocation, selectedPriceRange, selectedDuration, minRating, sortBy]);
+    }, [services, searchQuery, selectedType, selectedLocation, selectedPriceRange, selectedDuration, minRating, sortBy]);
 
     const clearFilters = () => {
         setSearchQuery('');

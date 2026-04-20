@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useProviderData } from '../../contexts/ProviderDataContext';
 import {
     Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle
 } from 'lucide-react';
-import ProviderLayout from '../../components/provider/ProviderLayout';
 import providerApi from '../../api/providerApi';
 
 // --- Toast Component ---
@@ -64,29 +64,22 @@ const CancelModal = ({ bookingCode, onConfirm, onCancel, loading }) => {
 };
 
 const MyBookings = () => {
-    const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { 
+        bookings, fetchBookings, loadingStates, setBookings 
+    } = useProviderData();
+
     const [statusFilter, setStatusFilter] = useState('all');
     const [updatingId, setUpdatingId] = useState(null);
     const [toast, setToast] = useState(null);
     const [cancelModal, setCancelModal] = useState(null); // booking object
 
-    useEffect(() => { fetchBookings(); }, [statusFilter]);
+    const loading = loadingStates.bookings && bookings.length === 0;
+
+    useEffect(() => { 
+        fetchBookings(); 
+    }, [fetchBookings]);
 
     const showToast = (message, type = 'success') => setToast({ message, type });
-
-    const fetchBookings = async () => {
-        setLoading(true);
-        try {
-            const res = await providerApi.getBookings(statusFilter);
-            if (res.success) setBookings(res.data);
-        } catch (err) {
-            console.error('Fetch bookings error:', err);
-            showToast('Không thể tải danh sách đơn đặt chỗ', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleStatusUpdate = async (bookingId, newStatus, cancelReason = '') => {
         if (updatingId) return;
@@ -190,101 +183,99 @@ const MyBookings = () => {
     };
 
     return (
-        <ProviderLayout>
-            <div className="space-y-6">
-                {/* Header */}
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Lịch đặt chỗ</h2>
-                    <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý và xác nhận tất cả đơn đặt chỗ từ khách hàng.</p>
+        <div className="space-y-6">
+            {/* Header */}
+            <div>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Lịch đặt chỗ</h2>
+                <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý và xác nhận tất cả đơn đặt chỗ từ khách hàng.</p>
+            </div>
+
+            {/* Status Filter Tabs */}
+            <div className="flex gap-2 flex-wrap">
+                {statusTabs.map(tab => (
+                    <button key={tab.key}
+                        onClick={() => setStatusFilter(tab.key)}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            statusFilter === tab.key
+                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                                : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                        }`}>
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Bookings List */}
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border">
+                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
+                    <p className="text-slate-400 font-bold">Đang tải đơn đặt chỗ...</p>
                 </div>
-
-                {/* Status Filter Tabs */}
-                <div className="flex gap-2 flex-wrap">
-                    {statusTabs.map(tab => (
-                        <button key={tab.key}
-                            onClick={() => setStatusFilter(tab.key)}
-                            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                                statusFilter === tab.key
-                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-                                    : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
-                            }`}>
-                            {tab.label}
-                        </button>
-                    ))}
+            ) : bookings.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
+                    <CalendarCheck size={48} className="text-slate-200 mb-4" />
+                    <p className="text-slate-400 font-bold">Chưa có đơn đặt chỗ nào</p>
+                    <p className="text-slate-300 text-sm mt-1">
+                        {statusFilter !== 'all' ? 'Không có đơn nào trong trạng thái này' : 'Đơn đặt chỗ sẽ hiện khi khách hàng book dịch vụ'}
+                    </p>
                 </div>
-
-                {/* Bookings List */}
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border">
-                        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải đơn đặt chỗ...</p>
-                    </div>
-                ) : bookings.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
-                        <CalendarCheck size={48} className="text-slate-200 mb-4" />
-                        <p className="text-slate-400 font-bold">Chưa có đơn đặt chỗ nào</p>
-                        <p className="text-slate-300 text-sm mt-1">
-                            {statusFilter !== 'all' ? 'Không có đơn nào trong trạng thái này' : 'Đơn đặt chỗ sẽ hiện khi khách hàng book dịch vụ'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {bookings.map(booking => (
-                            <div key={booking.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 min-w-0">
-                                        {/* Code + Status */}
-                                        <div className="flex items-center gap-3 mb-3 flex-wrap">
-                                            <span className="text-xs font-mono font-black text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg">
-                                                #{booking.booking_code || booking.id}
-                                            </span>
-                                            {getStatusBadge(booking.status)}
-                                        </div>
-
-                                        {/* Service name */}
-                                        <h3 className="text-sm font-black text-slate-900 mb-2">
-                                            {booking.service?.name || 'Dịch vụ'}
-                                        </h3>
-
-                                        {/* Details */}
-                                        <div className="flex items-center gap-5 text-xs text-slate-400 font-medium flex-wrap">
-                                            <span className="flex items-center gap-1.5">
-                                                <User size={13} />
-                                                {booking.contact_name || booking.user?.display_name || 'Khách hàng'}
-                                            </span>
-                                            <span className="flex items-center gap-1.5">
-                                                <CalendarCheck size={13} />
-                                                {formatDate(booking.check_in_date)}
-                                                {booking.check_out_date && ` → ${formatDate(booking.check_out_date)}`}
-                                            </span>
-                                            <span>
-                                                {booking.num_adults} người lớn
-                                                {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
-                                            </span>
-                                        </div>
-
-                                        {/* Cancel reason */}
-                                        {booking.cancel_reason && (
-                                            <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
-                                                <XCircle size={11} /> Lý do hủy: {booking.cancel_reason}
-                                            </p>
-                                        )}
+            ) : (
+                <div className="space-y-3">
+                    {bookings.map(booking => (
+                        <div key={booking.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    {/* Code + Status */}
+                                    <div className="flex items-center gap-3 mb-3 flex-wrap">
+                                        <span className="text-xs font-mono font-black text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg">
+                                            #{booking.booking_code || booking.id}
+                                        </span>
+                                        {getStatusBadge(booking.status)}
                                     </div>
 
-                                    {/* Right: Price + Actions */}
-                                    <div className="text-right flex-shrink-0">
-                                        <p className="text-xl font-black text-emerald-600 mb-1">
-                                            {Number(booking.total_amount || 0).toLocaleString('vi-VN')}₫
+                                    {/* Service name */}
+                                    <h3 className="text-sm font-black text-slate-900 mb-2">
+                                        {booking.service?.name || 'Dịch vụ'}
+                                    </h3>
+
+                                    {/* Details */}
+                                    <div className="flex items-center gap-5 text-xs text-slate-400 font-medium flex-wrap">
+                                        <span className="flex items-center gap-1.5">
+                                            <User size={13} />
+                                            {booking.contact_name || booking.user?.display_name || 'Khách hàng'}
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <CalendarCheck size={13} />
+                                            {formatDate(booking.check_in_date)}
+                                            {booking.check_out_date && ` → ${formatDate(booking.check_out_date)}`}
+                                        </span>
+                                        <span>
+                                            {booking.num_adults} người lớn
+                                            {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
+                                        </span>
+                                    </div>
+
+                                    {/* Cancel reason */}
+                                    {booking.cancel_reason && (
+                                        <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
+                                            <XCircle size={11} /> Lý do hủy: {booking.cancel_reason}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-3">Tổng tiền</p>
-                                        {getActionButtons(booking)}
-                                    </div>
+                                    )}
+                                </div>
+
+                                {/* Right: Price + Actions */}
+                                <div className="text-right flex-shrink-0">
+                                    <p className="text-xl font-black text-emerald-600 mb-1">
+                                        {Number(booking.total_amount || 0).toLocaleString('vi-VN')}₫
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-3">Tổng tiền</p>
+                                    {getActionButtons(booking)}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Cancel Modal */}
             {cancelModal && (
@@ -305,7 +296,7 @@ const MyBookings = () => {
                     to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
-        </ProviderLayout>
+        </div>
     );
 };
 

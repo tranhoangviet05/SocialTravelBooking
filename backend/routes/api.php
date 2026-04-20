@@ -66,6 +66,7 @@ Route::middleware('firebase.auth')->group(function () {
 
     // 3. Routes Mạng xã hội
     Route::get('/user/get/social-status', [\App\Http\Controllers\Social\SocialController::class, 'getSocialStatus']);
+    Route::get('/user/get/social-profile', [\App\Http\Controllers\Social\SocialController::class, 'getMyProfile']);
     Route::post('/auth/post/sync-social-profile', [\App\Http\Controllers\Social\SocialController::class, 'syncSocialProfile']);
 
     // ===========================================================

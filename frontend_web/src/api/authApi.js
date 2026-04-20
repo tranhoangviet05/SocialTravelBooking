@@ -45,6 +45,15 @@ const authApi = {
         });
     },
 
+    getSocialProfile: (idToken) => {
+        const url = '/user/get/social-profile';
+        return axiosClient.get(url, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
+    },
+
     syncSocialProfile: (idToken, data) => {
         const url = '/auth/post/sync-social-profile';
         return axiosClient.post(url, data, {

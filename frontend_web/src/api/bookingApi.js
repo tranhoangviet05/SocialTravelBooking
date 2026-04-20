@@ -32,6 +32,7 @@ const bookingApi = {
      * Lấy danh sách booking của user hiện tại
      */
     getMyBookings: () => axiosClient.get('/user/bookings'),
+    cancelBooking: (id) => axiosClient.post(`/user/bookings/${id}/cancel`),
 
     /**
      * Lấy số dư ví

@@ -101,6 +101,11 @@ const ServiceDetail = () => {
     const [activeImage, setActiveImage] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
+    const [bookingForm, setBookingForm] = useState({
+        date: new Date().toISOString().split('T')[0],
+        adults: 1,
+        children: 0
+    });
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,9 +161,15 @@ const ServiceDetail = () => {
     const excludes = serviceData.excludes || [];
     const schedules = serviceData.schedules || [];
 
+
     const handleBooking = () => {
         if (!serviceData) return;
-        navigate('/checkout', { state: { service: serviceData } });
+        navigate('/checkout', { 
+            state: { 
+                service: serviceData,
+                bookingInfo: bookingForm
+            } 
+        });
     };
 
     return (
@@ -525,26 +536,45 @@ const ServiceDetail = () => {
                             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleBooking(); }}>
                                 {/* Date */}
                                 <div className="border border-slate-200 rounded-xl p-4 hover:border-sky-300 transition-colors">
-                                    <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">Ngày tham gia</label>
+                                    <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">{isTour ? 'Ngày khởi hành' : 'Ngày nhận phòng'}</label>
                                     <input
                                         type="date"
+                                        value={bookingForm.date}
+                                        onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
                                         className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent"
                                         min={new Date().toISOString().split('T')[0]}
                                     />
+                                    {isTour && serviceData.duration_days && (
+                                        <p className="mt-2 text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded inline-block">
+                                            Kết thúc: {(() => {
+                                                const d = new Date(bookingForm.date);
+                                                d.setDate(d.getDate() + parseInt(serviceData.duration_days));
+                                                return d.toLocaleDateString('vi-VN');
+                                            })()}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Guests */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="border border-slate-200 rounded-xl p-4 hover:border-sky-300 transition-colors">
                                         <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">Người lớn</label>
-                                        <select className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent">
-                                            {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} người</option>)}
+                                        <select 
+                                            value={bookingForm.adults}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, adults: parseInt(e.target.value) })}
+                                            className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent"
+                                        >
+                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n} người</option>)}
                                         </select>
                                     </div>
                                     <div className="border border-slate-200 rounded-xl p-4 hover:border-sky-300 transition-colors">
                                         <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">Trẻ em</label>
-                                        <select className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent">
-                                            {[0, 1, 2, 3, 4].map(n => <option key={n} value={n}>{n} trẻ em</option>)}
+                                        <select 
+                                            value={bookingForm.children}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, children: parseInt(e.target.value) })}
+                                            className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent"
+                                        >
+                                            {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} trẻ em</option>)}
                                         </select>
                                     </div>
                                 </div>
@@ -553,15 +583,15 @@ const ServiceDetail = () => {
                                 <div className="border-t border-slate-100 pt-4 space-y-2">
                                     <div className="flex justify-between text-sm text-slate-500">
                                         <span>Giá gốc</span>
-                                        <span className="line-through">{new Intl.NumberFormat('vi-VN').format(price * 1.2)}đ</span>
+                                        <span className="line-through">{new Intl.NumberFormat('vi-VN').format((price * bookingForm.adults + price * 0.5 * bookingForm.children) * 1.2)}đ</span>
                                     </div>
                                     <div className="flex justify-between text-sm text-emerald-600 font-bold">
-                                        <span>Giảm giá</span>
+                                        <span>Giảm giá hệ thống</span>
                                         <span>-17%</span>
                                     </div>
                                     <div className="flex justify-between text-base font-black text-slate-800 border-t border-slate-100 pt-2 mt-2">
-                                        <span>Tổng</span>
-                                        <span>{new Intl.NumberFormat('vi-VN').format(price)}đ</span>
+                                        <span>Tổng (tạm tính)</span>
+                                        <span>{new Intl.NumberFormat('vi-VN').format(price * bookingForm.adults + price * 0.5 * bookingForm.children)}đ</span>
                                     </div>
                                 </div>
 

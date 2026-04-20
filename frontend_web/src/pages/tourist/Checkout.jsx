@@ -264,13 +264,14 @@ const Checkout = () => {
 
     // Service data từ ServiceDetail navigate state
     const service = location.state?.service;
+    const bookingInfo = location.state?.bookingInfo;
 
     // Form state
     const [form, setForm] = useState({
-        checkInDate: '',
+        checkInDate: bookingInfo?.date || '',
         checkOutDate: '',
-        numAdults: 1,
-        numChildren: 0,
+        numAdults: bookingInfo?.adults || 1,
+        numChildren: bookingInfo?.children || 0,
         contactName: currentUser?.displayName || currentUser?.display_name || '',
         contactEmail: currentUser?.email || '',
         contactPhone: currentUser?.phone || '',
@@ -282,6 +283,20 @@ const Checkout = () => {
     const [couponInput, setCouponInput] = useState('');
     const [couponApplied, setCouponApplied] = useState(null);
     const [discountAmount, setDiscountAmount] = useState(0);
+
+    // Auto-calculate check-out for Tours
+    useEffect(() => {
+        if (service?.type === 'tour' && form.checkInDate && service.duration_days) {
+            const startDate = new Date(form.checkInDate);
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + parseInt(service.duration_days));
+            
+            const endDateStr = endDate.toISOString().split('T')[0];
+            if (form.checkOutDate !== endDateStr) {
+                setForm(f => ({ ...f, checkOutDate: endDateStr }));
+            }
+        }
+    }, [form.checkInDate, service]);
 
     const [step, setStep] = useState(1); // 1=form, 2=payment, 3=done
     const [isProcessing, setIsProcessing] = useState(false);
@@ -518,17 +533,19 @@ const Checkout = () => {
                                                 className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-400 transition-colors uppercase tracking-wider"
                                             />
                                             <button
-                                                onClick={() => {
-                                                    // Mock coupon apply - thực tế sẽ gọi API
-                                                    if (couponInput === 'WELCOME10') {
-                                                        const disc = Math.round(subtotal * 0.1);
-                                                        setCouponApplied({ code: 'WELCOME10', type: 'percent', value: 10 });
-                                                        setDiscountAmount(disc);
-                                                    } else if (couponInput === 'SAVE50K') {
-                                                        setCouponApplied({ code: 'SAVE50K', type: 'fixed', value: 50000 });
-                                                        setDiscountAmount(50000);
-                                                    } else {
-                                                        alert('Mã giảm giá không hợp lệ hoặc đã hết hạn');
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!couponInput) return;
+                                                    try {
+                                                        const res = await bookingApi.applyCoupon(couponInput, subtotal);
+                                                        if (res.success) {
+                                                            setCouponApplied(res.data);
+                                                            setDiscountAmount(res.data.discount_amount);
+                                                        } else {
+                                                            alert(res.message || 'Mã không hợp lệ');
+                                                        }
+                                                    } catch (err) {
+                                                        alert(err.response?.data?.message || 'Mã không hợp lệ');
                                                     }
                                                 }}
                                                 className="px-4 py-2.5 bg-sky-500 text-white rounded-xl text-sm font-bold hover:bg-sky-600 transition-colors whitespace-nowrap">

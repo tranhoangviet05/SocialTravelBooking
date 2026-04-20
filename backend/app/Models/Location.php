@@ -14,7 +14,7 @@ class Location extends Model
     /**
      * Tắt timestamp mặc định của Laravel nếu DB chỉ có created_at
      */
-    public $timestamps = false; 
+    public $timestamps = true; 
 
     // --- QUAN HỆ ---
 

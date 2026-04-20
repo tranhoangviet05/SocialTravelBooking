@@ -57,7 +57,7 @@ class ServiceService
     {
         return Service::where('slug', $slug)
             ->where('status', 'active')
-            ->with(['media', 'schedules', 'provider', 'location'])
+            ->with(['media', 'schedules', 'provider', 'location', 'reviews.user'])
             ->first();
     }
 

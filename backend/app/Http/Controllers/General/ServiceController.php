@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\General;
 
+use App\Http\Resources\ServiceDetailResource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\General\ServiceSearchRequest;
 use App\Services\ServiceService;
@@ -50,7 +51,7 @@ class ServiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $service
+            'data' => new ServiceDetailResource($service)
         ]);
     }
 

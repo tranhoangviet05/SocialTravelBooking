@@ -23,12 +23,37 @@ class LocationController extends Controller
      */
     public function index(Request $request)
     {
-        $filters = $request->only(['is_popular', 'root_only']);
-        $locations = $this->locationService->getAllLocations($filters);
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 8);
+        $search = $request->get('search');
+        $isPopular = $request->get('is_popular');
 
-        return LocationResource::collection($locations)->additional([
+        $filters = $request->only(['root_only']);
+        $filters['is_popular'] = filter_var($isPopular, FILTER_VALIDATE_BOOLEAN);
+
+        $query = Location::with(['parent']);
+
+        if ($search) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+        if (isset($filters['is_popular'])) {
+            $query->where('is_popular', $filters['is_popular']);
+        }
+        if (!empty($filters['root_only'])) {
+            $query->whereNull('parent_id');
+        }
+
+        $paginated = $query->orderBy('name', 'asc')->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
             'success' => true,
-            'message' => 'Lấy danh sách địa điểm thành công'
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ]
         ]);
     }
 
@@ -71,16 +96,14 @@ class LocationController extends Controller
     public function update(LocationRequest $request, $id)
     {
         $location = $this->locationService->updateLocation($id, $request->validated());
-        if ($location) {
-            $location->load('parent');
-        }
-
         if (!$location) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy địa điểm để cập nhật'
             ], 404);
         }
+
+        $location->load('parent');
 
         return (new LocationResource($location))->additional([
             'success' => true,

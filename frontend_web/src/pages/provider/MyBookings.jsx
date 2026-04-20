@@ -182,6 +182,10 @@ const MyBookings = () => {
         } catch { return dateStr; }
     };
 
+    const filteredBookings = statusFilter === 'all' 
+        ? bookings 
+        : bookings.filter(b => b.status === statusFilter);
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -211,7 +215,7 @@ const MyBookings = () => {
                     <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
                     <p className="text-slate-400 font-bold">Đang tải đơn đặt chỗ...</p>
                 </div>
-            ) : bookings.length === 0 ? (
+            ) : filteredBookings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
                     <CalendarCheck size={48} className="text-slate-200 mb-4" />
                     <p className="text-slate-400 font-bold">Chưa có đơn đặt chỗ nào</p>
@@ -221,7 +225,7 @@ const MyBookings = () => {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {bookings.map(booking => (
+                    {filteredBookings.map(booking => (
                         <div key={booking.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">

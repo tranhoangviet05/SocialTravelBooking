@@ -15,7 +15,8 @@ export const useAdminData = () => {
 };
 
 export const AdminDataProvider = ({ children }) => {
-    const { currentUser } = useAuth();
+    const auth = useAuth();
+    const currentUser = auth ? auth.currentUser : null;
 
     // Data states
     const [stats, setStats] = useState(null);

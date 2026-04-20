@@ -30,7 +30,10 @@ class LocationController extends Controller
         $isPopular = $request->get('is_popular');
 
         $filters = $request->only(['root_only']);
-        $filters['is_popular'] = filter_var($isPopular, FILTER_VALIDATE_BOOLEAN);
+        
+        if ($request->has('is_popular')) {
+            $filters['is_popular'] = filter_var($isPopular, FILTER_VALIDATE_BOOLEAN);
+        }
 
         $query = Location::with(['parent']);
 

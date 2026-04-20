@@ -21,8 +21,11 @@ import {
 import AdminMetricCard from '../../components/admin/AdminMetricCard';
 import AdminTable from '../../components/admin/AdminTable';
 import { useAdminData } from '../../contexts/AdminDataContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const DashboardManagement = () => {
+    const auth = useAuth();
+    const currentUser = auth ? auth.currentUser : null;
     const { 
         stats: dashboardData, fetchStats, loadingStates 
     } = useAdminData();
@@ -146,7 +149,7 @@ const DashboardManagement = () => {
             {/* Header info */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-black text-slate-900">{getGreeting()}, Admin!</h2>
+                    <h2 className="text-2xl font-black text-slate-900">{getGreeting()}, {currentUser?.full_name || 'Admin'}!</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">
                         Hệ thống có {stats?.total_services || 0} dịch vụ đang hoạt động
                         {stats?.pending_services > 0 && ` • ${stats.pending_services} dịch vụ chờ duyệt`}
@@ -234,7 +237,7 @@ const DashboardManagement = () => {
                         <div className="flex items-center justify-center h-full text-gray-400 font-bold">
                             Chưa có dữ liệu doanh thu
                         </div>
-
+                    )}
                 </div>
             </div>
 

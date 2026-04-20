@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, Calendar, Users, Search, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Hotel, Compass } from 'lucide-react';
 import { COLORS } from '../../../utils/colors';
 
 const HeroBanner = () => {
+    const navigate = useNavigate();
+    const [searchQuery, setSearchQuery] = useState('');
     const [searchTab, setSearchTab] = useState('stay');
     const [activeField, setActiveField] = useState(null);
     const [guestCount, setGuestCount] = useState({ adults: 2, children: 0, rooms: 1 });
@@ -12,6 +15,18 @@ const HeroBanner = () => {
     const [checkoutMonth, setCheckoutMonth] = useState(3);
     const [calendarMonth, setCalendarMonth] = useState(3);
     const wrapperRef = useRef(null);
+
+    const handleSearch = () => {
+        let url = `/search?type=${searchTab}`;
+        if (searchQuery.trim()) {
+            url += `&q=${encodeURIComponent(searchQuery.trim())}`;
+        }
+        const totalGuests = guestCount.adults + guestCount.children;
+        if (totalGuests > 0) {
+            url += `&guests=${totalGuests}`;
+        }
+        navigate(url);
+    };
 
     const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
     const daysCount = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -94,7 +109,14 @@ const HeroBanner = () => {
                                 {searchTab === 'stay' ? (
                                     <>
                                         <SearchField icon={<MapPin size={18} />} label="Điểm đến" active={activeField === 'location'} onClick={() => setActiveField(activeField === 'location' ? null : 'location')}>
-                                            <input type="text" placeholder="Bạn muốn đi đâu?" className="w-full bg-transparent focus:outline-none text-slate-800 font-bold placeholder:text-gray-300 text-sm" />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Bạn muốn đi đâu?" 
+                                                className="w-full bg-transparent focus:outline-none text-slate-800 font-bold placeholder:text-gray-300 text-sm" 
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                            />
                                         </SearchField>
                                         <Divider />
                                         <SearchField icon={<Calendar size={18} />} label="Ngày đến" active={activeField === 'checkin'} onClick={() => setActiveField(activeField === 'checkin' ? null : 'checkin')} hasChevron chevronOpen={activeField === 'checkin'}>
@@ -112,7 +134,14 @@ const HeroBanner = () => {
                                 ) : (
                                     <>
                                         <SearchField icon={<Compass size={18} />} label="Địa điểm Tour" active={activeField === 'tour-location'} onClick={() => setActiveField('tour-location')}>
-                                            <input type="text" placeholder="Tìm tour tại..." className="w-full bg-transparent focus:outline-none text-slate-800 font-bold placeholder:text-gray-300 text-sm" />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Tìm tour tại..." 
+                                                className="w-full bg-transparent focus:outline-none text-slate-800 font-bold placeholder:text-gray-300 text-sm" 
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                            />
                                         </SearchField>
                                         <Divider />
                                         <SearchField icon={<Calendar size={18} />} label="Ngày khởi hành" active={activeField === 'checkin'} onClick={() => setActiveField(activeField === 'checkin' ? null : 'checkin')} hasChevron chevronOpen={activeField === 'checkin'}>
@@ -124,7 +153,11 @@ const HeroBanner = () => {
                                         </SearchField>
                                     </>
                                 )}
-                                <button className="w-full xl:w-auto px-10 py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 transition-all active:scale-95 shrink-0" style={{ backgroundColor: COLORS.primary }}>
+                                <button 
+                                    onClick={handleSearch}
+                                    className="w-full xl:w-auto px-10 py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 transition-all active:scale-95 shrink-0" 
+                                    style={{ backgroundColor: COLORS.primary }}
+                                >
                                     <Search size={20} />
                                     <span className="text-sm">Tìm kiếm</span>
                                 </button>

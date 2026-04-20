@@ -124,6 +124,21 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             <div className="relative w-full max-w-[900px] min-h-[90vh] mx-4 bg-white rounded-3xl shadow-2xl overflow-hidden flex animate-[modalIn_0.3s_ease-out]">
                 {/* Left side - Slideshow */}
                 <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
+                    {/* Loading Overlay for Auth Process */}
+                    {isLoading && (
+                        <div className="absolute inset-0 bg-sky-900/40 backdrop-blur-md z-[100] flex flex-col items-center justify-center transition-all duration-500">
+                            <div className="relative mb-6">
+                                <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse flex items-center justify-center">
+                                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-white font-bold tracking-wide animate-pulse">ĐANG XÁC THỰC...</p>
+                        </div>
+                    )}
+
                     {slides.map((slide, i) => (
                         <div key={i} className={`absolute inset-0 transition-opacity duration-700 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
                             <img src={slide.image} alt={slide.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -150,9 +165,17 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
                 </div>
 
                 {/* Right side - Form */}
-                <div className="w-full lg:w-1/2 p-8 md:p-10 overflow-y-auto no-scrollbar">
+                <div className={`w-full lg:w-1/2 p-8 md:p-10 overflow-y-auto no-scrollbar relative transition-all duration-500 ${isLoading ? 'blur-[2px]' : ''}`}>
+                    {/* Loading Overlay for mobile/right side */}
+                    {isLoading && (
+                        <div className="lg:hidden absolute inset-0 bg-white/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center">
+                            <div className="w-12 h-12 border-4 border-sky-100 border-t-sky-500 rounded-full animate-spin mb-4" />
+                            <p className="text-sky-900 font-bold text-sm">ĐANG XỬ LÝ...</p>
+                        </div>
+                    )}
+
                     {/* Close button */}
-                    <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors cursor-pointer">
+                    <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors cursor-pointer z-[101]">
                         <X size={16} />
                     </button>
 

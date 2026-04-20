@@ -55,6 +55,29 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, []);
 
+    const refreshProfile = async () => {
+        try {
+            const firebaseUser = getCurrentUser();
+            if (!firebaseUser) return;
+            const idToken = await firebaseUser.getIdToken();
+            const response = await authApi.getProfile(idToken);
+            const backendUser = response?.data;
+
+            if (backendUser) {
+                setCurrentUser(prev => ({
+                    ...prev,
+                    ...backendUser,
+                    photoURL: firebaseUser.photoURL || backendUser.avatar_url,
+                    displayName: firebaseUser.displayName || backendUser.display_name,
+                }));
+                setSocialActive(backendUser.social_active || false);
+                setUserRole(backendUser.role || 'tourist');
+            }
+        } catch (error) {
+            console.error('Failed to refresh profile:', error);
+        }
+    };
+
     const refreshSocialStatus = async () => {
         try {
             const firebaseUser = getCurrentUser();
@@ -83,6 +106,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         logout: handleLogout,
         refreshSocialStatus,
+        refreshProfile,
         socialActive,
     };
 

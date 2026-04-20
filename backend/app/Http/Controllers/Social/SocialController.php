@@ -46,6 +46,41 @@ class SocialController extends Controller
     }
 
     /**
+     * Lấy hồ sơ mạng xã hội của chính người dùng hiện tại
+     */
+    public function getMyProfile(\Illuminate\Http\Request $request)
+    {
+        $firebaseUid = $request->attributes->get('firebaseUid');
+        $user = User::with('socialProfile')->where('firebase_uid', $firebaseUid)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Người dùng không tồn tại'
+            ], 404);
+        }
+
+        if (!$user->social_active) {
+            return response()->json([
+                'success' => true,
+                'social_active' => false,
+                'message' => 'Người dùng chưa kích hoạt mạng xã hội'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $user->id,
+                'display_name' => $user->display_name,
+                'avatar_url' => $user->avatar_url,
+                'social_active' => $user->social_active,
+                'social_profile' => $user->socialProfile,
+            ]
+        ]);
+    }
+
+    /**
      * Đồng bộ hồ sơ mạng xã hội (Onboarding)
      */
     public function syncSocialProfile(SocialRequest $request)
@@ -73,10 +108,11 @@ class SocialController extends Controller
                 'success' => true,
                 'message' => 'Hồ sơ mạng xã hội đã được kích hoạt thành công',
                 'data' => [
+                    'id'            => $user->id,
                     'social_active' => true,
-                    'username'      => $user->socialProfile ? $user->socialProfile->username : null,
                     'display_name'  => $user->display_name,
                     'avatar_url'    => $user->avatar_url,
+                    'social_profile' => $user->socialProfile,
                 ]
             ]);
         } catch (\Throwable $e) {

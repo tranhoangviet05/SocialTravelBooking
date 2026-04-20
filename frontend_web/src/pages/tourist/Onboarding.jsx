@@ -8,17 +8,18 @@ import { User, AtSign, FileText, Camera, ArrowRight } from 'lucide-react';
 
 
 const SocialOnboarding = ({ onSyncSuccess }) => {
-    const { currentUser, refreshSocialStatus } = useAuth();
+    const { currentUser, refreshProfile } = useAuth();
     const navigate = useNavigate();
     const [errors, setErrors] = useState({});
     const [submitError, setSubmitError] = useState('');
-
     const [formData, setFormData] = useState({
         username: '',
         bio: '',
         displayName: '',
         avatarUrl: ''
     });
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Cập nhật formData khi currentUser đã sẵn sàng
     useEffect(() => {
@@ -34,11 +35,16 @@ const SocialOnboarding = ({ onSyncSuccess }) => {
     const handleSync = async () => {
         setErrors({});
         setSubmitError('');
-
+        
         if (!currentUser) return;
+        setIsSubmitting(true);
+
         try {
             const firebaseUser = getCurrentUser();
-            if (!firebaseUser) return;
+            if (!firebaseUser) {
+                setIsSubmitting(false);
+                return;
+            }
 
             const idToken = await firebaseUser.getIdToken();
 
@@ -48,10 +54,16 @@ const SocialOnboarding = ({ onSyncSuccess }) => {
             const response = await authApi.syncSocialProfile(idToken, formData);
             console.log('Đồng bộ thành công', response.data);
 
-            await refreshSocialStatus();
-            if (onSyncSuccess) onSyncSuccess();
-            navigate('/newsfeed', { replace: true });
+            await refreshProfile();
+            
+            // Đợi một chút để người dùng thấy hiệu ứng chuyển cảnh mượt mà
+            setTimeout(() => {
+                if (onSyncSuccess) onSyncSuccess();
+                navigate('/newsfeed', { replace: true });
+            }, 1500);
+
         } catch (error) {
+            setIsSubmitting(false);
             console.error('Lỗi đồng bộ', error);
             if (error.response?.status === 422) {
                 // Hiện lỗi validation từ Backend
@@ -66,7 +78,27 @@ const SocialOnboarding = ({ onSyncSuccess }) => {
 
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 mt-10">
-            <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-xl p-10 border border-gray-100">
+            {/* Loading Overlay */}
+            {isSubmitting && (
+                <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center transition-all animate-in fade-in duration-500">
+                    <div className="relative mb-8">
+                        <div className="w-20 h-20 border-4 border-sky-100 border-t-sky-500 rounded-full animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-12 h-12 bg-sky-500/10 rounded-full animate-pulse flex items-center justify-center">
+                                <div className="w-2 h-2 bg-sky-500 rounded-full" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-500 bg-clip-text text-transparent mb-2">
+                            Đang chuẩn bị không gian cho bạn
+                        </h2>
+                        <p className="text-gray-500 animate-pulse">Vui lòng đợi Social Travel trong giây lát...</p>
+                    </div>
+                </div>
+            )}
+
+            <div className={`max-w-md w-full bg-white rounded-[2.5rem] shadow-xl p-10 border border-gray-100 transition-all duration-500 ${isSubmitting ? 'blur-sm scale-95 opacity-50' : 'scale-100 opacity-100'}`}>
                 <div className="text-center mb-8">
                     <div className="relative inline-block">
                         <img

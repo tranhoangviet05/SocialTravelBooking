@@ -234,7 +234,7 @@ const DashboardManagement = () => {
                         <div className="flex items-center justify-center h-full text-gray-400 font-bold">
                             Chưa có dữ liệu doanh thu
                         </div>
-                    )}
+
                 </div>
             </div>
 

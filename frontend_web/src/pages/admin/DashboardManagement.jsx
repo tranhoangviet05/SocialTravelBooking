@@ -210,7 +210,7 @@ const DashboardManagement = () => {
 
                     <div className="h-[350px] w-full">
                         {revenue_chart && revenue_chart.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                            <ResponsiveContainer width="100%" height={350}>
                                 <AreaChart data={revenue_chart}>
                                     <defs>
                                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">

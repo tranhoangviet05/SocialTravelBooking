@@ -1,70 +1,93 @@
-import React from 'react';
-import { MOCK_USERS } from '../../../pages/tourist/news_feed/mockData';
+import React, { useState, useEffect } from 'react';
+import socialApi from '../../../api/socialApi';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useNotification } from '../../../contexts/NotificationContext';
+import Avatar from '../../../components/common/Avatar';
+import { useSocialData } from '../../../contexts/SocialDataContext';
 
 const FollowerRecommend = () => {
     const { currentUser } = useAuth();
-    
-    // Thông tin hiển thị (ưu tiên dữ liệu từ DB, fallback về default)
-    const displayName = currentUser?.display_name || currentUser?.displayName || 'Người dùng';
-    const username = currentUser?.social_profile?.username || currentUser?.email?.split('@')[0] || 'user';
-    const avatarUrl = currentUser?.avatar_url || currentUser?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+    const { updateFollowStatus } = useSocialData();
+    const notification = useNotification();
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchSuggestions = async () => {
+        try {
+            setLoading(true);
+            const response = await socialApi.getSuggestions();
+            if (response.success) {
+                setSuggestions(response.data);
+            }
+        } catch (error) {
+            console.error("Fetch suggestions error:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSuggestions();
+    }, []);
+
+    const handleFollow = async (userId) => {
+        try {
+            const response = await socialApi.toggleFollow(userId);
+            if (response.success) {
+                const isFollowing = response.data.following;
+                setSuggestions(prev => prev.map(s => s.id === userId ? { ...s, is_following: isFollowing } : s));
+                updateFollowStatus(userId, isFollowing, response.data.followers_count);
+                notification.success(isFollowing ? "Đã theo dõi" : "Đã bỏ theo dõi");
+            }
+        } catch (error) {
+            notification.error("Lỗi khi thay đổi trạng thái theo dõi");
+        }
+    };
 
     return (
-        <div className="hidden lg:block w-[320px] sticky top-0 h-screen pt-12 mr-15 pl-8 pr-6">
-            {/* My Profile Quick View */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <img src={avatarUrl} alt={displayName} className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm" />
-                    <div className="flex flex-col">
-                        <span className="font-bold text-sm leading-tight hover:underline cursor-pointer">{username}</span>
-                        <span className="text-gray-400 text-[13px]">{displayName}</span>
-                    </div>
-                </div>
-                <button className="text-sky-500 text-xs font-bold hover:text-sky-700 transition-colors cursor-pointer">
-                    Chuyển
-                </button>
-            </div>
-
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-gray-400 text-[13px] uppercase tracking-wider">Gợi ý cho bạn</h3>
-                <button className="text-xs font-bold hover:text-gray-500 transition-colors cursor-pointer">Xem tất cả</button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-                {MOCK_USERS.slice(0, 5).filter(u => u.username !== username).map(user => (
-                    <div key={user.id} className="flex items-center justify-between group">
-                        <div className="flex items-center gap-3">
-                            <img src={user.avatar} alt={user.name} className="w-9 h-9 rounded-full object-cover border border-gray-100 group-hover:scale-105 transition-transform" />
-                            <div className="flex flex-col">
-                                <span className="font-bold text-[13px] leading-tight hover:underline cursor-pointer">{user.username}</span>
-                                <span className="text-gray-400 text-[12px]">{user.name}</span>
-                                <span className="text-[10px] text-gray-300">Gợi ý cho bạn</span>
-                            </div>
+        <div className="hidden lg:block w-[350px] sticky top-4 h-fit px-4 pt-12">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <h2 className="font-bold text-[18px] mb-4">Gợi ý cho bạn</h2>
+                <div className="flex flex-col gap-4">
+                    {loading ? (
+                        <div className="flex justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
                         </div>
-                        <button className="text-sky-500 text-xs font-bold hover:text-sky-800 transition-colors cursor-pointer">
-                            Theo dõi
-                        </button>
-                    </div>
-                ))}
+                    ) : suggestions.length > 0 ? (
+                        suggestions.map(suggestion => (
+                            <div key={suggestion.id} className="flex items-center justify-between group">
+                                <div className="flex items-center gap-3">
+                                    <Avatar src={suggestion.avatar_url} alt={suggestion.display_name} size="md" />
+                                    <div className="flex flex-col overflow-hidden max-w-[140px]">
+                                        <span className="font-bold text-[14px] leading-tight hover:underline cursor-pointer truncate">
+                                            {suggestion.display_name}
+                                        </span>
+                                        <span className="text-gray-500 text-[13px] truncate">@{suggestion.social_profile?.username}</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleFollow(suggestion.id)}
+                                    className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all shadow-sm ${suggestion.is_following ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                                >
+                                    {suggestion.is_following ? 'Đang theo dõi' : 'Theo dõi'}
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-gray-400 text-sm italic py-4">Không có gợi ý mới</p>
+                    )}
+                </div>
             </div>
 
-            <div className="mt-8 text-[12px] text-gray-400 flex flex-wrap gap-x-3 gap-y-1 leading-tight">
+            <div className="mt-8 text-[12px] text-gray-400 flex flex-wrap gap-x-3 gap-y-1 px-2">
                 <a href="#" className="hover:underline">Giới thiệu</a>
-                <a href="#" className="hover:underline">Trợ giúp</a>
-                <a href="#" className="hover:underline">Báo chí</a>
-                <a href="#" className="hover:underline">API</a>
-                <a href="#" className="hover:underline">Việc làm</a>
-                <a href="#" className="hover:underline">Quyền riêng tư</a>
+                <a href="#" className="hover:underline">Hỗ trợ</a>
                 <a href="#" className="hover:underline">Điều khoản</a>
-                <a href="#" className="hover:underline">Vị trí</a>
-                <a href="#" className="hover:underline">Ngôn ngữ</a>
+                <a href="#" className="hover:underline">Bảo mật</a>
             </div>
-            <p className="mt-4 text-[12px] text-gray-400 font-semibold uppercase tracking-wider">© 2024 Social Travel Booking</p>
+            <p className="mt-4 text-[12px] text-gray-400 font-semibold px-2 uppercase tracking-tight">© 2024 Social Travel Booking</p>
         </div>
     );
 };
 
 export default FollowerRecommend;
-
-

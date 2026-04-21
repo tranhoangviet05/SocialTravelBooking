@@ -19,6 +19,10 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\General\LocationController;
 use App\Http\Controllers\General\CategoryController;
 use App\Http\Controllers\General\ServiceController;
+use App\Http\Controllers\Social\PostController;
+use App\Http\Controllers\Social\InteractionController;
+use App\Http\Controllers\Social\FollowController;
+use App\Http\Controllers\Social\TagController;
 
 // ========================
 // ROUTE CÔNG KHAI (không cần đăng nhập)
@@ -68,6 +72,31 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/user/get/social-status', [\App\Http\Controllers\Social\SocialController::class, 'getSocialStatus']);
     Route::get('/user/get/social-profile', [\App\Http\Controllers\Social\SocialController::class, 'getMyProfile']);
     Route::post('/auth/post/sync-social-profile', [\App\Http\Controllers\Social\SocialController::class, 'syncSocialProfile']);
+
+    Route::prefix('social')->group(function () {
+        // Bài đăng
+        Route::get('/posts', [PostController::class, 'index']);
+        Route::post('/posts', [PostController::class, 'store']);
+        Route::get('/posts/{id}', [PostController::class, 'show']);
+        Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+        Route::get('/users/{userId}/posts', [PostController::class, 'userPosts']);
+
+        // Tương tác
+        Route::post('/posts/{postId}/like', [InteractionController::class, 'toggleLike']);
+        Route::get('/posts/{postId}/comments', [InteractionController::class, 'getComments']);
+        Route::post('/posts/{postId}/comments', [InteractionController::class, 'storeComment']);
+        Route::get('/users/{userId}/replies', [InteractionController::class, 'userReplies']);
+
+        // Theo dõi
+        Route::post('/users/{followingId}/follow', [FollowController::class, 'toggleFollow']);
+        Route::get('/users/{userId}/followers', [FollowController::class, 'getFollowers']);
+        Route::get('/users/{userId}/following', [FollowController::class, 'getFollowing']);
+        Route::get('/users/search', [FollowController::class, 'search']);
+        Route::get('/suggestions/users', [FollowController::class, 'suggestions']);
+
+        // Hashtags
+        Route::get('/tags/suggestions', [TagController::class, 'suggestions']);
+    });
 
     // ===========================================================
     // TOURIST ROUTES (Khách du lịch)

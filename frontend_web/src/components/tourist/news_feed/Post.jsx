@@ -1,104 +1,253 @@
-import React, { useRef, useState } from 'react';
-import { Heart, MessageCircle, Repeat2, Send, MoreHorizontal, Plus } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Heart, MessageCircle, Repeat2, Send, MoreHorizontal, Trash2, MapPin } from 'lucide-react';
+import Avatar from '../../../components/common/Avatar';
+import PostDetailModal from './PostDetailModal';
+import socialApi from '../../../api/socialApi';
+import { useNotification } from '../../../contexts/NotificationContext';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import echo from '../../../utils/echo';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useSocialData } from '../../../contexts/SocialDataContext';
 
-const Post = ({ post }) => {
-    const scrollRef = useRef(null);
-    const [isMouseDown, setIsMouseDown] = useState(false);
-    const [startX, setStartX] = useState(0);
-    const [scrollLeft, setScrollLeft] = useState(0);
+const Post = ({ post: initialPost }) => {
+    const { currentUser } = useAuth();
+    const { removePostFromState, updateFollowStatus } = useSocialData();
+    const [post, setPost] = useState(initialPost);
+    const [isLiked, setIsLiked] = useState(initialPost.is_liked > 0);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const notification = useNotification();
+    const navigate = useNavigate();
+    const menuRef = useRef(null);
 
-    const handleMouseDown = (e) => {
-        setIsMouseDown(true);
-        setStartX(e.pageX - scrollRef.current.offsetLeft);
-        setScrollLeft(scrollRef.current.scrollLeft);
-        scrollRef.current.style.cursor = 'grabbing';
+    // Xử lý click ra ngoài để đóng menu
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setShowMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Lắng nghe Real-time Comment (likes được xử lý ở SocialDataContext)
+    useEffect(() => {
+        const postChannel = echo.channel(`post.${post.id}`)
+            .listen('.comment.created', () => {
+                setPost(prev => ({ ...prev, comments_count: prev.comments_count + 1 }));
+            });
+
+        return () => {
+            postChannel.stopListening('.comment.created');
+        };
+    }, [post.id]);
+
+    // Đồng bộ likes_count từ feedPosts trong context (khi context cập nhật qua WebSocket)
+    useEffect(() => {
+        setPost(prev => ({ ...prev, likes_count: initialPost.likes_count }));
+    }, [initialPost.likes_count]);
+
+    const handleLike = async (e) => {
+        e.stopPropagation();
+        const previousIsLiked = isLiked;
+        const previousLikesCount = post.likes_count;
+
+        try {
+            const newIsLiked = !isLiked;
+            setIsLiked(newIsLiked);
+            setPost(prev => ({ ...prev, likes_count: newIsLiked ? prev.likes_count + 1 : prev.likes_count - 1 }));
+
+            const response = await socialApi.toggleLike(post.id);
+            if (response.success) {
+                setPost(prev => ({ ...prev, likes_count: response.data.likes_count }));
+                setIsLiked(response.data.liked);
+            }
+        } catch (error) {
+            setIsLiked(previousIsLiked);
+            setPost(prev => ({ ...prev, likes_count: previousLikesCount }));
+        }
     };
 
-    const handleMouseLeave = () => {
-        setIsMouseDown(false);
-        if (scrollRef.current) scrollRef.current.style.cursor = 'grab';
+    const handleFollow = async (e) => {
+        e.stopPropagation();
+        try {
+            const response = await socialApi.toggleFollow(post.user_id);
+            if (response.success) {
+                const isNowFollowing = response.data.following;
+                updateFollowStatus(post.user_id, isNowFollowing, response.data.followers_count);
+                notification.success(isNowFollowing ? "Đã theo dõi" : "Đã bỏ theo dõi");
+            }
+        } catch (error) {
+            notification.error("Lỗi khi thay đổi trạng thái theo dõi");
+        }
     };
 
-    const handleMouseUp = () => {
-        setIsMouseDown(false);
-        if (scrollRef.current) scrollRef.current.style.cursor = 'grab';
+    const handleDelete = async (e) => {
+        e.stopPropagation();
+        if (window.confirm("Bạn có chắc chắn muốn xóa bài viết này không?")) {
+            try {
+                const response = await socialApi.deletePost(post.id);
+                if (response.success) {
+                    notification.success("Đã xóa bài viết");
+                    removePostFromState(post.id);
+                }
+            } catch (error) {
+                notification.error("Lỗi khi xóa bài viết");
+            }
+        }
+        setShowMenu(false);
     };
 
-    const handleMouseMove = (e) => {
-        if (!isMouseDown) return;
-        e.preventDefault();
-        const x = e.pageX - scrollRef.current.offsetLeft;
-        const walk = (x - startX) * 2; // Tốc độ di chuyển
-        scrollRef.current.scrollLeft = scrollLeft - walk;
+    const handleSearchTag = (e, tag) => {
+        e.stopPropagation();
+        navigate(`/newsfeed/search?tag=${tag}`);
+    };
+
+    const handleSearchLocation = (e, loc) => {
+        e.stopPropagation();
+        navigate(`/newsfeed/search?location_id=${loc.id}&location_name=${encodeURIComponent(loc.name)}`);
+    };
+
+    const formatTime = (dateString) => {
+        try {
+            return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: vi });
+        } catch (e) {
+            return "Vừa xong";
+        }
     };
 
     return (
-        <div className="py-4 border-b border-gray-200">
-            <div className="flex gap-3">
-                <div className="flex flex-col items-center">
-                    <div className="relative">
-                        <img src={post.user.avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
-                        <div className="absolute -bottom-1 -right-1 bg-black text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] border-2 border-white"><Plus size={16} strokeWidth={3} /></div>
-                    </div>
-                </div>
-
-                <div className="flex-1 pb-2 overflow-hidden">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-[15px] hover:underline cursor-pointer">{post.user.name}</span>
-                            <span className="text-gray-400 text-[14px]">{post.time}</span>
+        <>
+            <div
+                className="py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50/30 transition-colors"
+                onClick={() => setIsDetailOpen(true)}
+            >
+                <div className="flex gap-3 px-1">
+                    <div className="flex flex-col items-center">
+                        <div className="relative group/avatar" onClick={(e) => e.stopPropagation()}>
+                            <Avatar src={post.author?.avatar_url} alt={post.author?.display_name} />
                         </div>
-                        <button className="text-gray-400 hover:text-black"><MoreHorizontal size={20} /></button>
                     </div>
 
-                    <p className="text-[15px] mt-1 whitespace-pre-wrap leading-relaxed">{post.content}</p>
-
-                    {post.media && post.media.length > 0 && (
-                        <div className="mt-3 w-full">
-                            {post.media.length === 1 ? (
-                                <img
-                                    src={post.media[0]}
-                                    alt="Post media"
-                                    className="w-full h-auto rounded-xl border border-gray-200 bg-gray-50 max-h-[700px] object-cover"
-                                />
-                            ) : (
-                                <div
-                                    ref={scrollRef}
-                                    onMouseDown={handleMouseDown}
-                                    onMouseLeave={handleMouseLeave}
-                                    onMouseUp={handleMouseUp}
-                                    onMouseMove={handleMouseMove}
-                                    className="flex overflow-x-auto gap-2 pb-2 snap-x no-scrollbar transition-all duration-75 select-none"
-                                    style={{ cursor: 'grab', scrollBehavior: isMouseDown ? 'auto' : 'smooth' }}
+                    <div className="flex-1 pb-2 overflow-hidden">
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                    className="font-bold text-[15px] hover:underline cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); navigate(`/newsfeed/profile?id=${post.user_id}`); }}
                                 >
-                                    {post.media.map((img, idx) => (
-                                        <img
-                                            key={idx}
-                                            src={img}
-                                            alt={`Post media ${idx}`}
-                                            className="h-[480px] w-auto aspect-[3/4] object-cover snap-center rounded-xl border border-gray-200 bg-gray-50 flex-shrink-0 pointer-events-none"
-                                        />
-                                    ))}
-                                </div>
-                            )}
+                                    {post.author?.display_name || "Người dùng"}
+                                </span>
+                                {currentUser?.id !== post.user_id && (
+                                    <>
+                                        <span className="text-gray-400">·</span>
+                                        <button
+                                            onClick={handleFollow}
+                                            className={`text-[14px] font-bold transition-colors ${post.author?.is_following ? 'text-gray-400 hover:text-red-500' : 'text-sky-500 hover:text-sky-700'}`}
+                                        >
+                                            {post.author?.is_following ? 'Đang theo dõi' : 'Theo dõi'}
+                                        </button>
+                                    </>
+                                )}
+                                <span className="text-gray-400 text-[13px] ml-1">{formatTime(post.created_at)}</span>
+                                {post.location && (
+                                    <span
+                                        onClick={(e) => handleSearchLocation(e, post.location)}
+                                        className="text-sky-500 text-[13px] flex items-center gap-0.5 hover:underline"
+                                    >
+                                        · <MapPin size={12} /> <span className="font-medium">{post.location.name}</span>
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="relative" ref={menuRef}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                                    className="text-gray-400 hover:text-black transition-colors p-1"
+                                >
+                                    <MoreHorizontal size={20} />
+                                </button>
+                                {showMenu && (
+                                    <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-100 shadow-xl rounded-xl py-1 z-10">
+                                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+                                            Lưu bài viết
+                                        </button>
+                                        {currentUser?.id === post.user_id && (
+                                            <button
+                                                onClick={handleDelete}
+                                                className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-500 flex items-center gap-2"
+                                            >
+                                                <Trash2 size={16} /> Xóa bài viết
+                                            </button>
+                                        )}
+                                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-500">
+                                            Báo cáo
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    )}
 
-                    <div className="flex items-center gap-4 mt-4 text-black">
-                        <button className="hover:bg-gray-100 p-1.5 rounded-full transition-colors"><Heart size={20} /></button>
-                        <button className="hover:bg-gray-100 p-1.5 rounded-full transition-colors"><MessageCircle size={20} /></button>
-                        <button className="hover:bg-gray-100 p-1.5 rounded-full transition-colors"><Repeat2 size={20} /></button>
-                        <button className="hover:bg-gray-100 p-1.5 rounded-full transition-colors"><Send size={20} /></button>
-                    </div>
+                        <p className="text-[15px] mt-1 whitespace-pre-wrap leading-relaxed">{post.content}</p>
 
-                    <div className="flex items-center gap-2 mt-2 text-[14px] text-gray-500">
-                        <span>{post.likes} lượt thích</span>
-                        <span>·</span>
-                        <span>{post.comments} bình luận</span>
+                        {post.tags && post.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {post.tags.map(tag => (
+                                    <span
+                                        key={tag.id}
+                                        onClick={(e) => handleSearchTag(e, tag.name)}
+                                        className="text-[14px] text-sky-600 font-medium hover:underline cursor-pointer"
+                                    >
+                                        #{tag.display_name}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {post.media && post.media.length > 0 && (
+                            <div className="mt-3 w-full rounded-xl overflow-hidden border border-gray-100" onClick={(e) => e.stopPropagation()}>
+                                {post.media.length === 1 ? (
+                                    <img src={post.media[0].url} alt="" className="w-full h-auto max-h-[600px] object-cover" />
+                                ) : (
+                                    <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory pb-2 px-2 pt-2"
+                                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
+                                    >
+                                        {post.media.map((m, i) => (
+                                            <img key={i} src={m.url} className="h-64 w-48 object-cover snap-center flex-shrink-0 rounded-lg" alt="" />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-6 mt-4 text-gray-500">
+                            <button onClick={handleLike} className={`flex items-center gap-1.5 hover:text-red-500 transition-colors ${isLiked ? 'text-red-500' : ''}`}>
+                                <Heart size={19} fill={isLiked ? "currentColor" : "none"} />
+                                <span className="text-sm">{post.likes_count}</span>
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsDetailOpen(true); }}
+                                className="flex items-center gap-1.5 hover:text-sky-500 transition-colors"
+                            >
+                                <MessageCircle size={19} />
+                                <span className="text-sm">{post.comments_count}</span>
+                            </button>
+                            <button className="flex items-center gap-1.5 hover:text-green-500"><Repeat2 size={19} /></button>
+                            <button className="flex items-center gap-1.5 hover:text-sky-500"><Send size={19} /></button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <PostDetailModal
+                postId={post.id}
+                isOpen={isDetailOpen}
+                onClose={() => setIsDetailOpen(false)}
+            />
+        </>
     );
 };
 

@@ -46,5 +46,17 @@ export const API_ENDPOINTS = {
     PROVIDER_BOOKINGS: '/provider/bookings',
     PROVIDER_REVIEWS: '/provider/reviews',
     PROVIDER_WALLET: '/provider/wallet',
-    PROVIDER_SETTINGS: '/provider/settings'
+    PROVIDER_SETTINGS: '/provider/settings',
+
+    // Social
+    SOCIAL_POSTS: '/social/posts',
+    SOCIAL_LIKE: (postId) => `/social/posts/${postId}/like`,
+    SOCIAL_COMMENTS: (postId) => `/social/posts/${postId}/comments`,
+    SOCIAL_FOLLOW: (userId) => `/social/users/${userId}/follow`,
+    SOCIAL_FOLLOWERS: (userId) => `/social/users/${userId}/followers`,
+    SOCIAL_FOLLOWING: (userId) => `/social/users/${userId}/following`,
+    SOCIAL_USER_POSTS: (userId) => `/social/users/${userId}/posts`,
+    SOCIAL_USER_REPLIES: (userId) => `/social/users/${userId}/replies`,
+    SOCIAL_SUGGESTIONS: '/social/suggestions/users',
+    SOCIAL_TAG_SUGGESTIONS: '/social/tags/suggestions',
 };

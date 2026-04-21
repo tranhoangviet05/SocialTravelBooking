@@ -28,4 +28,9 @@ class Comment extends Model
     {
         return $this->belongsTo(Post::class);
     }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
+    }
 }

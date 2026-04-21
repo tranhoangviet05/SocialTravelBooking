@@ -8,6 +8,7 @@ import {
     Car, Coffee, TreePine, Camera
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import ServiceReviews from '../../components/tourist/services/ServiceReviews';
 import { MOCK_REVIEWS } from '../../data/mockServices';
 import axios from 'axios';
 import Lightbox from "yet-another-react-lightbox";
@@ -305,7 +306,7 @@ const ServiceDetail = () => {
                             <Tab id="overview" label="Tổng quan" active={activeTab} onClick={setActiveTab} />
                             {isTour && <Tab id="itinerary" label={`Lịch trình (${schedules.length} ngày)`} active={activeTab} onClick={setActiveTab} />}
                             {(isHotel || isHomestay) && <Tab id="amenities" label={`Tiện nghi (${amenities.length})`} active={activeTab} onClick={setActiveTab} />}
-                            <Tab id="reviews" label={`Đánh giá (${reviewCount})`} active={activeTab} onClick={setActiveTab} />
+                            <Tab id="reviews" label={`Đánh giá & Bình luận`} active={activeTab} onClick={setActiveTab} />
                         </div>
 
                         {/* Tab: Overview */}
@@ -462,60 +463,9 @@ const ServiceDetail = () => {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Write Review */}
-                                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                                    <h3 className="font-black text-slate-800 mb-4">Viết đánh giá</h3>
-                                    <textarea
-                                        rows="4"
-                                        placeholder="Chia sẻ trải nghiệm của bạn..."
-                                        className="w-full bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-300 transition-all resize-none"
-                                    />
-                                    <div className="flex items-center justify-between mt-4">
-                                        <div className="flex gap-1">
-                                            {[1, 2, 3, 4, 5].map(s => (
-                                                <Star key={s} size={22} className="text-slate-200 hover:text-amber-400 cursor-pointer transition-colors" />
-                                            ))}
-                                        </div>
-                                        <Button variant="primary" size="sm">Gửi đánh giá</Button>
-                                    </div>
-                                </div>
-
-                                {/* Review List */}
-                                <div className="space-y-4">
-                                    {reviews.length === 0 && MOCK_REVIEWS.length === 0 && (
-                                        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-sm">
-                                            <Star size={48} className="mx-auto text-slate-200 mb-4" />
-                                            <p className="text-slate-400 font-bold">Chưa có đánh giá nào.</p>
-                                        </div>
-                                    )}
-                                    {[...reviews, ...MOCK_REVIEWS].slice(0, 10).map((review, idx) => (
-                                        <div key={review.id || idx} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-200 to-sky-400 text-sky-700 font-black text-sm flex items-center justify-center">
-                                                        {(review.user?.display_name || review.user?.name || 'U')[0].toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-slate-800 text-sm">
-                                                            {review.user?.display_name || review.user?.name || 'Người dùng'}
-                                                        </p>
-                                                        <p className="text-xs text-slate-400">{review.created_at || review.createdAt}</p>
-                                                    </div>
-                                                </div>
-                                                <StarRating rating={review.rating} size={13} />
-                                            </div>
-                                            <p className="text-sm text-slate-600 leading-relaxed">{review.content || review.comment || review.review_text}</p>
-                                            {review.images?.length > 0 && (
-                                                <div className="flex gap-2 mt-3">
-                                                    {review.images.map((img, i) => (
-                                                        <img key={i} src={img} alt="Review" className="w-16 h-16 object-cover rounded-lg" />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                
+                                {/* Feedback & Review Component (Merged) */}
+                                <ServiceReviews serviceId={serviceData.id} />
                             </div>
                         )}
                     </div>

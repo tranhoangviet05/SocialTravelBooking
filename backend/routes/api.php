@@ -216,3 +216,141 @@ Route::middleware('firebase.auth')->group(function () {
         Route::put('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'update']);
     });
 });
+
+// ===========================================================
+// N8N AUTOMATION ROUTES (Public for local dev)
+// ===========================================================
+Route::get('/n8n/users', function () {
+    // Chỉ lấy những khách CÓ HOẠT ĐỘNG trong vòng 24h qua và chưa nhận email trong 24h qua
+    $timeFrame = now()->subHours(24);
+
+    $users = \App\Models\User::where('role', 'tourist')
+        ->where('status', 'active')
+        // 1. CHỐNG GỬI TRÙNG TRONG NGÀY: Nếu vừa gửi trong 24h thì không quét lại nữa
+        ->where(function ($q) use ($timeFrame) {
+            $q->whereNull('last_promo_sent_at')
+              ->orWhere('last_promo_sent_at', '<', $timeFrame);
+        })
+        // 2. CHỈ LẤY ĐƠN HÀNG MỚI (Tránh lấy lại đơn cũ đã từng gửi mail)
+        ->where(function ($q) use ($timeFrame) {
+            // Trường hợp user mới tạo tài khoản và chưa từng nhận mail
+            $q->where(function($sq) use ($timeFrame) {
+                $sq->where('created_at', '>=', $timeFrame)
+                   ->whereNull('last_promo_sent_at');
+            })
+            // Hoặc khách cũ có ít nhất 1 đơn hàng THANH TOÁN MỚI phát sinh SAU lần gửi mail cuối
+            ->orWhereHas('bookings', function ($bq) use ($timeFrame) {
+                $bq->where('payment_status', 'paid')
+                   ->where('created_at', '>=', $timeFrame)
+                   ->where(function($sq) {
+                       $sq->whereRaw('bookings.created_at > users.last_promo_sent_at')
+                          ->orWhereNull('users.last_promo_sent_at');
+                   });
+            });
+        })
+        ->withCount(['bookings' => function ($query) {
+            $query->where('payment_status', 'paid');
+        }])
+        ->get()
+        ->map(function($user) {
+            $user->bookings_count = (int) $user->bookings_count;
+            return $user;
+        });
+        
+    return response()->json([
+        'success' => true,
+        'data' => $users
+    ]);
+});
+
+// API Đánh dấu User đã được gửi Email
+Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
+    if (!\Illuminate\Support\Str::isUuid($id)) {
+        return response()->json(['success' => false, 'message' => 'Invalid UUID'], 400);
+    }
+    
+    $user = \App\Models\User::find($id);
+    if ($user) {
+        $user->last_promo_sent_at = now();
+        $user->save();
+        return response()->json(['success' => true, 'message' => 'Đã đánh dấu báo cáo gửi email thành công.']);
+    }
+    return response()->json(['success' => false, 'message' => 'User not found'], 404);
+});
+
+// API DÀNH RIÊNG CHO DEV TEST: Xóa trạng thái đã gửi để test đi test lại
+Route::get('/n8n/users/reset-testing', function () {
+    \App\Models\User::whereNotNull('last_promo_sent_at')->update(['last_promo_sent_at' => null]);
+    return response()->json(['success' => true, 'message' => 'Đã reset toàn bộ trạng thái email. Các user đã hiển thị lại!']);
+});
+
+Route::get('/n8n/bookings', [\App\Http\Controllers\Admin\BookingController::class, 'index']);
+Route::get('/n8n/user-history/{userId}', function ($userId) {
+    if (!\Illuminate\Support\Str::isUuid($userId)) {
+        return response()->json(['success' => false, 'message' => 'Invalid UUID'], 400);
+    }
+    $bookings = \App\Models\Booking::where('user_id', $userId)->with('service.media')->get();
+    $paidCount = \App\Models\Booking::where('user_id', $userId)->where('payment_status', 'paid')->count();
+    $totalCount = $bookings->count();
+    
+    return response()->json([
+        'success' => true,
+        'paid_bookings_count' => $paidCount,
+        'total_bookings_count' => $totalCount,
+        'data' => $bookings
+    ]);
+});
+Route::get('/n8n/services', function () {
+    return response()->json([
+        'success' => true,
+        'data' => \App\Models\Service::with('media')->where('status', 'active')->get()
+    ]);
+});
+Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
+    $locationId = $request->query('location_id');
+    $query = \App\Models\Service::with('media')
+        ->where('type', 'hotel')
+        ->where('status', 'active');
+    
+    if ($locationId) {
+        $query->where('location_id', $locationId);
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => $query->get()
+    ]);
+});
+Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
+
+// N8n tạo Voucher
+Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
+    $validated = $request->validate([
+        'code' => 'required|string|max:50',
+        'type' => 'required|in:percent,fixed',
+        'discount_value' => 'required|numeric|min:0',
+        'min_order_amount' => 'nullable|numeric|min:0',
+        'usage_limit' => 'nullable|integer|min:1',
+        'per_user_limit' => 'nullable|integer|min:1',
+        'valid_from' => 'nullable|date',
+        'valid_until' => 'nullable|date|after_or_equal:valid_from',
+    ]);
+
+    try {
+        $coupon = \App\Models\Coupon::firstOrCreate(
+            ['code' => $validated['code']],
+            $validated
+        );
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Lấy/Tạo mã giảm giá từ n8n thành công',
+            'data' => $coupon
+        ], 201);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Lỗi khi tạo mã giảm giá: ' . $e->getMessage()
+        ], 500);
+    }
+});

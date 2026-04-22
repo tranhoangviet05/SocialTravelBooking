@@ -188,4 +188,28 @@ class BookingController extends Controller
             'message' => 'Đã hủy đơn đặt chỗ thành công.'
         ]);
     }
+
+    /**
+     * Lấy lịch sử booking theo User ID (Dành riêng cho n8n)
+     */
+    public function myBookingsByUserId($userId)
+    {
+        // Kiểm tra UUID hợp lệ để tránh lỗi SQLSTATE[22P02] với PostgreSQL
+        if (!\Illuminate\Support\Str::isUuid($userId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid User ID format. Expected UUID, got: ' . $userId
+            ], 400);
+        }
+
+        $bookings = Booking::with(['service.media'])
+            ->where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $bookings
+        ]);
+    }
 }

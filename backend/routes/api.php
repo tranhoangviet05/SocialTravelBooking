@@ -19,6 +19,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\General\LocationController;
 use App\Http\Controllers\General\CategoryController;
 use App\Http\Controllers\General\ServiceController;
+use App\Http\Controllers\General\ServiceFeedbackController;
 
 // ========================
 // ROUTE CÔNG KHAI (không cần đăng nhập)
@@ -41,6 +42,7 @@ Route::get('/general/get/categories/{slug}', [CategoryController::class, 'show']
 Route::get('/general/get/services', [ServiceController::class, 'index']);
 Route::get('/general/get/services/detail/{slug}', [ServiceController::class, 'show']);
 Route::get('/general/get/services/latest', [ServiceController::class, 'latest']);
+Route::get('/general/get/services/{id}/feedbacks', [ServiceFeedbackController::class, 'index']);
 
 // Mã giảm giá (Public)
 Route::get('/general/get/coupons', [\App\Http\Controllers\General\CouponController::class, 'index']);
@@ -83,6 +85,7 @@ Route::middleware('firebase.auth')->group(function () {
         Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
         Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
         Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
+        Route::post('/services/{id}/feedbacks', [ServiceFeedbackController::class, 'store']);
 
         // Payment routes
         Route::post('/payment/initiate', [\App\Http\Controllers\General\PaymentController::class, 'initiate']);

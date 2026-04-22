@@ -17,6 +17,7 @@ const Post = ({ post: initialPost }) => {
     const [post, setPost] = useState(initialPost);
     const [isLiked, setIsLiked] = useState(initialPost.is_liked > 0);
     const [showMenu, setShowMenu] = useState(false);
+    const [isLiking, setIsLiking] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const notification = useNotification();
     const navigate = useNavigate();
@@ -45,20 +46,36 @@ const Post = ({ post: initialPost }) => {
         };
     }, [post.id]);
 
-    // Đồng bộ likes_count từ feedPosts trong context (khi context cập nhật qua WebSocket)
+    // Đồng bộ trạng thái từ Context (khi WebSocket hoặc các màn hình khác cập nhật dữ liệu gốc)
     useEffect(() => {
-        setPost(prev => ({ ...prev, likes_count: initialPost.likes_count }));
-    }, [initialPost.likes_count]);
+        setIsLiked(initialPost.is_liked);
+        setPost(prev => ({ 
+            ...prev, 
+            likes_count: initialPost.likes_count,
+            is_liked: initialPost.is_liked,
+            author: initialPost.author // Đồng bộ cả trạng thái follow nếu có
+        }));
+    }, [initialPost.is_liked, initialPost.likes_count, initialPost.author]);
 
     const handleLike = async (e) => {
         e.stopPropagation();
+        if (isLiking) return; // Khóa nếu đang xử lý
+
         const previousIsLiked = isLiked;
         const previousLikesCount = post.likes_count;
 
         try {
+            setIsLiking(true);
             const newIsLiked = !isLiked;
             setIsLiked(newIsLiked);
-            setPost(prev => ({ ...prev, likes_count: newIsLiked ? prev.likes_count + 1 : prev.likes_count - 1 }));
+            
+            // Cập nhật giao diện ngay lập tức (Optimistic)
+            setPost(prev => ({ 
+                ...prev, 
+                likes_count: newIsLiked 
+                    ? prev.likes_count + 1 
+                    : Math.max(0, prev.likes_count - 1) 
+            }));
 
             const response = await socialApi.toggleLike(post.id);
             if (response.success) {
@@ -68,6 +85,8 @@ const Post = ({ post: initialPost }) => {
         } catch (error) {
             setIsLiked(previousIsLiked);
             setPost(prev => ({ ...prev, likes_count: previousLikesCount }));
+        } finally {
+            setIsLiking(false);
         }
     };
 
@@ -137,7 +156,10 @@ const Post = ({ post: initialPost }) => {
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span
                                     className="font-bold text-[15px] hover:underline cursor-pointer"
-                                    onClick={(e) => { e.stopPropagation(); navigate(`/newsfeed/profile?id=${post.user_id}`); }}
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        navigate(`/newsfeed/profile?id=${post.user_id}`, { state: { initialUser: post.author } }); 
+                                    }}
                                 >
                                     {post.author?.display_name || "Người dùng"}
                                 </span>
@@ -244,6 +266,7 @@ const Post = ({ post: initialPost }) => {
 
             <PostDetailModal
                 postId={post.id}
+                postData={post}
                 isOpen={isDetailOpen}
                 onClose={() => setIsDetailOpen(false)}
             />

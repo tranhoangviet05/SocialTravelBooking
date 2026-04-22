@@ -10,6 +10,7 @@ const socialApi = {
     searchUsers: (query) => axios.get('/social/users/search', { params: { q: query } }),
     getUserPosts: (userId) => axios.get(API_ENDPOINTS.SOCIAL_USER_POSTS(userId)),
     getUserReplies: (userId) => axios.get(API_ENDPOINTS.SOCIAL_USER_REPLIES(userId)),
+    getUserProfile: (userId) => axios.get(API_ENDPOINTS.SOCIAL_USER_PROFILE(userId)),
 
     // Interactions
     toggleLike: (postId) => axios.post(API_ENDPOINTS.SOCIAL_LIKE(postId)),
@@ -24,6 +25,11 @@ const socialApi = {
 
     // Tags
     getTagSuggestions: (query) => axios.get(`${API_ENDPOINTS.SOCIAL_TAG_SUGGESTIONS}?q=${query}`),
+
+    // Notifications
+    getNotifications: (type = 'all', page = 1) => axios.get('/social/notifications', { params: { type, page } }),
+    markNotificationAsRead: (id) => axios.post(`/social/notifications/${id}/read`),
+    markAllNotificationsAsRead: () => axios.post('/social/notifications/read-all'),
 };
 
 export default socialApi;

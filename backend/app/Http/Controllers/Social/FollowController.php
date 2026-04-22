@@ -33,12 +33,15 @@ class FollowController extends Controller
     /**
      * Lấy danh sách người theo dõi của một user
      */
-    public function getFollowers(string $userId)
+    public function getFollowers(Request $request, string $userId)
     {
-        $followers = \App\Models\Follow::with('follower.socialProfile')
-                                       ->where('following_id', $userId)
-                                       ->get()
-                                       ->pluck('follower');
+        $currentUser = $request->attributes->get('userModel');
+        $followers = $this->socialService->getFollowers(
+            $currentUser, 
+            $userId, 
+            $request->get('per_page', 20)
+        );
+
         return response()->json([
             'success' => true,
             'data'    => $followers
@@ -48,12 +51,15 @@ class FollowController extends Controller
     /**
      * Lấy danh sách đang theo dõi của một user
      */
-    public function getFollowing(string $userId)
+    public function getFollowing(Request $request, string $userId)
     {
-        $following = \App\Models\Follow::with('following.socialProfile')
-                                       ->where('follower_id', $userId)
-                                       ->get()
-                                       ->pluck('following');
+        $currentUser = $request->attributes->get('userModel');
+        $following = $this->socialService->getFollowing(
+            $currentUser, 
+            $userId, 
+            $request->get('per_page', 20)
+        );
+
         return response()->json([
             'success' => true,
             'data'    => $following

@@ -52,7 +52,50 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
 
-        return unsubscribe;
+        // Lắng nghe Real-time cập nhật số lượng follow cho user hiện tại
+        const echo = import('../utils/echo').then(m => {
+            const channel = m.default.channel('social-updates');
+            channel.listen('.user.followed', (e) => {
+                const { followerId, followingId, followerCount, followingCount } = e;
+                
+                setCurrentUser(prev => {
+                    if (!prev) return prev;
+                    
+                    let updated = { ...prev };
+                    let changed = false;
+
+                    // Nếu mình là người đi follow (follower) -> Cập nhật số người mình đang theo dõi (following_count)
+                    if (String(prev.id) === String(followerId)) {
+                        updated = {
+                            ...updated,
+                            social_profile: {
+                                ...updated.social_profile,
+                                following_count: followingCount
+                            }
+                        };
+                        changed = true;
+                    }
+
+                    // Nếu mình là người được follow (following) -> Cập nhật số người theo dõi mình (followers_count)
+                    if (String(prev.id) === String(followingId)) {
+                        updated = {
+                            ...updated,
+                            social_profile: {
+                                ...updated.social_profile,
+                                followers_count: followerCount
+                            }
+                        };
+                        changed = true;
+                    }
+
+                    return changed ? updated : prev;
+                });
+            });
+        });
+
+        return () => {
+            unsubscribe();
+        };
     }, []);
 
     const refreshProfile = async () => {

@@ -9,13 +9,29 @@ import { Repeat2 } from 'lucide-react';
 const Home = () => {
     const { openCreateModal, refreshTrigger } = useOutletContext();
     const { currentUser } = useAuth();
-    const { feedPosts, fetchFeed, loading } = useSocialData();
+    const { feedPosts, fetchFeed, fetchMoreFeed, feedPagination, loading, loadingMore } = useSocialData();
     const navigate = useNavigate();
 
     useEffect(() => {
         // Force refresh nếu có trigger (vừa đăng bài)
         fetchFeed(refreshTrigger > 0);
     }, [fetchFeed, refreshTrigger]);
+
+    // Infinite scroll logic
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && feedPagination.hasMore && !loadingMore && !loading) {
+                fetchMoreFeed();
+            }
+        }, { threshold: 0.1 });
+
+        const target = document.getElementById('feed-end-trigger');
+        if (target) observer.observe(target);
+
+        return () => {
+            if (target) observer.unobserve(target);
+        };
+    }, [feedPagination.hasMore, loadingMore, loading, fetchMoreFeed]);
 
     return (
         <div className="w-full">
@@ -54,9 +70,25 @@ const Home = () => {
                             ))}
                         </div>
                     ) : feedPosts.length > 0 ? (
-                        feedPosts.map((post) => (
-                            <Post key={post.id} post={post} />
-                        ))
+                        <>
+                            {feedPosts.map((post) => (
+                                <Post key={post.id} post={post} />
+                            ))}
+                            
+                            {/* Loader for more posts */}
+                            <div id="feed-end-trigger" className="h-20 flex items-center justify-center py-8">
+                                {loadingMore && (
+                                    <div className="flex gap-2">
+                                        <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"></div>
+                                        <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce delay-75"></div>
+                                        <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce delay-150"></div>
+                                    </div>
+                                )}
+                                {!feedPagination.hasMore && feedPosts.length > 5 && (
+                                    <p className="text-gray-400 text-sm italic">Bạn đã xem hết bài viết</p>
+                                )}
+                            </div>
+                        </>
                     ) : (
                         <div className="py-20 text-center flex flex-col items-center gap-4">
                             <div className="p-4 bg-gray-50 rounded-full">

@@ -33,7 +33,7 @@ class InteractionController extends Controller
      */
     public function getComments(string $postId)
     {
-        $comments = \App\Models\Comment::with('user')
+        $comments = \App\Models\Comment::with('author')
                                        ->where('post_id', $postId)
                                        ->orderBy('created_at', 'asc')
                                        ->get();
@@ -48,15 +48,30 @@ class InteractionController extends Controller
      */
     public function storeComment(Request $request, string $postId)
     {
-        $request->validate(['content' => 'required|string']);
-        $user = $request->attributes->get('userModel');
-        
-        $comment = $this->socialService->addComment($user, $postId, $request->content);
+        try {
+            $request->validate(['content' => 'required|string']);
+            $user = $request->attributes->get('userModel');
 
-        return response()->json([
-            'success' => true,
-            'data'    => $comment
-        ], 201);
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Người dùng không tồn tại hoặc chưa xác thực (User Model missing)',
+                ], 401);
+            }
+            
+            $comment = $this->socialService->addComment($user, $postId, $request->content);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $comment
+            ], 201);
+        } catch (\Throwable $e) {
+            \Log::error('InteractionController@storeComment error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi lưu bình luận: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

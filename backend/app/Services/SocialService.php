@@ -102,16 +102,21 @@ class SocialService
 
         if ($like) {
             $like->delete();
-            $post->decrement('likes_count');
             $liked = false;
         } else {
-            \App\Models\Like::create([
+            \App\Models\Like::firstOrCreate([
                 'user_id' => $user->id,
                 'post_id' => $postId
             ]);
-            $post->increment('likes_count');
             $liked = true;
+            
+            // TẠO THÔNG BÁO LIKE
+            $this->createNotification($post->user_id, $user->id, 'like', $postId);
         }
+
+        // Đếm lại số lượng thực tế để tránh sai lệch do nhấn nhanh
+        $likesCount = \App\Models\Like::where('post_id', $postId)->count();
+        $post->update(['likes_count' => $likesCount]);
 
         broadcast(new PostLiked($postId, $post->likes_count, $user->id, $liked));
 
@@ -134,10 +139,13 @@ class SocialService
 
             $post->increment('comments_count');
 
-            $comment = $comment->load('user');
+            $comment = $comment->load('author');
             
-            // Gửi notification real-time
-            broadcast(new CommentCreated($comment))->toOthers();
+            // TẠO THÔNG BÁO COMMENT
+            $this->createNotification($post->user_id, $user->id, 'comment', $postId, $comment->id);
+
+            // Gửi notification real-time cho tất cả mọi người
+            broadcast(new CommentCreated($comment));
 
             return $comment;
         });
@@ -149,7 +157,7 @@ class SocialService
     public function toggleFollow(User $follower, string $followingId): array
     {
         if ($follower->id === $followingId) {
-            throw new Exception("Bạn không thể theo dõi chính mình");
+            throw new \Exception("Bạn không thể theo dõi chính mình");
         }
 
         $followingUser = User::findOrFail($followingId);
@@ -160,26 +168,39 @@ class SocialService
 
         if ($follow) {
             $follow->delete();
-            
-            $follower->socialProfile()->decrement('following_count');
-            $followingUser->socialProfile()->decrement('followers_count');
-            
             $status = false;
         } else {
             \App\Models\Follow::create([
                 'follower_id'  => $follower->id,
                 'following_id' => $followingId
             ]);
-
-            $follower->socialProfile()->increment('following_count');
-            $followingUser->socialProfile()->increment('followers_count');
-            
             $status = true;
+
+            // TẠO THÔNG BÁO FOLLOW
+            $this->createNotification($followingId, $follower->id, 'follow');
         }
+
+        // Đếm lại chính xác số lượng từ DB
+        $followerCount = \App\Models\Follow::where('following_id', $followingId)->count();
+        $followingCount = \App\Models\Follow::where('follower_id', $follower->id)->count();
+
+        // Cập nhật vào SocialProfile
+        $followingUser->socialProfile()->update(['followers_count' => $followerCount]);
+        $follower->socialProfile()->update(['following_count' => $followingCount]);
+
+        // Phát tín hiệu Real-time
+        broadcast(new \App\Events\UserFollowed(
+            $follower->id, 
+            $followingId, 
+            $status, 
+            $followerCount, 
+            $followingCount
+        ));
 
         return [
             'following' => $status,
-            'followers_count' => $followingUser->socialProfile->followers_count
+            'followers_count' => $followerCount,
+            'following_count' => $followingCount
         ];
     }
 
@@ -330,5 +351,84 @@ class SocialService
         });
 
         return $users;
+    }
+    /**
+     * Lấy danh sách người theo dõi của một user
+     */
+    public function getFollowers(User $currentUser, string $userId, int $perPage = 20)
+    {
+        $followers = User::whereIn('id', function($query) use ($userId) {
+            $query->select('follower_id')->from('follows')->where('following_id', $userId);
+        })->with('socialProfile')->paginate($perPage);
+
+        $followers->getCollection()->transform(function($u) use ($currentUser) {
+            $u->is_following = \App\Models\Follow::where('follower_id', $currentUser->id)
+                                                 ->where('following_id', $u->id)
+                                                 ->exists();
+            return $u;
+        });
+
+        return $followers;
+    }
+
+    /**
+     * Lấy danh sách những người mà user đang theo dõi
+     */
+    public function getFollowing(User $currentUser, string $userId, int $perPage = 20)
+    {
+        $following = User::whereIn('id', function($query) use ($userId) {
+            $query->select('following_id')->from('follows')->where('follower_id', $userId);
+        })->with('socialProfile')->paginate($perPage);
+
+        $following->getCollection()->transform(function($u) use ($currentUser) {
+            $u->is_following = \App\Models\Follow::where('follower_id', $currentUser->id)
+                                                 ->where('following_id', $u->id)
+                                                 ->exists();
+            return $u;
+        });
+
+        return $following;
+    }
+    /**
+     * Lấy thông tin profile của một người dùng bất kỳ
+     */
+    public function getOtherUserProfile(User $currentUser, string $targetUserId)
+    {
+        $targetUser = User::with('socialProfile')->findOrFail($targetUserId);
+        
+        $targetUser->is_following = \App\Models\Follow::where('follower_id', $currentUser->id)
+                                                      ->where('following_id', $targetUserId)
+                                                      ->exists();
+        
+        return $targetUser;
+    }
+
+    /**
+     * Tạo thông báo mới
+     */
+    private function createNotification(string $userId, string $senderId, string $type, ?string $postId = null, ?string $commentId = null, ?array $data = null)
+    {
+        if ($userId === $senderId) return null;
+
+        return \App\Models\SocialNotification::create([
+            'user_id'    => $userId,
+            'sender_id'  => $senderId,
+            'type'       => $type,
+            'post_id'    => $postId,
+            'comment_id' => $commentId,
+            'data'       => $data,
+            'is_read'    => false
+        ]);
+    }
+
+    /**
+     * Lấy danh sách thông báo hoạt động
+     */
+    public function getNotifications(User $user, int $perPage = 20)
+    {
+        return \App\Models\SocialNotification::where('user_id', $user->id)
+                                             ->with(['sender.socialProfile', 'post.media'])
+                                             ->orderByDesc('created_at')
+                                             ->paginate($perPage);
     }
 }

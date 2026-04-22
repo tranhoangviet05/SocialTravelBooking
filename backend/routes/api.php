@@ -91,11 +91,17 @@ Route::middleware('firebase.auth')->group(function () {
         Route::post('/users/{followingId}/follow', [FollowController::class, 'toggleFollow']);
         Route::get('/users/{userId}/followers', [FollowController::class, 'getFollowers']);
         Route::get('/users/{userId}/following', [FollowController::class, 'getFollowing']);
+        Route::get('/users/{userId}/profile', [\App\Http\Controllers\Social\SocialController::class, 'getOtherProfile']);
         Route::get('/users/search', [FollowController::class, 'search']);
         Route::get('/suggestions/users', [FollowController::class, 'suggestions']);
 
         // Hashtags
         Route::get('/tags/suggestions', [TagController::class, 'suggestions']);
+
+        // Thông báo
+        Route::get('/notifications', [\App\Http\Controllers\Social\NotificationController::class, 'index']);
+        Route::post('/notifications/{id}/read', [\App\Http\Controllers\Social\NotificationController::class, 'markAsRead']);
+        Route::post('/notifications/read-all', [\App\Http\Controllers\Social\NotificationController::class, 'markAllAsRead']);
     });
 
     // ===========================================================

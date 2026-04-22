@@ -7,11 +7,11 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class CommentCreated implements ShouldBroadcast
+class CommentCreated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -19,7 +19,7 @@ class CommentCreated implements ShouldBroadcast
 
     public function __construct(Comment $comment)
     {
-        $this->comment = $comment->load('user');
+        $this->comment = $comment->load('author');
     }
 
     public function broadcastOn(): array

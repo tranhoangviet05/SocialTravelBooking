@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Smile } from 'lucide-react';
+import EmojiPicker from 'emoji-picker-react';
 import Avatar from '../../../components/common/Avatar';
 import socialApi from '../../../api/socialApi';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotification } from '../../../contexts/NotificationContext';
+import { useSocialData } from '../../../contexts/SocialDataContext';
 
-const PostDetailModal = ({ postId, isOpen, onClose }) => {
+const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
     const { currentUser } = useAuth();
+    const { updatePostInState } = useSocialData();
     const notification = useNotification();
-    const [post, setPost] = useState(null);
+    const [post, setPost] = useState(postData || null);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [isLiked, setIsLiked] = useState(false);
+    const [loading, setLoading] = useState(!postData);
+    const [isLiked, setIsLiked] = useState(postData ? postData.is_liked > 0 : false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [isPosting, setIsPosting] = useState(false);
+    const [isLiking, setIsLiking] = useState(false);
 
     useEffect(() => {
         if (isOpen && postId) {
@@ -26,71 +32,164 @@ const PostDetailModal = ({ postId, isOpen, onClose }) => {
 
     const fetchPostDetails = async () => {
         try {
-            setLoading(true);
-            const response = await socialApi.getPostDetail(postId);
-            if (response.success) {
-                setPost(response.data);
-                setIsLiked(response.data.is_liked > 0);
+            // Nếu đã có dữ liệu ban đầu, không hiện màn hình loading xoay vòng to nữa
+            if (!postData) setLoading(true);
 
-                // Fetch comments
-                const commRes = await socialApi.getComments(postId);
-                if (commRes.success) {
-                    setComments(commRes.data);
-                }
+            // Tải song song cả Chi tiết bài viết và Bình luận để tiết kiệm thời gian
+            const [postRes, commRes] = await Promise.all([
+                socialApi.getPostDetail(postId),
+                socialApi.getComments(postId)
+            ]);
+
+            if (postRes.success) {
+                setPost(postRes.data);
+                setIsLiked(postRes.data.is_liked > 0);
+            }
+            if (commRes.success) {
+                setComments(commRes.data);
             }
         } catch (error) {
-            notification.error("Không thể tải chi tiết bài viết");
-            onClose();
+            if (!postData) {
+                notification.error("Không thể tải chi tiết bài viết");
+                onClose();
+            }
         } finally {
             setLoading(false);
         }
     };
 
     const handleLike = async () => {
-        if (!post) return;
+        if (!post || isLiking) return;
+        
+        const previousIsLiked = isLiked;
+        const previousLikesCount = post.likes_count;
+
         try {
+            setIsLiking(true);
+            const newIsLiked = !isLiked;
+            setIsLiked(newIsLiked);
+            
+            // Optimistic UI update
+            setPost(prev => ({ 
+                ...prev, 
+                likes_count: newIsLiked 
+                    ? prev.likes_count + 1 
+                    : Math.max(0, prev.likes_count - 1) 
+            }));
+
             const response = await socialApi.toggleLike(post.id);
             if (response.success) {
                 setPost(prev => ({ ...prev, likes_count: response.data.likes_count }));
                 setIsLiked(response.data.liked);
+                
+                // ĐỒNG BỘ VỀ CONTEXT
+                updatePostInState(post.id, { 
+                    likes_count: response.data.likes_count, 
+                    is_liked: response.data.liked 
+                });
             }
         } catch (error) {
+            setIsLiked(previousIsLiked);
+            setPost(prev => ({ ...prev, likes_count: previousLikesCount }));
             notification.error("Lỗi khi like");
+        } finally {
+            setIsLiking(false);
         }
     };
 
     const handleComment = async (e) => {
         e.preventDefault();
-        if (!newComment.trim()) return;
+        if (!newComment.trim() || isPosting) return;
+
+        const commentContent = newComment.trim();
+        const tempId = `temp-${Date.now()}`;
+        
+        // Optimistic UI: Thêm bình luận tạm thời
+        const tempComment = {
+            id: tempId,
+            content: commentContent,
+            created_at: new Date().toISOString(),
+            author: currentUser,
+            isSending: true
+        };
+
+        setNewComment('');
+        setShowEmojiPicker(false);
+        setComments(prev => [tempComment, ...prev]);
+        setPost(prev => ({ ...prev, comments_count: prev.comments_count + 1 }));
+        setIsPosting(true);
 
         try {
-            const response = await socialApi.addComment(post.id, newComment);
+            const response = await socialApi.addComment(post.id, commentContent);
             if (response.success) {
-                setComments(prev => [response.data, ...prev]);
-                setPost(prev => ({ ...prev, comments_count: prev.comments_count + 1 }));
-                setNewComment('');
-                notification.success("Đã đăng bình luận");
+                // Thay thế bình luận tạm thời bằng bình luận thật từ API
+                setComments(prev => prev.map(c => c.id === tempId ? response.data : c));
+                
+                // ĐỒNG BỘ VỀ CONTEXT (Cập nhật số lượng bình luận ở feed)
+                updatePostInState(post.id, { 
+                    comments_count: post.comments_count + 1 
+                });
+            } else {
+                throw new Error("API Error");
             }
         } catch (error) {
-            notification.error("Lỗi khi gửi bình luận");
+            // Hoàn tác nếu lỗi
+            setComments(prev => prev.filter(c => c.id !== tempId));
+            setPost(prev => ({ ...prev, comments_count: prev.comments_count - 1 }));
+            setNewComment(commentContent); // Trả lại nội dung cũ để user sửa
+            notification.error("Lỗi khi gửi bình luận. Vui lòng thử lại.");
+        } finally {
+            setIsPosting(false);
         }
+    };
+
+    const onEmojiClick = (emojiData) => {
+        setNewComment(prev => prev + emojiData.emoji);
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl overflow-hidden flex flex-col md:flex-row relative">
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 z-10 p-2 bg-black/10 hover:bg-black/20 rounded-full transition-colors"
-                >
-                    <X size={20} />
-                </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+            {/* Nút đóng di chuyển ra ngoài box trắng và to hơn */}
+            <button
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
+                className="absolute top-6 right-6 z-[60] p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
+                title="Đóng (Esc)"
+            >
+                <X size={28} />
+            </button>
 
-                {loading ? (
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+            <div 
+                className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
+                onClick={(e) => e.stopPropagation()} // Ngăn chặn đóng modal khi click vào bên trong
+            >
+
+
+                {loading && !post ? (
+                    <div className="flex-1 flex flex-col md:flex-row animate-pulse">
+                        <div className="flex-1 bg-gray-200 h-full"></div>
+                        <div className="w-full md:w-[400px] p-6 space-y-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                                <div className="h-4 w-32 bg-gray-200 rounded"></div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="h-4 w-full bg-gray-100 rounded"></div>
+                                <div className="h-4 w-full bg-gray-100 rounded"></div>
+                                <div className="h-4 w-2/3 bg-gray-100 rounded"></div>
+                            </div>
+                            <div className="pt-10 space-y-4">
+                                <div className="flex gap-3">
+                                    <div className="w-8 h-8 bg-gray-100 rounded-full"></div>
+                                    <div className="h-10 flex-1 bg-gray-50 rounded-xl"></div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <div className="w-8 h-8 bg-gray-100 rounded-full"></div>
+                                    <div className="h-10 flex-1 bg-gray-50 rounded-xl"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 ) : post ? (
                     <>
@@ -180,24 +279,46 @@ const PostDetailModal = ({ postId, isOpen, onClose }) => {
                                 </div>
 
                                 {/* Comments List */}
-                                <div className="space-y-4">
+                                <div className="space-y-5">
                                     {comments.length > 0 ? (
                                         comments.map((comment) => (
-                                            <div key={comment.id} className="flex gap-3">
-                                                <Avatar src={comment.author?.avatar_url} alt={comment.author?.display_name} size="xs" />
-                                                <div className="flex-1 flex flex-col">
-                                                    <div className="bg-gray-50 rounded-xl p-3">
-                                                        <span className="font-bold text-[13px] block mb-0.5">{comment.author?.display_name}</span>
-                                                        <p className="text-[14px] text-gray-800">{comment.content}</p>
+                                            <div key={comment.id} className={`flex gap-3 group ${comment.isSending ? 'opacity-60' : ''}`}>
+                                                <div className="flex-shrink-0 mt-1">
+                                                    <Avatar src={comment.author?.avatar_url || comment.author?.photoURL} alt={comment.author?.display_name || comment.author?.displayName} size="xs" />
+                                                </div>
+                                                <div className="flex-1 flex flex-col min-w-0">
+                                                    <div className="relative group-hover:bg-gray-50 transition-colors p-2 -m-2 rounded-xl">
+                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                            <span className="font-bold text-[13px] text-gray-900 truncate">
+                                                                {comment.author?.display_name || comment.author?.displayName}
+                                                            </span>
+                                                            {comment.isSending && (
+                                                                <span className="text-[10px] text-gray-400 animate-pulse">Đang đăng...</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[14px] text-gray-700 leading-relaxed break-words">
+                                                            {comment.content}
+                                                        </p>
                                                     </div>
-                                                    <span className="text-[11px] text-gray-400 mt-1 ml-1">
-                                                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: vi })}
-                                                    </span>
+                                                    <div className="flex items-center gap-3 mt-1.5 ml-0.5">
+                                                        <span className="text-[11px] text-gray-400 font-medium">
+                                                            {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: vi })}
+                                                        </span>
+                                                        {!comment.isSending && (
+                                                            <>
+                                                                <button className="text-[11px] text-gray-500 font-bold hover:text-black transition-colors">Thích</button>
+                                                                <button className="text-[11px] text-gray-500 font-bold hover:text-black transition-colors">Trả lời</button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="text-center py-10 text-gray-400 italic text-sm">Chưa có bình luận nào</div>
+                                        <div className="flex flex-col items-center justify-center py-12 text-gray-300">
+                                            <MessageCircle size={40} strokeWidth={1} className="mb-2 opacity-20" />
+                                            <span className="text-sm italic">Chưa có bình luận nào</span>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -213,7 +334,30 @@ const PostDetailModal = ({ postId, isOpen, onClose }) => {
                                 </div>
                                 <div className="text-[14px] font-bold mb-3">{post.likes_count} lượt thích</div>
 
-                                <form onSubmit={handleComment} className="flex gap-2">
+                                <form onSubmit={handleComment} className="flex gap-2 relative">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                        className="text-gray-500 hover:text-yellow-500 transition-colors"
+                                    >
+                                        <Smile size={24} />
+                                    </button>
+
+                                    {showEmojiPicker && (
+                                        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 z-[100] shadow-2xl">
+                                            <div className="fixed inset-0 bg-transparent" onClick={() => setShowEmojiPicker(false)}></div>
+                                            <div className="relative">
+                                                <EmojiPicker 
+                                                    onEmojiClick={onEmojiClick}
+                                                    autoFocusSearch={false}
+                                                    theme="light"
+                                                    width={300}
+                                                    height={400}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <input
                                         type="text"
                                         placeholder="Thêm bình luận..."
@@ -223,10 +367,10 @@ const PostDetailModal = ({ postId, isOpen, onClose }) => {
                                     />
                                     <button
                                         type="submit"
-                                        disabled={!newComment.trim()}
-                                        className="text-sky-500 font-bold text-[14px] disabled:opacity-50"
+                                        disabled={!newComment.trim() || isPosting}
+                                        className="text-sky-500 font-bold text-[14px] disabled:opacity-50 hover:text-sky-600 transition-colors"
                                     >
-                                        Đăng
+                                        {isPosting ? '...' : 'Đăng'}
                                     </button>
                                 </form>
                             </div>

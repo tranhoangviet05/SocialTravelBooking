@@ -18,6 +18,7 @@ import NewsFeed from './pages/tourist/NewsFeed';
 import NewsFeedHome from './pages/tourist/news_feed/Home';
 import NewsFeedSearch from './pages/tourist/news_feed/SearchPage';
 import NewsFeedProfile from './pages/tourist/news_feed/Profile';
+import NewsFeedActivity from './pages/tourist/news_feed/Activity';
 import CheckoutPage from './pages/tourist/Checkout';
 import SuccessPage from './pages/tourist/Success';
 import CartPage from './pages/tourist/Cart';
@@ -86,6 +87,7 @@ function App() {
                       <Route index element={<NewsFeedHome />} />
                       <Route path="search" element={<NewsFeedSearch />} />
                       <Route path="profile" element={<NewsFeedProfile />} />
+                      <Route path="activity" element={<NewsFeedActivity />} />
                     </Route>
                   </Route>
 

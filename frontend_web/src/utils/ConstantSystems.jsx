@@ -57,6 +57,7 @@ export const API_ENDPOINTS = {
     SOCIAL_FOLLOWING: (userId) => `/social/users/${userId}/following`,
     SOCIAL_USER_POSTS: (userId) => `/social/users/${userId}/posts`,
     SOCIAL_USER_REPLIES: (userId) => `/social/users/${userId}/replies`,
+    SOCIAL_USER_PROFILE: (userId) => `/social/users/${userId}/profile`,
     SOCIAL_SUGGESTIONS: '/social/suggestions/users',
     SOCIAL_TAG_SUGGESTIONS: '/social/tags/suggestions',
 };

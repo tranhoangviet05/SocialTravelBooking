@@ -22,21 +22,27 @@ import { vi } from 'date-fns/locale';
 
 import { useSocialData } from '../../../contexts/SocialDataContext';
 import Avatar from '../../../components/common/Avatar';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
+import UserListModal from '../../../components/tourist/news_feed/UserListModal';
 
 const Profile = () => {
     const { currentUser } = useAuth();
     const [searchParams] = useSearchParams();
+    const location = useLocation();
+    const initialUser = location.state?.initialUser;
+    
     const targetUserId = searchParams.get('id') || currentUser?.id;
 
     const notification = useNotification();
     const { fetchUserProfile, profileCache, updateFollowStatus } = useSocialData();
 
     const [activeTab, setActiveTab] = useState('Bài đăng');
-    const [profileUser, setProfileUser] = useState(null);
+    const [profileUser, setProfileUser] = useState(initialUser || null);
     const [posts, setPosts] = useState([]);
     const [replies, setReplies] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!initialUser); // Không hiện loading nếu đã có dữ liệu ban đầu
+
+    const [userListModal, setUserListModal] = useState({ isOpen: false, tab: 'followers' });
 
     const socialProfile = profileUser?.social_profile;
     const displayName = profileUser?.display_name || 'Người dùng';
@@ -62,6 +68,14 @@ const Profile = () => {
         } catch (error) {
             notification.error("Lỗi khi theo dõi");
         }
+    };
+
+    const handleOpenFollowers = () => {
+        setUserListModal({ isOpen: true, tab: 'followers' });
+    };
+
+    const handleOpenFollowing = () => {
+        setUserListModal({ isOpen: true, tab: 'following' });
     };
 
     useEffect(() => {
@@ -110,10 +124,18 @@ const Profile = () => {
     const tabs = ['Bài đăng', 'Câu trả lời', 'File phương tiện', 'Bài đăng lại'];
 
     const renderTabContent = () => {
-        if (loading) {
+        if (loading && posts.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Loader2 className="animate-spin text-gray-300" size={32} />
+                <div className="flex flex-col gap-6 py-6">
+                    {[1, 2].map(i => (
+                        <div key={i} className="animate-pulse flex gap-3 px-1">
+                            <div className="w-10 h-10 bg-gray-200 rounded-full flex-shrink-0"></div>
+                            <div className="flex-1 space-y-3">
+                                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                                <div className="h-24 bg-gray-100 rounded-xl w-full"></div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             );
         }
@@ -209,28 +231,66 @@ const Profile = () => {
             {/* Profile Header */}
             <div className="flex justify-between items-start mb-4">
                 <div>
-                    <h1 className="text-3xl font-bold">{displayName}</h1>
-                    <p className="text-[15px] mt-1 text-slate-600 font-medium">@{username}</p>
+                    {loading && !profileUser ? (
+                        <div className="space-y-3">
+                            <div className="h-8 w-48 bg-gray-200 animate-pulse rounded-lg"></div>
+                            <div className="h-4 w-32 bg-gray-100 animate-pulse rounded-md"></div>
+                        </div>
+                    ) : (
+                        <>
+                            <h1 className="text-3xl font-bold">{displayName}</h1>
+                            <p className="text-[15px] mt-1 text-slate-600 font-medium">@{username}</p>
+                        </>
+                    )}
                 </div>
                 <div className="relative group">
-                    <Avatar src={profileUser?.avatar_url} alt={displayName} size="2xl" />
-                    {targetUserId === currentUser?.id && (
-                        <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                            <Camera size={20} className="text-white" />
-                        </div>
+                    {loading && !profileUser ? (
+                        <div className="w-20 h-20 bg-gray-200 animate-pulse rounded-full"></div>
+                    ) : (
+                        <>
+                            <Avatar src={profileUser?.avatar_url} alt={displayName} size="2xl" />
+                            {targetUserId === currentUser?.id && (
+                                <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                                    <Camera size={20} className="text-white" />
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
 
             {/* Bio */}
             <div className="mb-6">
-                <p className="text-[15px] text-slate-800 whitespace-pre-wrap">{bio}</p>
+                {loading && !profileUser ? (
+                    <div className="h-4 w-full bg-gray-50 animate-pulse rounded"></div>
+                ) : (
+                    <p className="text-[15px] text-slate-800 whitespace-pre-wrap">{bio}</p>
+                )}
             </div>
 
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4 text-[15px] text-gray-500 font-medium">
-                    <span className="hover:underline cursor-pointer"><span className="text-black font-bold">{followersCount}</span> người theo dõi</span>
-                    <span className="hover:underline cursor-pointer"><span className="text-black font-bold">{followingCount}</span> đang theo dõi</span>
+                    {loading && !profileUser ? (
+                        <>
+                            <div className="h-4 w-24 bg-gray-100 animate-pulse rounded"></div>
+                            <div className="h-4 w-24 bg-gray-100 animate-pulse rounded"></div>
+                        </>
+                    ) : (
+                        <>
+                            <span 
+                                onClick={handleOpenFollowers}
+                                className="hover:underline cursor-pointer"
+                            >
+                                <span className="text-black font-bold">{followersCount}</span> người theo dõi
+                            </span>
+                            <span 
+                                onClick={handleOpenFollowing}
+                                className="hover:underline cursor-pointer"
+                            >
+                                <span className="text-black font-bold">{followingCount}</span> đang theo dõi
+                            </span>
+                        </>
+                    )}
                 </div>
                 <div className="flex items-center gap-4">
                     <button className="p-2 hover:bg-gray-100 rounded-full transition-colors"><Instagram size={22} className="text-slate-800" /></button>
@@ -238,15 +298,16 @@ const Profile = () => {
             </div>
 
             {targetUserId === currentUser?.id ? (
-                <button className="w-full py-2.5 border border-gray-300 rounded-2xl font-bold text-[15px] mb-8 hover:bg-gray-50 transition-all active:scale-[0.98]">
+                <button className="w-full py-2.5 border border-gray-300 rounded-2xl font-bold text-[15px] mb-8 hover:bg-gray-50 transition-all active:scale-[0.98] disabled:opacity-50">
                     Chỉnh sửa trang cá nhân
                 </button>
             ) : (
                 <button
                     onClick={handleFollow}
-                    className={`w-full py-2.5 rounded-2xl font-bold text-[15px] mb-8 transition-all active:scale-[0.98] ${profileUser?.is_following ? 'border border-gray-300 hover:bg-gray-50' : 'bg-black text-white hover:bg-gray-800'}`}
+                    disabled={loading && !profileUser}
+                    className={`w-full py-2.5 rounded-2xl font-bold text-[15px] mb-8 transition-all active:scale-[0.98] disabled:opacity-50 ${profileUser?.is_following ? 'border border-gray-300 hover:bg-gray-50' : 'bg-black text-white hover:bg-gray-800'}`}
                 >
-                    {profileUser?.is_following ? 'Đang theo dõi' : 'Theo dõi'}
+                    {loading && !profileUser ? '...' : (profileUser?.is_following ? 'Đang theo dõi' : 'Theo dõi')}
                 </button>
             )}
 
@@ -271,6 +332,12 @@ const Profile = () => {
                 {renderTabContent()}
             </div>
 
+            <UserListModal 
+                isOpen={userListModal.isOpen}
+                onClose={() => setUserListModal(prev => ({ ...prev, isOpen: false }))}
+                initialTab={userListModal.tab}
+                userId={targetUserId}
+            />
         </div>
     );
 };

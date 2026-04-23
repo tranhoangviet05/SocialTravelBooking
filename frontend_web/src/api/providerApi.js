@@ -23,6 +23,12 @@ const providerApi = {
     // Tiện nghi / Bao gồm / Không bao gồm
     updateAmenities: (serviceId, data) => axios.put(`/provider/services/${serviceId}/amenities`, data),
 
+    // Loại phòng (Hotel)
+    getRoomTypes: (serviceId) => axios.get(`/provider/services/${serviceId}/room-types`),
+    createRoomType: (serviceId, data) => axios.post(`/provider/services/${serviceId}/room-types`, data),
+    updateRoomType: (serviceId, roomTypeId, data) => axios.put(`/provider/services/${serviceId}/room-types/${roomTypeId}`, data),
+    deleteRoomType: (serviceId, roomTypeId) => axios.delete(`/provider/services/${serviceId}/room-types/${roomTypeId}`),
+
     // Đặt chỗ
     getBookings: (status = 'all') => axios.get('/provider/bookings', { params: { status } }),
     getBooking: (id) => axios.get(`/provider/bookings/${id}`),

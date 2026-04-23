@@ -4,7 +4,8 @@ import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
     CheckCircle, AlertCircle, Image as ImageIcon,
     UploadCloud, Clock, ChevronLeft, ChevronRight,
-    CalendarDays, Star, Settings2, ChevronDown, ChevronUp
+    CalendarDays, Star, Settings2, ChevronDown, ChevronUp,
+    Bed, Users
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 import { uploadImage } from '../../utils/cloudinary';
@@ -248,6 +249,211 @@ const ScheduleModal = ({ service, onClose, showToast }) => {
 };
 
 // ============================================================================
+// ROOM TYPE MODAL (quản lý loại phòng khách sạn)
+// ============================================================================
+const RoomTypeModal = ({ service, onClose, showToast }) => {
+    const [roomTypes, setRoomTypes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [editItem, setEditItem] = useState(null);
+    const [showForm, setShowForm] = useState(false);
+    const [confirmDel, setConfirmDel] = useState(null);
+
+    const emptyForm = {
+        name: '', rank: 'standard', base_price: '', total_rooms: '1',
+        capacity_adults: '2', capacity_children: '0',
+        description: '', amenities: ''
+    };
+    const [form, setForm] = useState(emptyForm);
+
+    useEffect(() => {
+        providerApi.getRoomTypes(service.id)
+            .then(res => setRoomTypes(res.data || []))
+            .catch(() => showToast('Không tải được loại phòng', 'error'))
+            .finally(() => setLoading(false));
+    }, [service.id]);
+
+    const openCreate = () => {
+        setEditItem(null);
+        setForm(emptyForm);
+        setShowForm(true);
+    };
+
+    const openEdit = (rt) => {
+        setEditItem(rt);
+        setForm({
+            name: rt.name,
+            rank: rt.rank || 'standard',
+            base_price: rt.base_price,
+            total_rooms: rt.total_rooms.toString(),
+            capacity_adults: rt.capacity_adults.toString(),
+            capacity_children: rt.capacity_children.toString(),
+            description: rt.description || '',
+            amenities: (rt.amenities || []).join('\n')
+        });
+        setShowForm(true);
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const payload = {
+                ...form,
+                base_price: Number(form.base_price),
+                total_rooms: Number(form.total_rooms),
+                capacity_adults: Number(form.capacity_adults),
+                capacity_children: Number(form.capacity_children),
+                amenities: form.amenities.split('\n').map(s => s.trim()).filter(Boolean)
+            };
+
+            if (editItem) {
+                const res = await providerApi.updateRoomType(service.id, editItem.id, payload);
+                setRoomTypes(prev => prev.map(rt => rt.id === editItem.id ? res.data : rt));
+                showToast('Đã cập nhật loại phòng!');
+            } else {
+                const res = await providerApi.createRoomType(service.id, payload);
+                setRoomTypes(prev => [...prev, res.data]);
+                showToast('Đã thêm loại phòng mới!');
+            }
+            setShowForm(false);
+        } catch {
+            showToast('Lỗi khi lưu dữ liệu', 'error');
+        } finally { setSaving(false); }
+    };
+
+    const handleDelete = async () => {
+        try {
+            await providerApi.deleteRoomType(service.id, confirmDel.id);
+            setRoomTypes(prev => prev.filter(rt => rt.id !== confirmDel.id));
+            showToast('Đã xóa loại phòng.');
+        } catch { showToast('Lỗi khi xóa', 'error'); }
+        finally { setConfirmDel(null); }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[110]" onClick={onClose}>
+            <div className="bg-white rounded-[2rem] w-[750px] max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                            <Bed size={22} className="text-emerald-500" />
+                            Quản lý loại phòng
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-1 font-medium">{service.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all">
+                            <Plus size={16} /> Thêm phòng
+                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
+                    </div>
+                </div>
+
+                {/* Form */}
+                {showForm && (
+                    <form onSubmit={handleSave} className="px-8 py-6 bg-emerald-50/50 border-b border-emerald-100 overflow-y-auto max-h-[50vh]">
+                        <h4 className="text-sm font-black text-emerald-700 mb-5">{editItem ? 'Sửa thông tin phòng' : 'Thêm loại phòng mới'}</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Tên loại phòng *</label>
+                                <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="VD: Deluxe Ocean View" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Hạng phòng *</label>
+                                <select value={form.rank} onChange={e => setForm({ ...form, rank: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                                    <option value="standard">🥉 Bình dân</option>
+                                    <option value="premium">🥈 Cao cấp</option>
+                                    <option value="vip">🥇 VIP</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Giá cơ bản *</label>
+                                <input required type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="VNĐ" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sức chứa (Lớn) *</label>
+                                    <input required type="number" value={form.capacity_adults} onChange={e => setForm({ ...form, capacity_adults: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Số phòng *</label>
+                                    <input required type="number" value={form.total_rooms} onChange={e => setForm({ ...form, total_rooms: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-4">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Tiện nghi riêng (Mỗi dòng 1 mục)</label>
+                            <textarea rows={3} value={form.amenities} onChange={e => setForm({ ...form, amenities: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-medium resize-none focus:outline-none" placeholder={"Bồn tắm\nBan công hướng biển\nMinibar"} />
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold">Hủy</button>
+                            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-black disabled:opacity-60 shadow-lg shadow-emerald-600/20">
+                                {saving ? <Loader2 size={18} className="animate-spin mx-auto" /> : (editItem ? 'Cập nhật phòng' : 'Thêm phòng')}
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                {/* List */}
+                <div className="flex-1 overflow-y-auto px-8 py-5 space-y-4">
+                    {loading ? (
+                        <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-emerald-500" size={32} /></div>
+                    ) : roomTypes.length === 0 ? (
+                        <div className="py-16 text-center text-slate-400">
+                            <Bed size={48} className="mx-auto mb-4 opacity-20" />
+                            <p className="font-bold">Khách sạn chưa có loại phòng nào.</p>
+                            <p className="text-sm mt-1 text-slate-300">Hãy thêm các loại phòng để khách hàng có thể đặt phòng.</p>
+                        </div>
+                    ) : (
+                        roomTypes.map(rt => (
+                            <div key={rt.id} className="flex items-center gap-5 p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 group transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50">
+                                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                                    <Bed size={24} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3">
+                                        <h5 className="font-black text-slate-800">{rt.name}</h5>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                                            rt.rank === 'vip' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                            rt.rank === 'premium' ? 'bg-sky-100 text-sky-700 border border-sky-200' :
+                                            'bg-slate-100 text-slate-600 border border-slate-200'
+                                        }`}>
+                                            {rt.rank === 'vip' ? '👑 VIP' : rt.rank === 'premium' ? '✨ Cao cấp' : '🏠 Bình dân'}
+                                        </span>
+                                        <span className="px-2 py-0.5 bg-white text-emerald-600 border border-emerald-100 rounded-lg text-[10px] font-black">{rt.total_rooms} Phòng</span>
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-1.5">
+                                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase">
+                                            <Users size={12} /> {rt.capacity_adults} Lớn, {rt.capacity_children} Trẻ
+                                        </div>
+                                        <div className="w-1 h-1 bg-slate-200 rounded-full" />
+                                        <div className="text-[11px] font-black text-emerald-600 uppercase italic">
+                                            {Number(rt.base_price).toLocaleString()}₫ / đêm
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button onClick={() => openEdit(rt)} className="p-2 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-xl"><Edit3 size={18} /></button>
+                                    <button onClick={() => setConfirmDel(rt)} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl"><Trash2 size={18} /></button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+            {confirmDel && <ConfirmModal message={`Xóa loại phòng "${confirmDel.name}"?`} onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />}
+        </div>
+    );
+};
+
+// ============================================================================
 // AMENITIES MODAL (tiện nghi / bao gồm / không bao gồm)
 // ============================================================================
 const AmenitiesModal = ({ service, onClose, showToast, onSaved }) => {
@@ -380,6 +586,7 @@ const MyServices = () => {
     // Modals mới
     const [scheduleService, setScheduleService] = useState(null);
     const [amenitiesService, setAmenitiesService] = useState(null);
+    const [roomTypeService, setRoomTypeService] = useState(null);
 
     const initialForm = {
         name: '', type: 'tour', category_id: '', location_id: '',
@@ -631,6 +838,18 @@ const MyServices = () => {
                                                     <span className="text-[9px] font-bold leading-none">Tiện nghi</span>
                                                 </button>
 
+                                                {/* Quản lý loại phòng - chỉ cho hotel/homestay */}
+                                                {(service.type === 'hotel' || service.type === 'homestay') && (
+                                                    <button
+                                                        onClick={() => setRoomTypeService(service)}
+                                                        title="Quản lý phòng"
+                                                        className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                    >
+                                                        <Bed size={15} />
+                                                        <span className="text-[9px] font-bold leading-none">Phòng</span>
+                                                    </button>
+                                                )}
+
                                                 <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5">
                                                     <Edit3 size={15} />
                                                     <span className="text-[9px] font-bold leading-none">Sửa</span>
@@ -762,6 +981,15 @@ const MyServices = () => {
                     onClose={() => setAmenitiesService(null)}
                     showToast={showToast}
                     onSaved={() => doFetch(currentPage)}
+                />
+            )}
+
+            {/* Modal Loại Phòng */}
+            {roomTypeService && (
+                <RoomTypeModal
+                    service={roomTypeService}
+                    onClose={() => setRoomTypeService(null)}
+                    showToast={showToast}
                 />
             )}
 

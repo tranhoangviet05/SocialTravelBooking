@@ -120,6 +120,20 @@ class ServiceController extends Controller
                         ]);
                     }
                 }
+
+                // TỰ ĐỘNG TẠO LOẠI PHÒNG MẶC ĐỊNH (cho Hotel/Homestay)
+                if (in_array($service->type, ['hotel', 'homestay'])) {
+                    $service->roomTypes()->create([
+                        'name' => 'Phòng thường (Mặc định)',
+                        'rank' => 'standard',
+                        'description' => 'Phòng tiêu chuẩn được tạo tự động từ thông tin cơ bản.',
+                        'base_price' => $service->base_price,
+                        'total_rooms' => 1,
+                        'capacity_adults' => $service->max_guests ?? 2,
+                        'capacity_children' => 0,
+                        'status' => 'active'
+                    ]);
+                }
             });
 
             // Load relations cho response
@@ -340,6 +354,104 @@ class ServiceController extends Controller
             'success' => true,
             'message' => 'Đã cập nhật tiện nghi dịch vụ.',
             'data'    => $service->fresh()
+        ]);
+    }
+
+    // =============================================
+    // QUẢN LÝ LOẠI PHÒNG (Room Types) - Dành cho Hotel
+    // =============================================
+
+    public function getRoomTypes(Request $request, $id)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::with('roomTypes')->findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền truy cập.'], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $service->roomTypes
+        ]);
+    }
+
+    public function storeRoomType(Request $request, $id)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'base_price' => 'required|numeric|min:0',
+            'total_rooms' => 'required|integer|min:1',
+            'capacity_adults' => 'required|integer|min:1',
+            'capacity_children' => 'nullable|integer|min:0',
+            'amenities' => 'nullable|array',
+            'images' => 'nullable|array',
+        ]);
+
+        $roomType = $service->roomTypes()->create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã tạo loại phòng thành công.',
+            'data' => $roomType
+        ], 201);
+    }
+
+    public function updateRoomType(Request $request, $id, $roomTypeId)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $roomType = \App\Models\HotelRoomType::where('service_id', $id)->findOrFail($roomTypeId);
+
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'description' => 'nullable|string',
+            'base_price' => 'sometimes|numeric|min:0',
+            'total_rooms' => 'sometimes|integer|min:1',
+            'capacity_adults' => 'sometimes|integer|min:1',
+            'capacity_children' => 'nullable|integer|min:0',
+            'amenities' => 'nullable|array',
+            'images' => 'nullable|array',
+            'status' => 'sometimes|string|in:active,inactive',
+        ]);
+
+        $roomType->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cập nhật loại phòng thành công.',
+            'data' => $roomType
+        ]);
+    }
+
+    public function destroyRoomType(Request $request, $id, $roomTypeId)
+    {
+        $provider = $this->getProvider($request);
+        $service = Service::findOrFail($id);
+
+        if ($service->provider_id !== $provider->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền.'], 403);
+        }
+
+        $roomType = \App\Models\HotelRoomType::where('service_id', $id)->findOrFail($roomTypeId);
+        $roomType->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa loại phòng thành công.'
         ]);
     }
 }

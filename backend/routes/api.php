@@ -201,6 +201,12 @@ Route::middleware('firebase.auth')->group(function () {
         // --- Tiện nghi / Bao gồm / Không bao gồm ---
         Route::put('/services/{id}/amenities', [\App\Http\Controllers\Provider\ServiceController::class, 'updateAmenities']);
 
+        // --- Loại phòng (Hotel) ---
+        Route::get('/services/{id}/room-types', [\App\Http\Controllers\Provider\ServiceController::class, 'getRoomTypes']);
+        Route::post('/services/{id}/room-types', [\App\Http\Controllers\Provider\ServiceController::class, 'storeRoomType']);
+        Route::put('/services/{id}/room-types/{roomTypeId}', [\App\Http\Controllers\Provider\ServiceController::class, 'updateRoomType']);
+        Route::delete('/services/{id}/room-types/{roomTypeId}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroyRoomType']);
+
         // --- Quản lý Đơn đặt chỗ ---
         Route::get('/bookings', [\App\Http\Controllers\Provider\BookingController::class, 'index']);
         Route::get('/bookings/{id}', [\App\Http\Controllers\Provider\BookingController::class, 'show']);

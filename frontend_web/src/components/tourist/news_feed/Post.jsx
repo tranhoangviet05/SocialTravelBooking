@@ -51,8 +51,8 @@ const Post = ({ post: initialPost }) => {
     // Đồng bộ trạng thái từ Context (khi WebSocket hoặc các màn hình khác cập nhật dữ liệu gốc)
     useEffect(() => {
         setIsLiked(initialPost.is_liked);
-        setPost(prev => ({ 
-            ...prev, 
+        setPost(prev => ({
+            ...prev,
             likes_count: initialPost.likes_count,
             is_liked: initialPost.is_liked,
             author: initialPost.author // Đồng bộ cả trạng thái follow nếu có
@@ -70,13 +70,13 @@ const Post = ({ post: initialPost }) => {
             setIsLiking(true);
             const newIsLiked = !isLiked;
             setIsLiked(newIsLiked);
-            
+
             // Cập nhật giao diện ngay lập tức (Optimistic)
-            setPost(prev => ({ 
-                ...prev, 
-                likes_count: newIsLiked 
-                    ? prev.likes_count + 1 
-                    : Math.max(0, prev.likes_count - 1) 
+            setPost(prev => ({
+                ...prev,
+                likes_count: newIsLiked
+                    ? prev.likes_count + 1
+                    : Math.max(0, prev.likes_count - 1)
             }));
 
             const response = await socialApi.toggleLike(post.id);
@@ -102,10 +102,10 @@ const Post = ({ post: initialPost }) => {
         try {
             setIsFollowingAction(true);
             const newStatus = !previousStatus;
-            const newFollowersCount = newStatus 
-                ? (previousFollowersCount + 1) 
+            const newFollowersCount = newStatus
+                ? (previousFollowersCount + 1)
                 : Math.max(0, previousFollowersCount - 1);
-            
+
             // Cập nhật Optimistic
             updateFollowStatus(post.user_id, newStatus, newFollowersCount);
 
@@ -177,9 +177,9 @@ const Post = ({ post: initialPost }) => {
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span
                                     className="font-bold text-[15px] hover:underline cursor-pointer"
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        navigate(`/newsfeed/profile?id=${post.user_id}`, { state: { initialUser: post.author } }); 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/newsfeed/profile?id=${post.user_id}`, { state: { initialUser: post.author } });
                                     }}
                                 >
                                     {post.author?.display_name || "Người dùng"}
@@ -272,7 +272,7 @@ const Post = ({ post: initialPost }) => {
 
                         {/* Gắn link dịch vụ */}
                         {post.service && (
-                            <div 
+                            <div
                                 onClick={(e) => { e.stopPropagation(); navigate(`/services/detail/${post.service.slug}`); }}
                                 className="mt-3 flex items-center gap-3 p-3 bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100 rounded-2xl group transition-all"
                             >
@@ -281,8 +281,7 @@ const Post = ({ post: initialPost }) => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 mb-0.5">
-                                        <Briefcase size={14} className="text-emerald-600" />
-                                        <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Dịch vụ đề xuất</span>
+                                        <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Dịch vụ được gắn thẻ</span>
                                     </div>
                                     <h4 className="text-[14px] font-bold text-slate-800 truncate group-hover:text-emerald-700">{post.service.name}</h4>
                                     <p className="text-[12px] text-emerald-600 font-bold">{formatCurrency(post.service.base_price)}</p>

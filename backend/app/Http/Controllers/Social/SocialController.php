@@ -142,6 +142,9 @@ class SocialController extends Controller
                 'message' => 'Không thể tìm thấy người dùng'
             ], 404);
         }
+    }
+
+    /**
      * Đăng bài tự động (Dành cho n8n)
      * POST /api/social/post
      */

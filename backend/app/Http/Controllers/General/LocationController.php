@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\General\LocationRequest;
 use App\Http\Resources\General\LocationResource;
 use App\Services\LocationService;
+use App\Models\Location;
 use Illuminate\Http\Request;
 use App\Models\Location;
 

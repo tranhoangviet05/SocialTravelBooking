@@ -42,9 +42,17 @@ class FirebaseAuthMiddleware
             \Log::info('Firebase Auth: Token verified successfully', ['uid' => $verifiedToken->claims()->get('sub')]);
 
             // Lưu thông tin user vào request để dùng ở controller
-            $request->attributes->set('firebaseUid', $verifiedToken->claims()->get('sub'));
+            $uid = $verifiedToken->claims()->get('sub');
+            $request->attributes->set('firebaseUid', $uid);
             $request->attributes->set('firebaseEmail', $verifiedToken->claims()->get('email'));
             $request->attributes->set('firebaseUser', $verifiedToken->claims()->all());
+
+            // Gắn Eloquent User Model
+            $user = \App\Models\User::where('firebase_uid', $uid)->first();
+            if ($user) {
+                $request->setUserResolver(fn () => $user);
+                $request->attributes->set('userModel', $user);
+            }
 
         } catch (RevokedIdToken $e) {
             \Log::error('Firebase Auth: Token revoked', ['error' => $e->getMessage()]);

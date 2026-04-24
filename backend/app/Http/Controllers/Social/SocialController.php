@@ -124,6 +124,24 @@ class SocialController extends Controller
         }
     }
     /**
+     * Lấy hồ sơ của một người dùng bất kỳ
+     */
+    public function getOtherProfile(\Illuminate\Http\Request $request, string $userId)
+    {
+        try {
+            $currentUser = $request->attributes->get('userModel');
+            $targetUser = $this->socialService->getOtherUserProfile($currentUser, $userId);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $targetUser
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tìm thấy người dùng'
+            ], 404);
+        }
      * Đăng bài tự động (Dành cho n8n)
      * POST /api/social/post
      */

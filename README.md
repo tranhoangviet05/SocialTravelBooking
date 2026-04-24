@@ -10,8 +10,9 @@
 - 🏨 Đặt tour du lịch & chỗ ở trực tuyến (Có sinh mã QR Ticket)
 - 💬 Mạng xã hội du lịch (NewsFeed, chia sẻ bài viết, đánh giá, Follower)
 - 🤖 Gợi ý dịch vụ tự động (Upsell & Cross-sell) bằng N8N + Gemini API
+- 💳 Thanh toán qua ví điện tử nội bộ & MoMo Sandbox
+- 🐳 Hỗ trợ triển khai nhanh qua Docker
 - 💳 Thanh toán linh hoạt qua chuyển khoản QR Code (SePay Webhook) & Ví MoMo
-- ⚙️ Dashboard Quản lý Dịch Vụ thời gian thực (Real-time Firebase Firestore)
 
 ---
 
@@ -23,8 +24,9 @@
 | Frontend Web       | React 19 + Vite + Tailwind CSS v4                      |
 | Mobile             | Flutter (Android & iOS)                                |
 | Database chính     | PostgreSQL 16                                          |
-| Database real-time | Firebase Cloud Firestore                               |
 | Xác thực           | Firebase Authentication + Laravel Middleware           |
+| AI & Automation    | Gemini API & N8N                                       |
+| Thanh toán         | MoMo Sandbox API                                       |
 | Automation         | N8N                                                    |
 | AI                 | Gemini API                                             |
 | Thanh toán         | SePay (Quét QR Code tự động) & MoMo Sandbox API        |
@@ -33,99 +35,57 @@
 
 ---
 
-## 📁 Cấu trúc thư mục chi tiết
+## 📁 Cấu trúc thư mục
 
-### 1. Backend (Laravel 12 REST API)
-Hệ thống được xây dựng theo kiến trúc phân lớp chuyên nghiệp.
-```
-backend/
-├── app/
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── Auth/           # Đăng nhập & Đồng bộ người dùng Firebase
-│   │   │   ├── Admin/          # Quản lý hệ thống (Phê duyệt tour, quản lý user)
-│   │   │   ├── Provider/       # Chức năng dành cho Nhà cung cấp (Đăng tour, xem booking)
-│   │   │   ├── Tourist/        # Chức năng dành cho Khách du lịch
-│   │   │   └── General/        # API công khai (Lấy danh sách địa điểm, tìm kiếm tour)
-│   │   ├── Middleware/         # FirebaseAuthMiddleware: Kiểm tra Token từ mobile/web
-│   │   └── Requests/           # Validation Layer: Kiểm tra tính hợp lệ của dữ liệu gửi lên
-│   ├── Services/               # Business Logic: Nơi xử lý các nghiệp vụ phức tạp
-│   ├── Models/                 # Eloquent Models: Định nghĩa cấu trúc bảng Database
-│   └── Providers/              # Nơi cấu hình và khởi tạo các dịch vụ hệ thống
-├── database/migrations/         # Lịch sử thay đổi cấu trúc bảng PostgreSQL
-├── routes/api.php              # Lộ trình API (Endpoint) theo chuẩn vaitro/hanhdong/chucnang
-└── .env                        # Chứa các mã bảo mật (DB, Firebase, Gemini API)
-```
-
-### 2. Frontend Web (React 19 + Tailwind v4)
-Ứng dụng web dùng cho quản trị viên và giao diện khách hàng trên máy tính.
-```
-frontend_web/src/
-├── api/                        # Chứa các cấu hình Axios để gọi API Backend
-├── components/                 # Các thành phần giao diện dùng chung (Button, Card, Modal)
-├── firebase/                   # Cấu hình kết nối Firebase Authentication & Firestore
-├── hooks/                      # Custom Hooks (useAuth, useFetchData...)
-├── pages/                      # Giao diện các trang chính (Home, Explore, Management)
-├── utils/                      # Các hàm tiện ích (Format tiền tệ, xử lý ngày tháng)
-├── App.jsx                     # File điều hướng (Routing) chính của ứng dụng
-└── main.jsx                    # Điểm vào (Entry point) của dự án React
-```
-
-### 3. Mobile App (Flutter)
-Ứng dụng di động dành cho khách du lịch trên Android & iOS.
-```
-mobile_app/lib/
-├── core/                       # Chứa các dịch vụ cốt lõi (AuthService, APIClient)
-├── features/                   # Chia thư mục theo tính năng (Login, Home, Booking...)
-├── models/                     # Định nghĩa các đối tượng dữ liệu (User, Tour, Location)
-├── widgets/                    # Các UI Widgets dùng lại nhiều lần trong App
-├── main.dart                   # Điểm khởi chạy của ứng dụng Flutter
-└── firebase_options.dart       # Cấu hình Firebase dành riêng cho nền tảng di động
-```
+- `backend/`: Laravel 12 API - Xử lý nghiệp vụ chính, thanh toán, AI.
+- `frontend_web/`: React 19 - Giao diện dành cho Admin và Khách hàng (Web).
+- `mobile_app/`: Flutter - Ứng dụng di động dành cho khách du lịch.
+- `docker/`: Cấu hình môi trường Containerized.
 
 ---
 
-## ✅ Yêu cầu cài đặt (môi trường thủ công)
+## ⚙️ Yêu cầu cài đặt (Dành cho máy mới hoàn toàn)
 
-| Công cụ | Phiên bản | Link tải |
-|---------|-----------|----------|
-| Node.js | LTS (v20+) | https://nodejs.org |
-| PHP | 8.2+ | https://www.php.net |
-| Composer | Latest | https://getcomposer.org |
-| Flutter SDK | Latest stable | https://docs.flutter.dev/get-started/install/windows |
-| Docker Desktop | Latest | https://www.docker.com/products/docker-desktop |
-| Git | Latest | https://git-scm.com/download/win |
+### 1. Dành cho Ubuntu / Debian (LTS 22.04+)
+
+Mở Terminal và chạy các lệnh sau:
+
+```bash
+# Cập nhật hệ thống
+sudo apt update && sudo apt upgrade -y
+
+# 1. Cài đặt PHP 8.2+ và các extension cần thiết
+sudo apt install -y php8.2-fpm php8.2-curl php8.2-xml php8.2-pgsql php8.2-mbstring php8.2-zip php8.2-bcmath unzip
+
+# 2. Cài đặt Composer
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+
+# 3. Cài đặt Node.js (LTS)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# 4. Cài đặt PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# 5. Cài đặt Flutter SDK
+# Tải tại: https://docs.flutter.dev/get-started/install/linux
+```
+
+### 2. Dành cho Windows
+
+Cách nhanh nhất và ít lỗi nhất là sử dụng **Laravel Herd**:
+
+- **Laravel Herd (Khuyên dùng - Đã bao gồm PHP & Composer)**: Tải tại [herd.laravel.com](https://herd.laravel.com).
+  - Đây là bộ cài "one-click" tự động thiết lập môi trường PHP và Composer mà không cần cấu hình `PATH` thủ công.
+- **Node.js**: Tải tại [nodejs.org](https://nodejs.org/).
+- **PostgreSQL**: Tải tại [enterprisedb.com](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads).
+- **Flutter SDK**: Tải tại [docs.flutter.dev](https://docs.flutter.dev/get-started/install/windows).
+- **Git**: Tải tại [git-scm.com](https://git-scm.com/).
 
 ---
-
-## 🚀 Hướng dẫn cài đặt
-
-### Bước 1 — Clone repository
-
-```bash
-git clone https://github.com/your-username/SocialTravelBooking.git
-cd SocialTravelBooking
-```
-
-### Bước 2 — Cấu hình Backend
-
-```bash
-cd backend
-composer install
-copy .env.example .env
-php artisan key:generate
-php artisan migrate --seed
-php artisan storage:link
-```
-
-Mở `backend/.env` và điền thông tin thật:
-
-```env
-DB_HOST=127.0.0.1
-DB_DATABASE=social_travel_booking
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-
 FIREBASE_CREDENTIALS=firebase-service-account.json
 GEMINI_API_KEY=your_gemini_api_key
 MOMO_PARTNER_CODE=your_momo_partner_code
@@ -141,89 +101,106 @@ SEPAY_WEBHOOK_TOKEN=your_sepay_token
 > ⚠️ Đặt file `firebase-service-account.json` vào thư mục `backend/` (tải từ Firebase Console → Project Settings → Service Accounts)
 > ⚠️ Sử dụng [Ngrok](https://ngrok.com/) (`ngrok http 8000`) để tạo public URL cho backend, giúp SePay có thể gọi webhook.
 
-### Bước 3 — Cấu hình Frontend Web
+## 🚀 Hướng dẫn cài đặt chi tiết
 
+### Bước 1: Clone dự án
 ```bash
-cd frontend_web
-npm install
-copy .env.example .env.local
+git clone https://github.com/your-username/SocialTravelBooking.git
+cd SocialTravelBooking
 ```
 
-Mở `frontend_web/.env.local` và điền thông tin Firebase:
-
-```env
-VITE_API_BASE_URL=http://localhost:8000/api
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_PROJECT_ID=your_project_id
-# ... (xem .env.example để đầy đủ)
+### Bước 2: Cấu hình Cơ sở dữ liệu (PostgreSQL)
+Mở terminal của PostgreSQL (hoặc pgAdmin) và thực hiện:
+```sql
+CREATE DATABASE social_travel_booking;
+CREATE USER travel_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE social_travel_booking TO travel_user;
 ```
 
-### Bước 4 — Cấu hình Mobile App (Flutter)
-
-```bash
-cd mobile_app
-flutter pub get
-```
-
-
-### Bước 5 — Chạy script cài đặt tự động
-
-```bash
-setup.bat
-```
-
----
-
-## 🐳 Chạy bằng Docker (khuyến nghị)
-
-```bash
-# Đảm bảo Docker Desktop đang chạy
-docker compose up --build
-```
-
-| Service | URL |
-|---------|-----|
-| Backend API | http://localhost:8000 |
-| Frontend Web | http://localhost:5173 |
-| PostgreSQL | localhost:5432 |
-
-Dừng:
-```bash
-docker compose down
-```
-
----
-
-## ▶️ Chạy thủ công (không dùng Docker)
-
-Mở **3 terminal riêng biệt**:
-
-**Terminal 1 — Backend:**
+### Bước 3: Cấu hình Backend (Laravel)
 ```bash
 cd backend
-php artisan serve
-# → http://localhost:8000
+# Tạo thư mục cache (cần thiết trên máy mới)
+mkdir -p bootstrap/cache
+composer install --ignore-platform-req=ext-grpc
+cp .env.example .env
+php artisan key:generate
+```
+**Chỉnh sửa file `.env`:**
+- `DB_DATABASE=social_travel_booking`
+- `DB_USERNAME=travel_user`
+- `DB_PASSWORD=your_password`
+- Điền các Key: `GEMINI_API_KEY`, `MOMO_...`, `FIREBASE_PROJECT_ID`.
+
+**Khởi tạo dữ liệu:**
+```bash
+php artisan migrate --seed
+php artisan storage:link
 ```
 
-**Terminal 2 — Frontend Web:**
+### Bước 4: Cấu hình Frontend (React)
 ```bash
-cd frontend_web
-npm run dev
-# → http://localhost:5173
+cd ../frontend_web
+npm install
+cp .env.example .env.local
 ```
+> ⚠️ **Windows**: Nếu gặp lỗi `running scripts is disabled`, hãy chạy lệnh sau trong PowerShell **trước** rồi thử lại:
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+> ```
 
-**Terminal 3 — Mobile (cần bật Android Emulator trước):**
+### Bước 5: Cấu hình Mobile (Flutter)
 ```bash
-cd mobile_app
-flutter run
+cd ../mobile_app
+flutter pub get
 ```
+*Lưu ý: Bạn cần cài đặt Android Studio/Xcode và Emulator để chạy App.*
 
 ---
 
-## 🔗 API Documentation
+## 🔑 Chuẩn bị Credentials (Quan trọng)
 
-Sau khi chạy backend:
+Để ứng dụng hoạt động đầy đủ, bạn cần chuẩn bị:
+
+1.  **Firebase**:
+    - Truy cập [Firebase Console](https://console.firebase.google.com/).
+    - Tạo Project mới, bật **Authentication** (Email/Password).
+    - Tải file `firebase-service-account.json` và bỏ vào thư mục `backend/`.
+    - Lấy thông tin Web Config cho `frontend_web/.env.local`.
+2.  **Gemini AI**: Lấy API Key tại [Google AI Studio](https://aistudio.google.com/app/apikey).
+3.  **MoMo**: Đăng ký tài khoản Test tại [Momo Developers](https://developers.momo.vn/).
+
+---
+
+## ▶️ Cách khởi chạy
+
+### Lựa chọn 1: Dùng Docker (Khuyên dùng - Nhanh nhất)
+Đảm bảo đã cài Docker Desktop.
+```bash
+docker compose up --build
 ```
-GET http://localhost:8000/api/ping   → Kiểm tra server
-GET http://localhost:8000/api/me     → Thông tin user (cần Firebase token)
-```
+- Web App: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+
+### Lựa chọn 2: Chạy thủ công (3 Terminals)
+1. **Backend**:
+   ```bash
+   cd backend
+   php artisan serve
+   ```
+   > ⚠️ **Nếu dùng Laravel Herd trên Windows** và `php artisan serve` báo lỗi, hãy dùng lệnh thay thế:
+   > ```bash
+   > php -S 127.0.0.1:8000 -t public
+   > ```
+2. **Frontend**: `cd frontend_web && npm run dev`
+3. **Mobile**: `cd mobile_app && flutter run` (Cần mở máy ảo trước)
+
+---
+
+## 🔗 API & Tài liệu
+- **Health Check**: `GET /api/ping`
+- **Tài liệu API**: Xem trong thư mục `docs/` (nếu có) hoặc dùng Postman Collection đi kèm.
+
+---
+⭐ **Ghi chú**: Nếu gặp lỗi về PHP extension trên Ubuntu, hãy đảm bảo đã cài đủ `php-pgsql` và `php-xml`.
+

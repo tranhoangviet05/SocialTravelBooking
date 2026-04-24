@@ -39,8 +39,8 @@ class SocialRequest extends FormRequest
                 Rule::unique('social_profiles', 'username')->ignore($userId, 'user_id'),
             ],
             'bio'         => 'nullable|string|max:160',
-            'avatarUrl'   => 'nullable|string|max:500',
-            'avatar_url'  => 'nullable|string|max:500',
+            'avatarUrl'   => 'nullable|string|max:2048',
+            'avatar_url'  => 'nullable|string|max:2048',
             'displayName' => 'nullable|string|max:50',
         ];
     }

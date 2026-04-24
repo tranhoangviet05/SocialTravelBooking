@@ -55,6 +55,11 @@ class Post extends Model
         return $this->belongsTo(\App\Models\Location::class);
     }
 
+    public function service()
+    {
+        return $this->belongsTo(\App\Models\Service::class);
+    }
+
     // Kiểm tra user hiện tại đã like chưa
     public function likedByUser(string $userId): bool
     {

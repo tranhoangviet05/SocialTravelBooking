@@ -34,16 +34,37 @@ class BookingController extends Controller
             'special_requests' => 'nullable|string|max:1000',
             'coupon_code'  => 'nullable|string|max:50',
             'payment_method' => 'required|in:wallet,momo,vnpay,banking,sepay',
+            'room_type_id' => 'nullable|uuid|exists:hotel_room_types,id',
         ]);
 
         try {
             $service = Service::with('provider')->findOrFail($request->service_id);
 
-            // Tính giá
+            // Tính giá dựa trên loại phòng (nếu là khách sạn/homestay) hoặc dịch vụ chung
             $basePrice = $service->base_price ?? $service->price ?? 0;
+            $roomType = null;
+
+            if ($request->room_type_id) {
+                $roomType = \App\Models\HotelRoomType::where('service_id', $service->id)->findOrFail($request->room_type_id);
+                $basePrice = $roomType->base_price;
+            }
+
             $adultCount = (int) $request->num_adults;
             $childCount = (int) ($request->num_children ?? 0);
-            $subtotal = $basePrice * $adultCount + ($basePrice * 0.5 * $childCount);
+
+            // Tính subtotal
+            if (in_array($service->type, ['hotel', 'homestay'])) {
+                // Với khách sạn/homestay: Tính theo đêm (giá phòng)
+                $checkIn = new \DateTime($request->check_in_date);
+                $checkOut = new \DateTime($request->check_out_date ?? $request->check_in_date);
+                $nights = $checkIn->diff($checkOut)->days;
+                if ($nights < 1) $nights = 1;
+                
+                $subtotal = $basePrice * $nights;
+            } else {
+                // Với tour/xe/khác: Tính theo số người
+                $subtotal = $basePrice * $adultCount + ($basePrice * 0.5 * $childCount);
+            }
 
             // Kiểm tra & áp dụng coupon
             $discountAmount = 0;
@@ -75,6 +96,7 @@ class BookingController extends Controller
                     'booking_code' => 'BK-' . strtoupper(Str::random(6)) . '-' . date('ymd'),
                     'user_id' => $request->user->id,
                     'service_id' => $service->id,
+                    'room_type_id' => $request->room_type_id,
                     'provider_id' => $service->provider_id,
                     'check_in_date' => $request->check_in_date,
                     'check_out_date' => $request->check_out_date,
@@ -98,7 +120,7 @@ class BookingController extends Controller
                 return $booking;
             });
 
-            $booking->load(['service:id,name,slug,type,base_price', 'user:id,display_name,email']);
+            $booking->load(['service:id,name,slug,type,base_price', 'user:id,display_name,email', 'roomType']);
 
             return response()->json([
                 'success' => true,
@@ -125,7 +147,7 @@ class BookingController extends Controller
     {
         $userId = $request->user->id;
 
-        $bookings = Booking::with(['service.media'])
+        $bookings = Booking::with(['service.media', 'roomType'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -140,6 +162,11 @@ class BookingController extends Controller
                         'type' => $bk->service->type,
                         'price' => $bk->service->base_price,
                         'image' => (count($bk->service->media) > 0) ? $bk->service->media[0]->url : null,
+                    ] : null,
+                    'room_type' => $bk->roomType ? [
+                        'id'   => $bk->roomType->id,
+                        'name' => $bk->roomType->name,
+                        'rank' => $bk->roomType->rank,
                     ] : null,
                     'check_in_date' => $bk->check_in_date,
                     'check_out_date' => $bk->check_out_date,

@@ -107,6 +107,7 @@ const ServiceDetail = () => {
         adults: 1,
         children: 0
     });
+    const [selectedRoomType, setSelectedRoomType] = useState(null);
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -115,7 +116,12 @@ const ServiceDetail = () => {
             try {
                 const response = await axios.get(`http://localhost:8000/api/general/get/services/detail/${slug}`);
                 if (response.data.success) {
-                    setServiceData(response.data.data);
+                    const data = response.data.data;
+                    setServiceData(data);
+                    // Mặc định chọn loại phòng đầu tiên nếu có
+                    if (data.room_types && data.room_types.length > 0) {
+                        setSelectedRoomType(data.room_types[0]);
+                    }
                 }
             } catch (error) {
                 console.error("Lỗi khi lấy chi tiết dịch vụ:", error);
@@ -149,7 +155,7 @@ const ServiceDetail = () => {
 
     const images = serviceData.media?.map(m => m.url) || [];
     const allImages = images.length > 0 ? images : ['https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800'];
-    const price = serviceData.base_price ?? 0;
+    const price = selectedRoomType ? selectedRoomType.base_price : (serviceData.base_price ?? 0);
     const rating = serviceData.rating_avg ?? 0;
     const reviewCount = serviceData.total_reviews ?? serviceData.total_bookings ?? 0;
     const duration = serviceData.duration_days
@@ -168,7 +174,11 @@ const ServiceDetail = () => {
         navigate('/checkout', { 
             state: { 
                 service: serviceData,
-                bookingInfo: bookingForm
+                bookingInfo: {
+                    ...bookingForm,
+                    room_type_id: selectedRoomType?.id,
+                    selectedRoomType: selectedRoomType
+                }
             } 
         });
     };
@@ -280,7 +290,7 @@ const ServiceDetail = () => {
                                     <BedDouble size={18} className="text-purple-500" />
                                     <div>
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Loại phòng</p>
-                                        <p className="font-bold text-slate-800 text-xs">Standard</p>
+                                        <p className="font-bold text-slate-800 text-xs">{selectedRoomType ? selectedRoomType.name : 'Standard'}</p>
                                     </div>
                                 </div>
                             )}
@@ -322,6 +332,66 @@ const ServiceDetail = () => {
                                         {serviceData.description || 'Chưa có mô tả cho dịch vụ này.'}
                                     </p>
                                 </section>
+
+                                {/* Room Selection for Hotels */}
+                                {(isHotel || isHomestay) && serviceData.room_types?.length > 0 && (
+                                    <section className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                                        <h2 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                                            <BedDouble size={20} className="text-purple-500" />
+                                            Chọn loại phòng
+                                        </h2>
+                                        <div className="space-y-4">
+                                            {serviceData.room_types.map((room) => (
+                                                <div 
+                                                    key={room.id}
+                                                    onClick={() => setSelectedRoomType(room)}
+                                                    className={`group relative flex flex-col md:flex-row gap-5 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                                                        selectedRoomType?.id === room.id 
+                                                            ? 'border-sky-500 bg-sky-50/30 ring-4 ring-sky-50 shadow-md' 
+                                                            : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'
+                                                    }`}
+                                                >
+                                                    <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden shrink-0">
+                                                        <img 
+                                                            src={room.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400'} 
+                                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                                            alt={room.name} 
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <h3 className="font-black text-slate-800">{room.name}</h3>
+                                                            <div className="text-right">
+                                                                <p className="text-lg font-black text-sky-600">{new Intl.NumberFormat('vi-VN').format(room.base_price)}đ</p>
+                                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">/ đêm</p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 line-clamp-2 mb-3 leading-relaxed">
+                                                            {room.description || 'Không có mô tả chi tiết cho loại phòng này.'}
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-4">
+                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                                                                <Users size={14} className="text-slate-400" />
+                                                                {room.capacity_adults} người lớn {room.capacity_children > 0 && `, ${room.capacity_children} trẻ em`}
+                                                            </div>
+                                                            {room.amenities?.slice(0, 3).map((am, i) => (
+                                                                <div key={i} className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                                                                    <CheckCircle2 size={14} className="text-emerald-500" />
+                                                                    {am}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    {selectedRoomType?.id === room.id && (
+                                                        <div className="absolute top-4 right-4 bg-sky-500 text-white p-1 rounded-full shadow-lg">
+                                                            <CheckCircle2 size={16} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
 
                                 {/* Includes / Excludes / Amenities */}
                                 {(includes.length > 0 || excludes.length > 0 || amenities.length > 0) && (

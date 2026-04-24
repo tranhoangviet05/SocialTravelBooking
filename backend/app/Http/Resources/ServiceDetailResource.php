@@ -78,6 +78,21 @@ class ServiceDetailResource extends JsonResource
                     ] : null,
                 ]);
             }),
+            'room_types' => $this->when($this->relationLoaded('roomTypes'), function () {
+                return $this->roomTypes->map(fn($rt) => [
+                    'id' => $rt->id,
+                    'name' => $rt->name,
+                    'rank' => $rt->rank,
+                    'description' => $rt->description,
+                    'base_price' => (float) $rt->base_price,
+                    'total_rooms' => (int) $rt->total_rooms,
+                    'capacity_adults' => (int) $rt->capacity_adults,
+                    'capacity_children' => (int) $rt->capacity_children,
+                    'amenities' => $rt->amenities ?? [],
+                    'images' => $rt->images ?? [],
+                    'status' => $rt->status,
+                ]);
+            }),
         ];
     }
 }

@@ -277,6 +277,8 @@ const Checkout = () => {
         contactPhone: currentUser?.phone || '',
         specialRequests: '',
         couponCode: '',
+        room_type_id: bookingInfo?.room_type_id || null,
+        selectedRoomType: bookingInfo?.selectedRoomType || null,
     });
 
     const [paymentMethod, setPaymentMethod] = useState('sepay');
@@ -306,10 +308,29 @@ const Checkout = () => {
     const [walletBalance, setWalletBalance] = useState(null);
 
     // Tính giá
-    const basePrice    = service?.base_price ?? 0;
-    const adultPrice   = basePrice * form.numAdults;
-    const childPrice   = basePrice * 0.5 * form.numChildren;
-    const subtotal     = adultPrice + childPrice;
+    const selectedRoomType = form.selectedRoomType;
+    const basePrice    = selectedRoomType ? selectedRoomType.base_price : (service?.base_price ?? 0);
+    
+    let subtotal = 0;
+    let priceDetails = '';
+
+    if (service?.type === 'hotel' || service?.type === 'homestay') {
+        // Tính theo đêm
+        const checkIn = new Date(form.checkInDate);
+        const checkOut = new Date(form.checkOutDate || form.checkInDate);
+        let nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+        if (nights < 1) nights = 1;
+        
+        subtotal = basePrice * nights;
+        priceDetails = `${nights} đêm × ${fmt(basePrice)}`;
+    } else {
+        // Tính theo người
+        const adultPrice = basePrice * form.numAdults;
+        const childPrice = basePrice * 0.5 * form.numChildren;
+        subtotal = adultPrice + childPrice;
+        priceDetails = `${form.numAdults} người lớn ${form.numChildren > 0 ? `+ ${form.numChildren} trẻ em` : ''} × ${fmt(basePrice)}`;
+    }
+
     const totalAmount  = Math.max(0, subtotal - discountAmount);
 
     // Lấy số dư ví
@@ -362,6 +383,7 @@ const Checkout = () => {
                 special_requests: form.specialRequests || null,
                 coupon_code:      couponApplied?.code || null,
                 payment_method:   paymentMethod,
+                room_type_id:     form.room_type_id,
             });
             if (res?.success && res?.data) {
                 setBooking(res.data);
@@ -686,21 +708,20 @@ const Checkout = () => {
                                          service.type === 'hotel' ? '🏨 Khách sạn' :
                                          service.type === 'homestay' ? '🏡 Homestay' : '🚌 Xe'}
                                     </span>
+                                    {form.selectedRoomType && (
+                                        <p className="text-[10px] font-bold text-purple-600 mt-1">
+                                            🛏️ {form.selectedRoomType.name}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Price breakdown */}
                             <div className="space-y-2.5 text-sm border-t border-dashed border-slate-200 pt-4">
                                 <div className="flex justify-between">
-                                    <span className="text-slate-500">{form.numAdults} người lớn × {fmt(basePrice)}</span>
-                                    <span className="font-bold text-slate-700">{fmt(adultPrice)}</span>
+                                    <span className="text-slate-500">{priceDetails}</span>
+                                    <span className="font-bold text-slate-700">{fmt(subtotal)}</span>
                                 </div>
-                                {form.numChildren > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-slate-500">{form.numChildren} trẻ em × {fmt(basePrice * 0.5)}</span>
-                                        <span className="font-bold text-slate-700">{fmt(childPrice)}</span>
-                                    </div>
-                                )}
                                 {discountAmount > 0 && (
                                     <div className="flex justify-between text-emerald-600">
                                         <span className="font-bold">Mã giảm giá ({couponApplied?.code})</span>

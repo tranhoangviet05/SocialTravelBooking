@@ -50,4 +50,9 @@ class Booking extends Model
     {
         return $this->hasOne(WalletTransaction::class);
     }
+
+    public function roomType()
+    {
+        return $this->belongsTo(HotelRoomType::class, 'room_type_id');
+    }
 }

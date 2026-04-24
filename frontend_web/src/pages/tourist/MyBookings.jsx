@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import bookingApi from '../../api/bookingApi';
-import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, X, User, Users, Phone, Tag } from 'lucide-react';
+import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, X, User, Users, Phone, Tag, BedDouble } from 'lucide-react';
 
 
 const MyBookings = () => {
@@ -203,6 +203,11 @@ const MyBookings = () => {
                                             <div className="text-sky-500 bg-sky-50 px-2 py-0.5 rounded uppercase tracking-widest text-[9px]">
                                                 {booking.service?.type}
                                             </div>
+                                            {booking.room_type && (
+                                                <div className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase tracking-widest text-[9px]">
+                                                    🛏️ {booking.room_type.name}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -292,6 +297,15 @@ const MyBookings = () => {
                                             <p className="text-sm font-bold text-slate-800">{selectedBooking.num_adults} Người, {selectedBooking.num_children} Trẻ em</p>
                                         </div>
                                     </div>
+                                    {selectedBooking.room_type && (
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><BedDouble size={18} /></div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại phòng</p>
+                                                <p className="text-sm font-bold text-purple-600">{selectedBooking.room_type.name}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">

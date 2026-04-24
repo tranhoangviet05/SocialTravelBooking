@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\General\LocationRequest;
 use App\Http\Resources\General\LocationResource;
 use App\Services\LocationService;
-use App\Models\Location;
 use Illuminate\Http\Request;
 use App\Models\Location;
 
@@ -53,7 +52,7 @@ class LocationController extends Controller
             $data = $query->orderBy('name', 'asc')->get();
             return response()->json([
                 'success' => true,
-                'data' => $data
+                'data' => LocationResource::collection($data)
             ]);
         }
 
@@ -61,7 +60,7 @@ class LocationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $paginated->items(),
+            'data' => LocationResource::collection($paginated->items()),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
                 'last_page' => $paginated->lastPage(),

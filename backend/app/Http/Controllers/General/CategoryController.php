@@ -38,7 +38,7 @@ class CategoryController extends Controller
             $data = $query->get();
             return response()->json([
                 'success' => true,
-                'data' => $data
+                'data' => CategoryResource::collection($data)
             ]);
         }
 
@@ -46,7 +46,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $paginated->items(),
+            'data' => CategoryResource::collection($paginated->items()),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
                 'last_page' => $paginated->lastPage(),

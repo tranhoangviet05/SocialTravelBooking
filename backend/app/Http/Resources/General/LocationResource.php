@@ -15,14 +15,16 @@ class LocationResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'          => $this->id,
-            'name'        => $this->name,
-            'slug'        => $this->slug,
-            'image_url'   => $this->image_url,
-            'is_popular'  => $this->is_popular,
-            'description' => $this->description,
-            'parent'      => new LocationResource($this->whenLoaded('parent')),
-            'children'    => LocationResource::collection($this->whenLoaded('children')),
+            'id'           => $this->id,
+            'name'         => $this->name,
+            'slug'         => $this->slug,
+            'image_url'    => $this->image_url,
+            'is_popular'   => (bool) $this->is_popular,
+            'description'  => $this->description,
+            'country_code' => $this->country_code ?? 'VN',
+            'parent_id'    => $this->parent_id,
+            'parent'       => new LocationResource($this->whenLoaded('parent')),
+            'children'     => LocationResource::collection($this->whenLoaded('children')),
         ];
     }
 }

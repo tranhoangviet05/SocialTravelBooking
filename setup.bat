@@ -7,7 +7,8 @@ echo ========================================
 echo.
 echo [1/3] Cai dat Backend (Laravel)...
 cd backend
-composer install
+if not exist bootstrap\cache mkdir bootstrap\cache
+composer install --ignore-platform-req=ext-grpc
 copy .env.example .env
 php artisan key:generate
 php artisan migrate --seed
@@ -17,7 +18,7 @@ cd ..
 echo.
 echo [2/3] Cai dat Frontend (React)...
 cd frontend_web
-npm install
+call npm install
 cd ..
 
 :: ── FLUTTER ──────────────────────────────
@@ -29,10 +30,14 @@ cd ..
 
 echo.
 echo ========================================
-echo   Hoan tat! Chay theo huong dan sau:
+echo   Hoan tat! De chay du an, chay:
 echo.
-echo   Backend  : cd backend     ^& php artisan serve
-echo   Frontend : cd frontend_web ^& npm run dev
-echo   Mobile   : cd mobile_app  ^& flutter run
+echo   start.bat   (khoi dong tat ca cung luc)
+echo.
+echo   Hoac chay thu cong tung phan:
+echo   Backend API : cd backend ^& php -S 127.0.0.1:8000 -t public
+echo   WebSocket   : cd backend ^& php artisan reverb:start
+echo   Frontend    : cd frontend_web ^& npm run dev
+echo   Mobile      : cd mobile_app  ^& flutter run
 echo ========================================
 pause

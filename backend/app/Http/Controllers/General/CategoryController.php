@@ -7,6 +7,7 @@ use App\Http\Requests\General\CategoryRequest;
 use App\Http\Resources\General\CategoryResource;
 use App\Services\CategoryService;
 use Illuminate\Http\Request;
+use App\Models\Category;
 
 class CategoryController extends Controller
 {
@@ -31,6 +32,14 @@ class CategoryController extends Controller
 
         if ($search) {
             $query->where('name', 'ilike', "%{$search}%");
+        }
+
+        if ($request->has('all')) {
+            $data = $query->get();
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
         }
 
         $paginated = $query->paginate($perPage, ['*'], 'page', $page);

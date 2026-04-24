@@ -8,6 +8,7 @@ use App\Http\Resources\General\LocationResource;
 use App\Services\LocationService;
 use App\Models\Location;
 use Illuminate\Http\Request;
+use App\Models\Location;
 
 class LocationController extends Controller
 {
@@ -30,7 +31,10 @@ class LocationController extends Controller
         $isPopular = $request->get('is_popular');
 
         $filters = $request->only(['root_only']);
-        $filters['is_popular'] = filter_var($isPopular, FILTER_VALIDATE_BOOLEAN);
+        
+        if ($request->has('is_popular')) {
+            $filters['is_popular'] = filter_var($isPopular, FILTER_VALIDATE_BOOLEAN);
+        }
 
         $query = Location::with(['parent']);
 
@@ -42,6 +46,15 @@ class LocationController extends Controller
         }
         if (!empty($filters['root_only'])) {
             $query->whereNull('parent_id');
+        }
+
+        // Nếu yêu cầu tất cả (không phân trang)
+        if ($request->has('all')) {
+            $data = $query->orderBy('name', 'asc')->get();
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
         }
 
         $paginated = $query->orderBy('name', 'asc')->paginate($perPage, ['*'], 'page', $page);

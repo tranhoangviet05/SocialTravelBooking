@@ -43,6 +43,7 @@ const SearchPage = () => {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [guests, setGuests] = useState(0);
     const [selectedType, setSelectedType] = useState('all');
     const [selectedLocation, setSelectedLocation] = useState('all');
     const [selectedPriceRange, setSelectedPriceRange] = useState(0);
@@ -67,7 +68,7 @@ const SearchPage = () => {
         fetchServices();
     }, []);
 
-    // Sync state with URL parameter 'type' when component mounts or URL changes
+    // Sync state with URL parameters when component mounts or URL changes
     useEffect(() => {
         const typeParam = searchParams.get('type');
         if (typeParam && ['tour', 'hotel'].includes(typeParam)) {
@@ -75,11 +76,31 @@ const SearchPage = () => {
         } else {
             setSelectedType('all');
         }
+
+        const qParam = searchParams.get('q');
+        if (qParam) {
+            setSearchQuery(decodeURIComponent(qParam));
+        } else {
+            setSearchQuery('');
+        }
+
+        const guestsParam = searchParams.get('guests');
+        if (guestsParam && !isNaN(guestsParam)) {
+            setGuests(parseInt(guestsParam, 10));
+        } else {
+            setGuests(0);
+        }
     }, [searchParams]);
 
     const handleTypeChange = (typeStr) => {
         setSelectedType(typeStr);
-        setSearchParams(typeStr !== 'all' ? { type: typeStr } : {});
+        const newParams = new URLSearchParams(searchParams);
+        if (typeStr !== 'all') {
+            newParams.set('type', typeStr);
+        } else {
+            newParams.delete('type');
+        }
+        setSearchParams(newParams);
     };
 
     // UI state
@@ -101,6 +122,17 @@ const SearchPage = () => {
                     s.name.toLowerCase().includes(q) ||
                     s.location?.name?.toLowerCase().includes(q)
             );
+        }
+
+        // Guests filter (max_participants)
+        if (guests > 0) {
+            result = result.filter((s) => {
+                const capacity = s.max_participants || 0;
+                if (capacity > 0) {
+                    return capacity >= guests;
+                }
+                return true; 
+            });
         }
 
         // Type filter
@@ -152,7 +184,7 @@ const SearchPage = () => {
         }
 
         return result;
-    }, [services, searchQuery, selectedType, selectedLocation, selectedPriceRange, selectedDuration, minRating, sortBy]);
+    }, [services, searchQuery, selectedType, selectedLocation, selectedPriceRange, selectedDuration, minRating, sortBy, guests]);
 
     const clearFilters = () => {
         setSearchQuery('');

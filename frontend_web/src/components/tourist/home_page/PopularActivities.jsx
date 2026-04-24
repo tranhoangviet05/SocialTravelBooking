@@ -7,9 +7,8 @@ const PopularActivities = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeLocation, setActiveLocation] = useState('Tất cả');
     const [tours, setTours] = useState([]);
+    const [locations, setLocations] = useState(['Tất cả']);
     const [loading, setLoading] = useState(true);
-
-    const locations = ['Tất cả', 'Đà Nẵng', 'Huế', 'Nha Trang', 'Phú Quốc', 'Quy Nhơn'];
 
     useEffect(() => {
         const fetchTours = async () => {
@@ -19,6 +18,10 @@ const PopularActivities = () => {
                     // Lọc lấy các dịch vụ là Tour
                     const filtered = response.data.data.filter(s => s.type === 'tour');
                     setTours(filtered);
+
+                    // Trích xuất tự động các địa điểm thực tế có tour
+                    const uniqueLocations = [...new Set(filtered.map(t => t.location?.name).filter(Boolean))];
+                    setLocations(['Tất cả', ...uniqueLocations]);
                 }
             } catch (error) {
                 console.error("Lỗi khi lấy dữ liệu tour:", error);

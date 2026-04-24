@@ -19,7 +19,6 @@ import {
     AlertCircle
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
-import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -127,8 +126,7 @@ const ProviderManagement = () => {
     };
 
     return (
-        <AdminLayout>
-            <div className="space-y-6">
+        <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Nhà cung cấp</h2>
@@ -266,7 +264,6 @@ const ProviderManagement = () => {
                         )}
                     </>
                 )}
-            </div>
 
             {/* Status Modal */}
             {statusModal.open && (
@@ -438,7 +435,7 @@ const ProviderManagement = () => {
                     to { opacity: 1; transform: scale(1) translateY(0); }
                 }
             `}</style>
-        </AdminLayout>
+        </div>
     );
 };
 

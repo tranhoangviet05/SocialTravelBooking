@@ -17,7 +17,6 @@ import {
     MessageCircle
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
-import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -126,8 +125,7 @@ const ReviewManagement = () => {
     };
 
     return (
-        <AdminLayout>
-            <div className="space-y-6">
+        <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Quản lý Đánh giá</h2>
@@ -334,15 +332,13 @@ const ReviewManagement = () => {
                         </div>
                     </div>
                 )}
-            </div>
-
             <style>{`
                 @keyframes modalIn {
                     from { opacity: 0; transform: scale(0.95) translateY(10px); }
                     to { opacity: 1; transform: scale(1) translateY(0); }
                 }
             `}</style>
-        </AdminLayout>
+        </div>
     );
 };
 

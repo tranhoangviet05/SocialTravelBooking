@@ -8,6 +8,7 @@ import {
     Car, Coffee, TreePine, Camera
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import ServiceReviews from '../../components/tourist/services/ServiceReviews';
 import { MOCK_REVIEWS } from '../../data/mockServices';
 import axios from 'axios';
 import Lightbox from "yet-another-react-lightbox";
@@ -30,9 +31,9 @@ const AMENITY_ICONS = {
 const getAmenityIcon = (text) => {
     const lower = (text || '').toLowerCase();
     for (const [key, Icon] of Object.entries(AMENITY_ICONS)) {
-        if (lower.includes(key)) return <Icon size={16} />;
+        if (lower.includes(key)) return Icon;
     }
-    return <CheckCircle2 size={16} />;
+    return CheckCircle2;
 };
 
 const Tab = ({ id, label, active, onClick }) => (
@@ -78,7 +79,7 @@ const AmenityBadge = ({ text }) => {
     const Icon = getAmenityIcon(text);
     return (
         <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-sky-500"><Icon /></span>
+            <span className="text-sky-500"><Icon size={16} /></span>
             <span className="text-sm font-medium text-slate-700">{text}</span>
         </div>
     );
@@ -101,6 +102,11 @@ const ServiceDetail = () => {
     const [activeImage, setActiveImage] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
+    const [bookingForm, setBookingForm] = useState({
+        date: new Date().toISOString().split('T')[0],
+        adults: 1,
+        children: 0
+    });
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,9 +162,15 @@ const ServiceDetail = () => {
     const excludes = serviceData.excludes || [];
     const schedules = serviceData.schedules || [];
 
+
     const handleBooking = () => {
         if (!serviceData) return;
-        navigate('/checkout', { state: { service: serviceData } });
+        navigate('/checkout', { 
+            state: { 
+                service: serviceData,
+                bookingInfo: bookingForm
+            } 
+        });
     };
 
     return (
@@ -294,7 +306,7 @@ const ServiceDetail = () => {
                             <Tab id="overview" label="Tổng quan" active={activeTab} onClick={setActiveTab} />
                             {isTour && <Tab id="itinerary" label={`Lịch trình (${schedules.length} ngày)`} active={activeTab} onClick={setActiveTab} />}
                             {(isHotel || isHomestay) && <Tab id="amenities" label={`Tiện nghi (${amenities.length})`} active={activeTab} onClick={setActiveTab} />}
-                            <Tab id="reviews" label={`Đánh giá (${reviewCount})`} active={activeTab} onClick={setActiveTab} />
+                            <Tab id="reviews" label={`Đánh giá & Bình luận`} active={activeTab} onClick={setActiveTab} />
                         </div>
 
                         {/* Tab: Overview */}
@@ -451,60 +463,9 @@ const ServiceDetail = () => {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Write Review */}
-                                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                                    <h3 className="font-black text-slate-800 mb-4">Viết đánh giá</h3>
-                                    <textarea
-                                        rows="4"
-                                        placeholder="Chia sẻ trải nghiệm của bạn..."
-                                        className="w-full bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-300 transition-all resize-none"
-                                    />
-                                    <div className="flex items-center justify-between mt-4">
-                                        <div className="flex gap-1">
-                                            {[1, 2, 3, 4, 5].map(s => (
-                                                <Star key={s} size={22} className="text-slate-200 hover:text-amber-400 cursor-pointer transition-colors" />
-                                            ))}
-                                        </div>
-                                        <Button variant="primary" size="sm">Gửi đánh giá</Button>
-                                    </div>
-                                </div>
-
-                                {/* Review List */}
-                                <div className="space-y-4">
-                                    {reviews.length === 0 && MOCK_REVIEWS.length === 0 && (
-                                        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-sm">
-                                            <Star size={48} className="mx-auto text-slate-200 mb-4" />
-                                            <p className="text-slate-400 font-bold">Chưa có đánh giá nào.</p>
-                                        </div>
-                                    )}
-                                    {[...reviews, ...MOCK_REVIEWS].slice(0, 10).map((review, idx) => (
-                                        <div key={review.id || idx} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-200 to-sky-400 text-sky-700 font-black text-sm flex items-center justify-center">
-                                                        {(review.user?.display_name || review.user?.name || 'U')[0].toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-slate-800 text-sm">
-                                                            {review.user?.display_name || review.user?.name || 'Người dùng'}
-                                                        </p>
-                                                        <p className="text-xs text-slate-400">{review.created_at || review.createdAt}</p>
-                                                    </div>
-                                                </div>
-                                                <StarRating rating={review.rating} size={13} />
-                                            </div>
-                                            <p className="text-sm text-slate-600 leading-relaxed">{review.content || review.comment || review.review_text}</p>
-                                            {review.images?.length > 0 && (
-                                                <div className="flex gap-2 mt-3">
-                                                    {review.images.map((img, i) => (
-                                                        <img key={i} src={img} alt="Review" className="w-16 h-16 object-cover rounded-lg" />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                
+                                {/* Feedback & Review Component (Merged) */}
+                                <ServiceReviews serviceId={serviceData.id} />
                             </div>
                         )}
                     </div>
@@ -525,26 +486,45 @@ const ServiceDetail = () => {
                             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleBooking(); }}>
                                 {/* Date */}
                                 <div className="border border-slate-200 rounded-xl p-4 hover:border-sky-300 transition-colors">
-                                    <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">Ngày tham gia</label>
+                                    <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">{isTour ? 'Ngày khởi hành' : 'Ngày nhận phòng'}</label>
                                     <input
                                         type="date"
+                                        value={bookingForm.date}
+                                        onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
                                         className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent"
                                         min={new Date().toISOString().split('T')[0]}
                                     />
+                                    {isTour && serviceData.duration_days && (
+                                        <p className="mt-2 text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded inline-block">
+                                            Kết thúc: {(() => {
+                                                const d = new Date(bookingForm.date);
+                                                d.setDate(d.getDate() + parseInt(serviceData.duration_days));
+                                                return d.toLocaleDateString('vi-VN');
+                                            })()}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Guests */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="border border-slate-200 rounded-xl p-4 hover:border-sky-300 transition-colors">
                                         <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">Người lớn</label>
-                                        <select className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent">
-                                            {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} người</option>)}
+                                        <select 
+                                            value={bookingForm.adults}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, adults: parseInt(e.target.value) })}
+                                            className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent"
+                                        >
+                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n} người</option>)}
                                         </select>
                                     </div>
                                     <div className="border border-slate-200 rounded-xl p-4 hover:border-sky-300 transition-colors">
                                         <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1.5">Trẻ em</label>
-                                        <select className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent">
-                                            {[0, 1, 2, 3, 4].map(n => <option key={n} value={n}>{n} trẻ em</option>)}
+                                        <select 
+                                            value={bookingForm.children}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, children: parseInt(e.target.value) })}
+                                            className="w-full font-bold text-slate-800 outline-none cursor-pointer bg-transparent"
+                                        >
+                                            {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} trẻ em</option>)}
                                         </select>
                                     </div>
                                 </div>
@@ -553,15 +533,15 @@ const ServiceDetail = () => {
                                 <div className="border-t border-slate-100 pt-4 space-y-2">
                                     <div className="flex justify-between text-sm text-slate-500">
                                         <span>Giá gốc</span>
-                                        <span className="line-through">{new Intl.NumberFormat('vi-VN').format(price * 1.2)}đ</span>
+                                        <span className="line-through">{new Intl.NumberFormat('vi-VN').format((price * bookingForm.adults + price * 0.5 * bookingForm.children) * 1.2)}đ</span>
                                     </div>
                                     <div className="flex justify-between text-sm text-emerald-600 font-bold">
-                                        <span>Giảm giá</span>
+                                        <span>Giảm giá hệ thống</span>
                                         <span>-17%</span>
                                     </div>
                                     <div className="flex justify-between text-base font-black text-slate-800 border-t border-slate-100 pt-2 mt-2">
-                                        <span>Tổng</span>
-                                        <span>{new Intl.NumberFormat('vi-VN').format(price)}đ</span>
+                                        <span>Tổng (tạm tính)</span>
+                                        <span>{new Intl.NumberFormat('vi-VN').format(price * bookingForm.adults + price * 0.5 * bookingForm.children)}đ</span>
                                     </div>
                                 </div>
 

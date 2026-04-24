@@ -7,11 +7,12 @@
 ## 📌 Giới thiệu
 
 **Social Travel Booking** là đề tài đồ án chuyên ngành, xây dựng nền tảng kết hợp giữa:
-- 🏨 Đặt tour du lịch & chỗ ở trực tuyến
-- 💬 Mạng xã hội du lịch (chia sẻ bài viết, đánh giá, check-in)
+- 🏨 Đặt tour du lịch & chỗ ở trực tuyến (Có sinh mã QR Ticket)
+- 💬 Mạng xã hội du lịch (NewsFeed, chia sẻ bài viết, đánh giá, Follower)
 - 🤖 Gợi ý dịch vụ tự động (Upsell & Cross-sell) bằng N8N + Gemini API
 - 💳 Thanh toán qua ví điện tử nội bộ & MoMo Sandbox
 - 🐳 Hỗ trợ triển khai nhanh qua Docker
+- 💳 Thanh toán linh hoạt qua chuyển khoản QR Code (SePay Webhook) & Ví MoMo
 
 ---
 
@@ -26,6 +27,10 @@
 | Xác thực           | Firebase Authentication + Laravel Middleware           |
 | AI & Automation    | Gemini API & N8N                                       |
 | Thanh toán         | MoMo Sandbox API                                       |
+| Automation         | N8N                                                    |
+| AI                 | Gemini API                                             |
+| Thanh toán         | SePay (Quét QR Code tự động) & MoMo Sandbox API        |
+| Upload Ảnh         | Cloudinary                                             |
 | Container          | Docker + Docker Compose                                |
 
 ---
@@ -81,6 +86,20 @@ Cách nhanh nhất và ít lỗi nhất là sử dụng **Laravel Herd**:
 - **Git**: Tải tại [git-scm.com](https://git-scm.com/).
 
 ---
+FIREBASE_CREDENTIALS=firebase-service-account.json
+GEMINI_API_KEY=your_gemini_api_key
+MOMO_PARTNER_CODE=your_momo_partner_code
+MOMO_ACCESS_KEY=your_momo_access_key
+MOMO_SECRET_KEY=your_momo_secret_key
+
+# SePay Webhook
+SEPAY_ACCOUNT_NUMBER=your_bank_account
+SEPAY_BANK_CODE=MB
+SEPAY_WEBHOOK_TOKEN=your_sepay_token
+```
+
+> ⚠️ Đặt file `firebase-service-account.json` vào thư mục `backend/` (tải từ Firebase Console → Project Settings → Service Accounts)
+> ⚠️ Sử dụng [Ngrok](https://ngrok.com/) (`ngrok http 8000`) để tạo public URL cho backend, giúp SePay có thể gọi webhook.
 
 ## 🚀 Hướng dẫn cài đặt chi tiết
 

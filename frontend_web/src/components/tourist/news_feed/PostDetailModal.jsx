@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Smile } from 'lucide-react';
+import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Smile, Briefcase, ExternalLink } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import Avatar from '../../../components/common/Avatar';
 import socialApi from '../../../api/socialApi';
@@ -8,6 +8,9 @@ import { vi } from 'date-fns/locale';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { useSocialData } from '../../../contexts/SocialDataContext';
+import serviceApi from '../../../api/serviceApi';
+import { useNavigate } from 'react-router-dom';
+import { formatCurrency } from '../../../utils/Helpers';
 
 const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
     const { currentUser } = useAuth();
@@ -17,11 +20,18 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [loading, setLoading] = useState(!postData);
+    const [loadingComments, setLoadingComments] = useState(true);
     const [isLiked, setIsLiked] = useState(postData ? postData.is_liked > 0 : false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [isLiking, setIsLiking] = useState(false);
+    const [showServiceSearch, setShowServiceSearch] = useState(false);
+    const [selectedService, setSelectedService] = useState(null);
+    const [serviceSearchValue, setServiceSearchValue] = useState('');
+    const [suggestedServices, setSuggestedServices] = useState([]);
+    const [isSearchingService, setIsSearchingService] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (isOpen && postId) {
@@ -30,10 +40,34 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
         }
     }, [isOpen, postId]);
 
+    // Gợi ý Dịch vụ
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (serviceSearchValue.trim().length > 1) {
+                try {
+                    setIsSearchingService(true);
+                    const response = await serviceApi.getServices({ keyword: serviceSearchValue, limit: 5 });
+                    if (response.success) {
+                        const data = response.data.data || response.data;
+                        setSuggestedServices(Array.isArray(data) ? data : []);
+                    }
+                } catch (e) {
+                    console.error("Service suggestion error:", e);
+                } finally {
+                    setIsSearchingService(false);
+                }
+            } else {
+                setSuggestedServices([]);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [serviceSearchValue]);
+
     const fetchPostDetails = async () => {
         try {
             // Nếu đã có dữ liệu ban đầu, không hiện màn hình loading xoay vòng to nữa
             if (!postData) setLoading(true);
+            setLoadingComments(true);
 
             // Tải song song cả Chi tiết bài viết và Bình luận để tiết kiệm thời gian
             const [postRes, commRes] = await Promise.all([
@@ -55,6 +89,7 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
             }
         } finally {
             setLoading(false);
+            setLoadingComments(false);
         }
     };
 
@@ -110,6 +145,7 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
             content: commentContent,
             created_at: new Date().toISOString(),
             author: currentUser,
+            service: selectedService,
             isSending: true
         };
 
@@ -120,7 +156,7 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
         setIsPosting(true);
 
         try {
-            const response = await socialApi.addComment(post.id, commentContent);
+            const response = await socialApi.addComment(post.id, commentContent, selectedService?.id);
             if (response.success) {
                 // Thay thế bình luận tạm thời bằng bình luận thật từ API
                 setComments(prev => prev.map(c => c.id === tempId ? response.data : c));
@@ -140,6 +176,8 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
             notification.error("Lỗi khi gửi bình luận. Vui lòng thử lại.");
         } finally {
             setIsPosting(false);
+            setSelectedService(null);
+            setServiceSearchValue('');
         }
     };
 
@@ -150,11 +188,11 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
             {/* Nút đóng di chuyển ra ngoài box trắng và to hơn */}
             <button
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="absolute top-6 right-6 z-[60] p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
+                className="absolute top-6 right-6 z-[510] p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
                 title="Đóng (Esc)"
             >
                 <X size={28} />
@@ -276,11 +314,44 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
                                             ))}
                                         </div>
                                     )}
+
+                                    {post.service && (
+                                        <div 
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/services/detail/${post.service.slug}`); }}
+                                            className="mt-4 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl cursor-pointer hover:bg-emerald-100 transition-all group shadow-sm"
+                                        >
+                                            <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white shadow-sm">
+                                                <img src={post.service.media?.[0]?.url || post.service.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 mb-0.5">
+                                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Dịch vụ đề xuất</span>
+                                                </div>
+                                                <h4 className="text-[14px] font-bold text-slate-800 truncate group-hover:text-emerald-700">{post.service.name}</h4>
+                                                <p className="text-[12px] text-emerald-600 font-bold">{formatCurrency(post.service.base_price)}</p>
+                                            </div>
+                                            <div className="p-2 text-emerald-400 group-hover:text-emerald-600">
+                                                <ExternalLink size={18} />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Comments List */}
                                 <div className="space-y-5">
-                                    {comments.length > 0 ? (
+                                    {loadingComments ? (
+                                        // Skeleton Loading
+                                        [...Array(3)].map((_, i) => (
+                                            <div key={i} className="flex gap-3 animate-pulse">
+                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                                                    <div className="h-4 bg-gray-100 rounded w-full"></div>
+                                                    <div className="h-4 bg-gray-100 rounded w-5/6"></div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : comments.length > 0 ? (
                                         comments.map((comment) => (
                                             <div key={comment.id} className={`flex gap-3 group ${comment.isSending ? 'opacity-60' : ''}`}>
                                                 <div className="flex-shrink-0 mt-1">
@@ -299,6 +370,22 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
                                                         <p className="text-[14px] text-gray-700 leading-relaxed break-words">
                                                             {comment.content}
                                                         </p>
+
+                                                        {comment.service && (
+                                                            <div 
+                                                                onClick={(e) => { e.stopPropagation(); navigate(`/services/detail/${comment.service.slug}`); }}
+                                                                className="mt-2 flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-100 rounded-xl cursor-pointer hover:bg-emerald-100 transition-all group"
+                                                            >
+                                                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white">
+                                                                    <img src={comment.service.media?.[0]?.url || comment.service.thumbnail} className="w-full h-full object-cover" alt="" />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h5 className="text-[12px] font-bold text-slate-800 truncate group-hover:text-emerald-700">{comment.service.name}</h5>
+                                                                    <p className="text-[11px] text-emerald-600 font-bold">{formatCurrency(comment.service.base_price)}</p>
+                                                                </div>
+                                                                <ExternalLink size={14} className="text-emerald-400 group-hover:text-emerald-600 mr-1" />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-3 mt-1.5 ml-0.5">
                                                         <span className="text-[11px] text-gray-400 font-medium">
@@ -334,6 +421,24 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
                                 </div>
                                 <div className="text-[14px] font-bold mb-3">{post.likes_count} lượt thích</div>
 
+                                {selectedService && (
+                                    <div className="mb-3 flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-100 rounded-xl relative group">
+                                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                            <img src={selectedService.media?.[0]?.url || selectedService.thumbnail} className="w-full h-full object-cover" alt="" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[12px] font-bold text-gray-800 truncate">{selectedService.name}</p>
+                                            <p className="text-[11px] text-emerald-600 font-medium">{formatCurrency(selectedService.base_price)}</p>
+                                        </div>
+                                        <button 
+                                            onClick={() => setSelectedService(null)}
+                                            className="p-1 hover:bg-emerald-100 rounded-full text-emerald-600 transition-colors"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                )}
+
                                 <form onSubmit={handleComment} className="flex gap-2 relative">
                                     <button 
                                         type="button"
@@ -344,7 +449,7 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
                                     </button>
 
                                     {showEmojiPicker && (
-                                        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 z-[100] shadow-2xl">
+                                        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 z-[520] shadow-2xl">
                                             <div className="fixed inset-0 bg-transparent" onClick={() => setShowEmojiPicker(false)}></div>
                                             <div className="relative">
                                                 <EmojiPicker 
@@ -365,6 +470,57 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
                                         value={newComment}
                                         onChange={(e) => setNewComment(e.target.value)}
                                     />
+
+                                    <div className="relative flex items-center">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowServiceSearch(!showServiceSearch)}
+                                            className={`p-1.5 rounded-full transition-all ${selectedService ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
+                                            title="Gắn link dịch vụ"
+                                        >
+                                            <Briefcase size={20} />
+                                        </button>
+
+                                        {showServiceSearch && (
+                                            <div className="absolute bottom-full right-0 mb-4 w-72 bg-white shadow-2xl rounded-2xl p-4 border border-gray-100 z-[530] animate-in slide-in-from-bottom-2 duration-200">
+                                                <div className="fixed inset-0" onClick={() => setShowServiceSearch(false)}></div>
+                                                <div className="relative">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <span className="text-[12px] font-bold text-gray-800">Gắn link dịch vụ</span>
+                                                        {isSearchingService && <div className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>}
+                                                    </div>
+                                                    <input 
+                                                        autoFocus
+                                                        type="text"
+                                                        placeholder="Tìm dịch vụ..."
+                                                        value={serviceSearchValue}
+                                                        onChange={(e) => setServiceSearchValue(e.target.value)}
+                                                        className="w-full px-3 py-2 bg-gray-50 border-none rounded-xl text-[13px] outline-none focus:ring-1 focus:ring-emerald-500 mb-2"
+                                                    />
+                                                    <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+                                                        {suggestedServices.length > 0 ? (
+                                                            suggestedServices.map(svc => (
+                                                                <div 
+                                                                    key={svc.id} 
+                                                                    onClick={() => { setSelectedService(svc); setShowServiceSearch(false); setServiceSearchValue(''); }} 
+                                                                    className="flex items-center gap-2 p-2 hover:bg-emerald-50 rounded-xl cursor-pointer transition-colors group"
+                                                                >
+                                                                    <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                                                                        <img src={svc.media?.[0]?.url || svc.thumbnail} className="w-full h-full object-cover" alt="" />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0 text-left">
+                                                                        <p className="text-[13px] font-bold text-gray-700 truncate group-hover:text-emerald-600">{svc.name}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-center py-4 text-[11px] text-gray-400 italic">Nhập từ khóa tìm dịch vụ...</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <button
                                         type="submit"
                                         disabled={!newComment.trim() || isPosting}

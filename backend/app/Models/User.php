@@ -38,6 +38,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Appends photoURL for frontend compatibility (matching Firebase naming)
+     */
+    protected $appends = ['photoURL'];
+
+    public function getPhotoURLAttribute()
+    {
+        return $this->avatar_url;
+    }
+
+    /**
      * Khai báo cột mật khẩu cho Laravel Auth (vì tên cũ là 'password_hash')
      */
     public function getAuthPasswordName()

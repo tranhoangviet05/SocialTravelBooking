@@ -13,6 +13,7 @@ const FollowerRecommend = () => {
     const notification = useNotification();
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [followingIds, setFollowingIds] = useState(new Set());
 
     const fetchSuggestions = async () => {
         try {
@@ -33,7 +34,23 @@ const FollowerRecommend = () => {
     }, []);
 
     const handleFollow = async (userId) => {
+        if (followingIds.has(userId)) return;
+
+        const suggestion = suggestions.find(s => s.id === userId);
+        if (!suggestion) return;
+
+        const previousStatus = suggestion.is_following;
+
         try {
+            setFollowingIds(prev => new Set(prev).add(userId));
+            const newStatus = !previousStatus;
+
+            // Optimistic update local suggestions
+            setSuggestions(prev => prev.map(s => s.id === userId ? { ...s, is_following: newStatus } : s));
+            
+            // Optimistic update global feed
+            updateFollowStatus(userId, newStatus);
+
             const response = await socialApi.toggleFollow(userId);
             if (response.success) {
                 const isFollowing = response.data.following;
@@ -42,7 +59,18 @@ const FollowerRecommend = () => {
                 notification.success(isFollowing ? "Đã theo dõi" : "Đã bỏ theo dõi");
             }
         } catch (error) {
+            // Rollback
+            setSuggestions(prev => prev.map(s => s.id === userId ? { ...s, is_following: previousStatus } : s));
+            updateFollowStatus(userId, previousStatus);
             notification.error("Lỗi khi thay đổi trạng thái theo dõi");
+        } finally {
+            setTimeout(() => {
+                setFollowingIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(userId);
+                    return next;
+                });
+            }, 500);
         }
     };
 
@@ -83,7 +111,8 @@ const FollowerRecommend = () => {
                                 </div>
                                 <button
                                      onClick={() => handleFollow(suggestion.id)}
-                                     className={`text-sm font-bold transition-all px-2 py-1 rounded-lg ${suggestion.is_following ? 'text-gray-400 hover:text-red-500' : 'text-sky-500 hover:text-sky-700 hover:bg-sky-50'}`}
+                                     disabled={followingIds.has(suggestion.id)}
+                                     className={`text-sm font-bold transition-all px-2 py-1 rounded-lg ${followingIds.has(suggestion.id) ? 'opacity-50 cursor-not-allowed' : ''} ${suggestion.is_following ? 'text-gray-400 hover:text-red-500' : 'text-sky-500 hover:text-sky-700 hover:bg-sky-50'}`}
                                  >
                                      {suggestion.is_following ? 'Đang theo dõi' : 'Theo dõi'}
                                  </button>

@@ -9,11 +9,16 @@ import { Repeat2 } from 'lucide-react';
 const Home = () => {
     const { openCreateModal, refreshTrigger } = useOutletContext();
     const { currentUser } = useAuth();
-    const { feedPosts, fetchFeed, fetchMoreFeed, feedPagination, loading, loadingMore } = useSocialData();
+    const { feedPosts, fetchFeed, fetchMoreFeed, feedPagination, loading, loadingMore, feedMode, setFeedMode } = useSocialData();
     const navigate = useNavigate();
 
+    const handleTabChange = (mode) => {
+        if (mode === feedMode) return;
+        fetchFeed(true, mode);
+    };
+
     useEffect(() => {
-        // Force refresh nếu có trigger (vừa đăng bài)
+        // Force refresh nếu có trigger (vừa đăng bài) hoặc khi component mount
         fetchFeed(refreshTrigger > 0);
     }, [fetchFeed, refreshTrigger]);
 
@@ -38,8 +43,18 @@ const Home = () => {
             {/* Top Navigation */}
             <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-gray-100 pt-6">
                 <div className="flex justify-center gap-6 pb-4 font-semibold text-[15px]">
-                    <button className="text-black border-b-2 border-black pb-1">Dành cho bạn</button>
-                    <button className="text-gray-400 hover:text-gray-700 pb-1">Đang theo dõi</button>
+                    <button 
+                        onClick={() => handleTabChange('all')}
+                        className={`transition-all pb-1 ${feedMode === 'all' ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-gray-700'}`}
+                    >
+                        Dành cho bạn
+                    </button>
+                    <button 
+                        onClick={() => handleTabChange('following')}
+                        className={`transition-all pb-1 ${feedMode === 'following' ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-gray-700'}`}
+                    >
+                        Đang theo dõi
+                    </button>
                 </div>
             </div>
 
@@ -94,7 +109,11 @@ const Home = () => {
                             <div className="p-4 bg-gray-50 rounded-full">
                                 <Repeat2 size={32} className="text-gray-300" />
                             </div>
-                            <p className="text-gray-500 font-medium">Chưa có bài viết nào. Hãy theo dõi thêm mọi người!</p>
+                            {feedMode === 'following' && (currentUser?.social_profile?.following_count === 0) ? (
+                                <p className="text-gray-500 font-medium px-10">Hãy theo dõi mọi người để tiếp tục khám phá những điều thú vị!</p>
+                            ) : (
+                                <p className="text-gray-500 font-medium px-10">Chưa có bài viết nào ở đây. Hãy quay lại sau nhé!</p>
+                            )}
                         </div>
                     )}
                 </div>

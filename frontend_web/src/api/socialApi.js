@@ -15,7 +15,10 @@ const socialApi = {
     // Interactions
     toggleLike: (postId) => axios.post(API_ENDPOINTS.SOCIAL_LIKE(postId)),
     getComments: (postId) => axios.get(API_ENDPOINTS.SOCIAL_COMMENTS(postId)),
-    addComment: (postId, content) => axios.post(API_ENDPOINTS.SOCIAL_COMMENTS(postId), { content }),
+    addComment: (postId, content, serviceId = null) => axios.post(API_ENDPOINTS.SOCIAL_COMMENTS(postId), { 
+        content, 
+        service_id: serviceId 
+    }),
 
     // Follows
     toggleFollow: (userId) => axios.post(API_ENDPOINTS.SOCIAL_FOLLOW(userId)),

@@ -16,16 +16,43 @@ const UserListModal = ({ isOpen, onClose, initialTab = 'followers', userId }) =>
     const [profileLoading, setProfileLoading] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
+
+        const fetchUsers = async () => {
+            setLoading(true);
+            try {
+                const response = activeTab === 'followers'
+                    ? await socialApi.getFollowers(userId)
+                    : await socialApi.getFollowing(userId);
+
+                if (response.success && isMounted) {
+                    setUsers(response.data.data);
+                }
+            } catch (error) {
+                if (isMounted) {
+                    notification.error("Không thể tải danh sách");
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
         if (isOpen && userId) {
             fetchUsers();
         } else {
             setUsers([]);
             setSelectedUser(null);
         }
+
+        return () => {
+            isMounted = false;
+        };
     }, [isOpen, activeTab, userId]);
 
-    const fetchUsers = async () => {
-        setLoading(true);
+    // Tách riêng hàm refresh để dùng cho các action
+    const refreshUsers = async () => {
         try {
             const response = activeTab === 'followers'
                 ? await socialApi.getFollowers(userId)
@@ -35,9 +62,7 @@ const UserListModal = ({ isOpen, onClose, initialTab = 'followers', userId }) =>
                 setUsers(response.data.data);
             }
         } catch (error) {
-            notification.error("Không thể tải danh sách");
-        } finally {
-            setLoading(false);
+            console.error("Refresh failed", error);
         }
     };
 
@@ -47,7 +72,7 @@ const UserListModal = ({ isOpen, onClose, initialTab = 'followers', userId }) =>
             const response = await socialApi.toggleFollow(targetUserId);
             if (response.success) {
                 notification.success(response.data.following ? "Đã theo dõi" : "Đã bỏ theo dõi");
-                fetchUsers(); // Refresh list
+                refreshUsers(); // Dùng hàm refresh riêng thay vì fetchUsers gốc
             }
         } catch (error) {
             notification.error("Thao tác thất bại");
@@ -171,7 +196,7 @@ const UserListModal = ({ isOpen, onClose, initialTab = 'followers', userId }) =>
                 isOpen={!!selectedUser}
                 onClose={() => {
                     setSelectedUser(null);
-                    fetchUsers(); // Refresh parent list to update follow status if changed in modal
+                    refreshUsers(); // Refresh parent list to update follow status if changed in modal
                 }}
                 userId={selectedUser?.id}
             />

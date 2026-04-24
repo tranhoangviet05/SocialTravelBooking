@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthChange, logOut, getCurrentUser } from '../firebase/services/authService';
 import authApi from '../api/authApi';
+import echo from '../utils/echo';
 
 const AuthContext = createContext(null);
 
@@ -35,7 +36,7 @@ export const AuthProvider = ({ children }) => {
                             displayName: user.displayName || backendUser.display_name,
                         });
                         setUserRole(backendUser.role || 'tourist');
-                        setSocialActive(backendUser.social_active || false);
+                        setSocialActive(backendUser.social_active === true || backendUser.social_active === 1);
                     } else {
                         setUserRole('tourist');
                         setSocialActive(false);
@@ -53,48 +54,47 @@ export const AuthProvider = ({ children }) => {
         });
 
         // Lắng nghe Real-time cập nhật số lượng follow cho user hiện tại
-        const echo = import('../utils/echo').then(m => {
-            const channel = m.default.channel('social-updates');
-            channel.listen('.user.followed', (e) => {
-                const { followerId, followingId, followerCount, followingCount } = e;
+        const channel = echo.channel('social-updates');
+        channel.listen('.user.followed', (e) => {
+            const { followerId, followingId, followerCount, followingCount } = e;
+            
+            setCurrentUser(prev => {
+                if (!prev) return prev;
                 
-                setCurrentUser(prev => {
-                    if (!prev) return prev;
-                    
-                    let updated = { ...prev };
-                    let changed = false;
+                let updated = { ...prev };
+                let changed = false;
 
-                    // Nếu mình là người đi follow (follower) -> Cập nhật số người mình đang theo dõi (following_count)
-                    if (String(prev.id) === String(followerId)) {
-                        updated = {
-                            ...updated,
-                            social_profile: {
-                                ...updated.social_profile,
-                                following_count: followingCount
-                            }
-                        };
-                        changed = true;
-                    }
+                // Nếu mình là người đi follow (follower) -> Cập nhật số người mình đang theo dõi (following_count)
+                if (String(prev.id) === String(followerId)) {
+                    updated = {
+                        ...updated,
+                        social_profile: {
+                            ...updated.social_profile,
+                            following_count: followingCount
+                        }
+                    };
+                    changed = true;
+                }
 
-                    // Nếu mình là người được follow (following) -> Cập nhật số người theo dõi mình (followers_count)
-                    if (String(prev.id) === String(followingId)) {
-                        updated = {
-                            ...updated,
-                            social_profile: {
-                                ...updated.social_profile,
-                                followers_count: followerCount
-                            }
-                        };
-                        changed = true;
-                    }
+                // Nếu mình là người được follow (following) -> Cập nhật số người theo dõi mình (followers_count)
+                if (String(prev.id) === String(followingId)) {
+                    updated = {
+                        ...updated,
+                        social_profile: {
+                            ...updated.social_profile,
+                            followers_count: followerCount
+                        }
+                    };
+                    changed = true;
+                }
 
-                    return changed ? updated : prev;
-                });
+                return changed ? updated : prev;
             });
         });
 
         return () => {
             unsubscribe();
+            channel.stopListening('.user.followed');
         };
     }, []);
 
@@ -113,7 +113,7 @@ export const AuthProvider = ({ children }) => {
                     photoURL: firebaseUser.photoURL || backendUser.avatar_url,
                     displayName: firebaseUser.displayName || backendUser.display_name,
                 }));
-                setSocialActive(backendUser.social_active || false);
+                setSocialActive(backendUser.social_active === true || backendUser.social_active === 1);
                 setUserRole(backendUser.role || 'tourist');
             }
         } catch (error) {

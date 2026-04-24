@@ -62,9 +62,17 @@ Route::middleware('firebase.auth')->group(function () {
         $firebaseUid = $request->attributes->get('firebaseUid');
         $user = \App\Models\User::with('socialProfile')->where('firebase_uid', $firebaseUid)->first();
 
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+        }
+
+        // Đảm bảo social_active luôn trả về boolean thật (tránh Postgres trả về 0/1)
+        $userData = $user->toArray();
+        $userData['social_active'] = (bool) $user->social_active;
+
         return response()->json([
             'success' => true,
-            'data' => $user
+            'data' => $userData
         ]);
     });
 

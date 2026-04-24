@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Heart, MessageCircle, Repeat2, Send, MoreHorizontal, Trash2, MapPin } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Send, MoreHorizontal, Trash2, MapPin, Briefcase, ExternalLink } from 'lucide-react';
 import Avatar from '../../../components/common/Avatar';
 import PostDetailModal from './PostDetailModal';
 import socialApi from '../../../api/socialApi';
@@ -10,6 +10,7 @@ import echo from '../../../utils/echo';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useSocialData } from '../../../contexts/SocialDataContext';
+import { formatCurrency } from '../../../utils/Helpers';
 
 const Post = ({ post: initialPost }) => {
     const { currentUser } = useAuth();
@@ -19,6 +20,7 @@ const Post = ({ post: initialPost }) => {
     const [showMenu, setShowMenu] = useState(false);
     const [isLiking, setIsLiking] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [isFollowingAction, setIsFollowingAction] = useState(false);
     const notification = useNotification();
     const navigate = useNavigate();
     const menuRef = useRef(null);
@@ -92,15 +94,34 @@ const Post = ({ post: initialPost }) => {
 
     const handleFollow = async (e) => {
         e.stopPropagation();
+        if (isFollowingAction) return;
+
+        const previousStatus = post.author?.is_following;
+        const previousFollowersCount = post.author?.social_profile?.followers_count;
+
         try {
+            setIsFollowingAction(true);
+            const newStatus = !previousStatus;
+            const newFollowersCount = newStatus 
+                ? (previousFollowersCount + 1) 
+                : Math.max(0, previousFollowersCount - 1);
+            
+            // Cập nhật Optimistic
+            updateFollowStatus(post.user_id, newStatus, newFollowersCount);
+
             const response = await socialApi.toggleFollow(post.user_id);
             if (response.success) {
-                const isNowFollowing = response.data.following;
-                updateFollowStatus(post.user_id, isNowFollowing, response.data.followers_count);
-                notification.success(isNowFollowing ? "Đã theo dõi" : "Đã bỏ theo dõi");
+                // Đồng bộ lại với dữ liệu thật từ server
+                updateFollowStatus(post.user_id, response.data.following, response.data.followers_count);
+                notification.success(response.data.following ? "Đã theo dõi" : "Đã bỏ theo dõi");
             }
         } catch (error) {
+            // Hoàn tác nếu lỗi
+            updateFollowStatus(post.user_id, previousStatus, previousFollowersCount);
             notification.error("Lỗi khi thay đổi trạng thái theo dõi");
+        } finally {
+            setIsFollowingAction(true); // Giữ khóa thêm một chút để tránh spam click nhanh
+            setTimeout(() => setIsFollowingAction(false), 500);
         }
     };
 
@@ -141,8 +162,8 @@ const Post = ({ post: initialPost }) => {
     return (
         <>
             <div
-                className="py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50/30 transition-colors"
-                onClick={() => setIsDetailOpen(true)}
+                className={`py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50/30 transition-colors ${post.isSending ? 'opacity-60' : ''}`}
+                onClick={() => !post.isSending && setIsDetailOpen(true)}
             >
                 <div className="flex gap-3 px-1">
                     <div className="flex flex-col items-center">
@@ -163,12 +184,16 @@ const Post = ({ post: initialPost }) => {
                                 >
                                     {post.author?.display_name || "Người dùng"}
                                 </span>
-                                {currentUser?.id !== post.user_id && (
+                                {post.isSending && (
+                                    <span className="text-[11px] text-sky-500 font-medium animate-pulse ml-2 bg-sky-50 px-2 py-0.5 rounded-full">Đang đăng...</span>
+                                )}
+                                {currentUser?.id !== post.user_id && !post.isSending && (
                                     <>
                                         <span className="text-gray-400">·</span>
                                         <button
                                             onClick={handleFollow}
-                                            className={`text-[14px] font-bold transition-colors ${post.author?.is_following ? 'text-gray-400 hover:text-red-500' : 'text-sky-500 hover:text-sky-700'}`}
+                                            disabled={isFollowingAction}
+                                            className={`text-[14px] font-bold transition-colors ${isFollowingAction ? 'opacity-50 cursor-not-allowed' : ''} ${post.author?.is_following ? 'text-gray-400 hover:text-red-500' : 'text-sky-500 hover:text-sky-700'}`}
                                         >
                                             {post.author?.is_following ? 'Đang theo dõi' : 'Theo dõi'}
                                         </button>
@@ -242,6 +267,29 @@ const Post = ({ post: initialPost }) => {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Gắn link dịch vụ */}
+                        {post.service && (
+                            <div 
+                                onClick={(e) => { e.stopPropagation(); navigate(`/services/detail/${post.service.slug}`); }}
+                                className="mt-3 flex items-center gap-3 p-3 bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100 rounded-2xl group transition-all"
+                            >
+                                <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-emerald-50">
+                                    <img src={post.service.media?.[0]?.url || post.service.thumbnail} className="w-full h-full object-cover" alt="" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <Briefcase size={14} className="text-emerald-600" />
+                                        <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Dịch vụ đề xuất</span>
+                                    </div>
+                                    <h4 className="text-[14px] font-bold text-slate-800 truncate group-hover:text-emerald-700">{post.service.name}</h4>
+                                    <p className="text-[12px] text-emerald-600 font-bold">{formatCurrency(post.service.base_price)}</p>
+                                </div>
+                                <div className="p-2 text-emerald-400 group-hover:text-emerald-600">
+                                    <ExternalLink size={18} />
+                                </div>
                             </div>
                         )}
 

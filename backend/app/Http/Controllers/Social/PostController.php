@@ -34,7 +34,11 @@ class PostController extends Controller
                     $request->get('limit', 15)
                 );
             } else {
-                $feed = $this->socialService->getFeed($user, $request->get('limit', 10));
+                $feed = $this->socialService->getFeed(
+                    $user, 
+                    $request->get('limit', 10),
+                    $request->get('mode', 'all')
+                );
             }
 
             return response()->json([
@@ -65,6 +69,7 @@ class PostController extends Controller
                 'media.*.type' => 'nullable|string',
                 'tags'        => 'nullable|array',
                 'location_id' => 'nullable|integer|exists:locations,id',
+                'service_id'  => 'nullable|uuid|exists:services,id',
                 'visibility'  => 'nullable|string|in:public,private',
             ]);
 
@@ -91,7 +96,7 @@ class PostController extends Controller
     {
         try {
             $user = $request->attributes->get('userModel');
-            $post = Post::with(['author.socialProfile', 'media', 'tags', 'location'])
+            $post = Post::with(['author.socialProfile', 'media', 'tags', 'location', 'service.media'])
                         ->withCount(['likes as is_liked' => function($q) use ($user) {
                             $q->where('user_id', $user->id);
                         }])

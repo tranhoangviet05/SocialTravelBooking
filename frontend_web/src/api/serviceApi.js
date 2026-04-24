@@ -1,62 +1,52 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+import axiosClient from './axios';
 
 const serviceApi = {
     // Lấy danh sách dịch vụ (tour + accommodation) với filter
-    getServices: async (params = {}) => {
-        const response = await axios.get(`${API_URL}/services`, { params });
-        return response.data;
+    getServices: (params = {}) => {
+        return axiosClient.get('/general/get/services', { params });
     },
 
     // Lấy chi tiết 1 dịch vụ
-    getService: async (id) => {
-        const response = await axios.get(`${API_URL}/services/${id}`);
-        return response.data;
+    getService: (id) => {
+        return axiosClient.get(`/general/get/services/detail/${id}`);
     },
 
     // Lấy danh sách loại dịch vụ (tour / accommodation)
-    getCategories: async () => {
-        const response = await axios.get(`${API_URL}/service-categories`);
-        return response.data;
+    getCategories: () => {
+        return axiosClient.get('/service-categories');
     },
 
     // Lấy địa điểm nổi bật
-    getLocations: async () => {
-        const response = await axios.get(`${API_URL}/locations`);
-        return response.data;
+    getLocations: () => {
+        return axiosClient.get('/locations');
     },
 
     // Tạo đặt chỗ (booking)
-    createBooking: async (serviceId, bookingData) => {
-        const response = await axios.post(`${API_URL}/bookings`, {
+    createBooking: (serviceId, bookingData) => {
+        return axiosClient.post('/bookings', {
             service_id: serviceId,
             ...bookingData,
         });
-        return response.data;
     },
 
     // Lấy đánh giá của 1 dịch vụ
-    getReviews: async (serviceId, page = 1) => {
-        const response = await axios.get(`${API_URL}/services/${serviceId}/reviews`, {
+    getReviews: (serviceId, page = 1) => {
+        return axiosClient.get(`/services/${serviceId}/reviews`, {
             params: { page }
         });
-        return response.data;
     },
 
     // Gửi đánh giá
-    createReview: async (serviceId, reviewData) => {
-        const response = await axios.post(`${API_URL}/services/${serviceId}/reviews`, reviewData);
-        return response.data;
+    createReview: (serviceId, reviewData) => {
+        return axiosClient.post(`/services/${serviceId}/reviews`, reviewData);
     },
 
     // Tìm kiếm dịch vụ (search)
-    search: async (query, filters = {}) => {
-        const response = await axios.get(`${API_URL}/services/search`, {
+    search: (query, filters = {}) => {
+        return axiosClient.get('/general/get/services', {
             params: { q: query, ...filters }
         });
-        return response.data;
     },
 };
 
-export default serviceApi;
+export default serviceApi;

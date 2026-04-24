@@ -33,7 +33,7 @@ class InteractionController extends Controller
      */
     public function getComments(string $postId)
     {
-        $comments = \App\Models\Comment::with('author')
+        $comments = \App\Models\Comment::with(['author', 'service.media'])
                                        ->where('post_id', $postId)
                                        ->orderBy('created_at', 'asc')
                                        ->get();
@@ -49,7 +49,10 @@ class InteractionController extends Controller
     public function storeComment(Request $request, string $postId)
     {
         try {
-            $request->validate(['content' => 'required|string']);
+            $request->validate([
+                'content' => 'required|string',
+                'service_id' => 'nullable|uuid'
+            ]);
             $user = $request->attributes->get('userModel');
 
             if (!$user) {
@@ -59,7 +62,7 @@ class InteractionController extends Controller
                 ], 401);
             }
             
-            $comment = $this->socialService->addComment($user, $postId, $request->content);
+            $comment = $this->socialService->addComment($user, $postId, $request->content, $request->service_id);
 
             return response()->json([
                 'success' => true,

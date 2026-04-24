@@ -60,6 +60,7 @@ class SocialService
                 'user_id'     => $user->id,
                 'content'     => $data['content'] ?? null,
                 'location_id' => $data['location_id'] ?? null,
+                'service_id'  => $data['service_id'] ?? null,
                 'visibility'  => $data['visibility'] ?? 'public',
             ]);
 
@@ -88,7 +89,7 @@ class SocialService
             // Cập nhật số lượng bài viết trong social_profile
             $user->socialProfile()->increment('posts_count');
 
-            return $post->load(['author', 'media', 'tags', 'location']);
+            return $post->load(['author.socialProfile', 'media', 'tags', 'location', 'service.media']);
         });
     }
 
@@ -126,20 +127,21 @@ class SocialService
     /**
      * Thêm bình luận
      */
-    public function addComment(User $user, string $postId, string $content): \App\Models\Comment
+    public function addComment(User $user, string $postId, string $content, ?string $serviceId = null): \App\Models\Comment
     {
-        return DB::transaction(function () use ($user, $postId, $content) {
+        return DB::transaction(function () use ($user, $postId, $content, $serviceId) {
             $post = \App\Models\Post::findOrFail($postId);
             
             $comment = \App\Models\Comment::create([
                 'user_id' => $user->id,
                 'post_id' => $postId,
-                'content' => $content
+                'content' => $content,
+                'service_id' => $serviceId
             ]);
 
             $post->increment('comments_count');
 
-            $comment = $comment->load('author');
+            $comment = $comment->load(['author', 'service.media']);
             
             // TẠO THÔNG BÁO COMMENT
             $this->createNotification($post->user_id, $user->id, 'comment', $postId, $comment->id);
@@ -204,7 +206,7 @@ class SocialService
         ];
     }
 
-    public function getFeed(User $user, int $perPage = 10)
+    public function getFeed(User $user, int $perPage = 10, string $mode = 'all')
     {
         // Lấy danh sách ID những người đang theo dõi
         $followingIds = \App\Models\Follow::where('follower_id', $user->id)
@@ -215,7 +217,7 @@ class SocialService
         $followingIds[] = $user->id;
 
         $posts = \App\Models\Post::whereIn('user_id', $followingIds)
-                               ->with(['author.socialProfile', 'media', 'tags', 'location'])
+                               ->with(['author.socialProfile', 'media', 'tags', 'location', 'service.media'])
                                ->withCount([
                                    'likes as is_liked' => function($query) use ($user) {
                                        $query->where('user_id', $user->id);
@@ -232,10 +234,10 @@ class SocialService
             return $post;
         });
 
-        // Nếu bản tin theo dõi trống, gợi ý bài viết công khai của mọi người (Discovery Mode)
-        if ($posts->total() === 0) {
+        // Nếu bản tin theo dõi trống VÀ đang ở chế độ 'all', gợi ý bài viết công khai của mọi người (Discovery Mode)
+        if ($posts->total() === 0 && $mode === 'all') {
             $discoveryPosts = \App\Models\Post::where('visibility', 'public')
-                                   ->with(['author.socialProfile', 'media', 'tags', 'location'])
+                                   ->with(['author.socialProfile', 'media', 'tags', 'location', 'service.media'])
                                    ->withCount([
                                        'likes as is_liked' => function($query) use ($user) {
                                            $query->where('user_id', $user->id);
@@ -263,7 +265,7 @@ class SocialService
     public function getUserPosts(User $user, string $targetUserId, int $perPage = 10)
     {
         $posts = \App\Models\Post::where('user_id', $targetUserId)
-                               ->with(['author.socialProfile', 'media', 'tags', 'location'])
+                               ->with(['author.socialProfile', 'media', 'tags', 'location', 'service.media'])
                                ->withCount(['likes as is_liked' => function($query) use ($user) {
                                    $query->where('user_id', $user->id);
                                }])
@@ -288,7 +290,7 @@ class SocialService
     public function getUserComments(string $userId, int $perPage = 15)
     {
         return \App\Models\Comment::where('user_id', $userId)
-                                  ->with(['post.author', 'author'])
+                                  ->with(['post.author', 'author', 'service.media'])
                                   ->orderByDesc('created_at')
                                   ->paginate($perPage);
     }
@@ -298,7 +300,7 @@ class SocialService
      */
     public function searchPosts(User $user, ?string $q = null, ?string $tag = null, ?int $locationId = null, int $perPage = 15)
     {
-        $query = \App\Models\Post::with(['author.socialProfile', 'media', 'tags', 'location'])
+        $query = \App\Models\Post::with(['author.socialProfile', 'media', 'tags', 'location', 'service.media'])
                                  ->withCount(['likes as is_liked' => function($q) use ($user) {
                                      $q->where('user_id', $user->id);
                                  }])

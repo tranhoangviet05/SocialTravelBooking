@@ -82,23 +82,29 @@ const Profile = () => {
         if (profileCache[targetUserId]) {
             setPosts(profileCache[targetUserId].posts);
             setReplies(profileCache[targetUserId].replies);
+            if (profileCache[targetUserId].user) {
+                setProfileUser(profileCache[targetUserId].user);
+            }
         }
     }, [profileCache, targetUserId]);
+
+    useEffect(() => {
+        if (targetUserId === currentUser?.id && currentUser) {
+            setProfileUser(currentUser);
+        }
+    }, [currentUser, targetUserId]);
 
     const fetchProfileData = async () => {
         if (!targetUserId) return;
         try {
             setLoading(true);
 
-            if (targetUserId !== currentUser?.id) {
-            }
-
             const data = await fetchUserProfile(targetUserId);
             if (data) {
                 setPosts(data.posts);
                 setReplies(data.replies);
-                if (data.posts.length > 0) {
-                    setProfileUser(data.posts[0].author);
+                if (data.user) {
+                    setProfileUser(data.user);
                 } else if (targetUserId === currentUser?.id) {
                     setProfileUser(currentUser);
                 }

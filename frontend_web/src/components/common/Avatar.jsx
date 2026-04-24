@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const Avatar = ({ src, alt, size = "md", className = "" }) => {
+    const [hasError, setHasError] = useState(false);
+
     // Kích thước
     const sizeClasses = {
         xs: "w-6 h-6 text-[10px]",
@@ -26,8 +28,9 @@ const Avatar = ({ src, alt, size = "md", className = "" }) => {
     // Màu sắc ngẫu nhiên dựa trên tên
     const stringToColor = (str) => {
         let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        const stringToHash = str || "User";
+        for (let i = 0; i < stringToHash.length; i++) {
+            hash = stringToHash.charCodeAt(i) + ((hash << 5) - hash);
         }
         const colors = [
             'bg-rose-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500', 
@@ -36,24 +39,22 @@ const Avatar = ({ src, alt, size = "md", className = "" }) => {
         return colors[Math.abs(hash) % colors.length];
     };
 
-    if (src && src.trim() !== "" && !src.includes('pravatar.cc') && !src.includes('ui-avatars.com')) {
+    const shouldShowImage = src && src.trim() !== "" && !src.includes('pravatar.cc') && !src.includes('ui-avatars.com') && !hasError;
+
+    if (shouldShowImage) {
         return (
             <img 
                 src={src} 
                 alt={alt} 
                 className={`${currentSizeClass} rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-gray-100 ${className}`}
-                onError={(e) => {
-                    e.target.onerror = null; // Ngăn lặp vô tận
-                    e.target.src = ''; // Force render fallback
-                    e.target.className = 'hidden'; // Ẩn ảnh lỗi
-                }}
+                onError={() => setHasError(true)}
             />
         );
     }
 
     // Fallback UI
     const initials = getInitials(alt);
-    const bgColor = stringToColor(alt || "User");
+    const bgColor = stringToColor(alt);
 
     return (
         <div className={`${currentSizeClass} rounded-full flex items-center justify-center font-bold text-white shadow-sm border-2 border-white ${bgColor} ${className}`}>

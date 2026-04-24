@@ -18,8 +18,8 @@ class ServiceService
         // Tìm kiếm theo từ khóa (tên hoặc mô tả)
         if (!empty($filters['keyword'])) {
             $query->where(function (Builder $q) use ($filters) {
-                $q->where('name', 'LIKE', '%' . $filters['keyword'] . '%')
-                  ->orWhere('description', 'LIKE', '%' . $filters['keyword'] . '%');
+                $q->where('name', 'ILIKE', '%' . $filters['keyword'] . '%')
+                  ->orWhere('description', 'ILIKE', '%' . $filters['keyword'] . '%');
             });
         }
 

@@ -101,7 +101,7 @@ const FloatingMessageButton = () => {
             {/* Floating Toggle Button */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-8 right-8 px-6 h-14 ${isOpen ? 'bg-slate-800 shadow-xl' : 'bg-[#00AEEF] shadow-[0_8px_30px_rgba(14,165,233,0.3)]'} text-white rounded-full flex items-center justify-center gap-2 hover:scale-105 transition-all z-70 group cursor-pointer`}
+                className={`fixed bottom-8 right-8 px-6 h-14 ${isOpen ? 'bg-slate-800 shadow-xl' : 'bg-[#00AEEF] shadow-[0_8px_30px_rgba(14,165,233,0.3)]'} text-white rounded-full flex items-center justify-center gap-2 hover:scale-105 transition-all z-[40] group cursor-pointer`}
             >
                 {isOpen ? <X size={22} className="animate-in spin-in-90 duration-300" /> : <Send size={22} className="rotate-[-15deg] group-hover:rotate-0 transition-transform" />}
                 <span className="font-bold text-[15px]">{isOpen ? 'Đóng' : 'Tin nhắn'}</span>

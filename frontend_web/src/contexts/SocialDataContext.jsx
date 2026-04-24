@@ -15,6 +15,7 @@ export const SocialDataProvider = ({ children }) => {
     const [lastFeedFetch, setLastFeedFetch] = useState(null);
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [feedMode, setFeedMode] = useState('all'); // 'all' (Dành cho bạn) hoặc 'following' (Đang theo dõi)
 
     const CACHE_DURATION = 10 * 60 * 1000; // 10 phút
 
@@ -75,18 +76,24 @@ export const SocialDataProvider = ({ children }) => {
         // Lắng nghe sự kiện Follow
         updateChannel.listen('.user.followed', (e) => {
             const { followerId, followingId, status, followerCount, followingCount } = e;
+            const isMe = currentUser && String(followerId) === String(currentUser.id);
 
             setFeedPosts(prev => prev.map(p => {
                 if (String(p.user_id) === String(followingId)) {
+                    const author = p.author || {};
+                    const profile = author.social_profile || author.socialProfile || {};
+                    const updatedProfile = {
+                        ...profile,
+                        followers_count: followerCount
+                    };
+                    
                     return { 
                         ...p, 
                         author: { 
-                            ...p.author, 
-                            is_following: status,
-                            social_profile: {
-                                ...p.author.social_profile,
-                                followers_count: followerCount
-                            }
+                            ...author, 
+                            is_following: isMe ? status : author.is_following,
+                            social_profile: updatedProfile,
+                            socialProfile: updatedProfile
                         } 
                     };
                 }
@@ -98,29 +105,39 @@ export const SocialDataProvider = ({ children }) => {
                 let changed = false;
 
                 if (next[followingId]) {
+                    const user = next[followingId].user || {};
+                    const profile = user.social_profile || user.socialProfile || {};
+                    const updatedProfile = {
+                        ...profile,
+                        followers_count: followerCount
+                    };
+
                     next[followingId] = {
                         ...next[followingId],
                         user: {
-                            ...next[followingId].user,
-                            is_following: status,
-                            social_profile: {
-                                ...next[followingId].user?.social_profile,
-                                followers_count: followerCount
-                            }
+                            ...user,
+                            is_following: isMe ? status : user.is_following,
+                            social_profile: updatedProfile,
+                            socialProfile: updatedProfile
                         }
                     };
                     changed = true;
                 }
 
                 if (next[followerId]) {
+                    const user = next[followerId].user || {};
+                    const profile = user.social_profile || user.socialProfile || {};
+                    const updatedProfile = {
+                        ...profile,
+                        following_count: followingCount
+                    };
+
                     next[followerId] = {
                         ...next[followerId],
                         user: {
-                            ...next[followerId].user,
-                            social_profile: {
-                                ...next[followerId].user?.social_profile,
-                                following_count: followingCount
-                            }
+                            ...user,
+                            social_profile: updatedProfile,
+                            socialProfile: updatedProfile
                         }
                     };
                     changed = true;
@@ -134,17 +151,25 @@ export const SocialDataProvider = ({ children }) => {
             interactionChannel.stopListening('.post.liked');
             updateChannel.stopListening('.user.followed');
         };
-    }, []);
+    }, [currentUser]);
 
-    const fetchFeed = useCallback(async (force = false) => {
+    const fetchFeed = useCallback(async (force = false, mode = feedMode) => {
         const now = Date.now();
-        if (!force && lastFeedFetch && (now - lastFeedFetch < CACHE_DURATION) && feedPosts.length > 0) {
+        // Nếu mode thay đổi thì bắt buộc phải fetch mới
+        const modeChanged = mode !== feedMode;
+        
+        if (!force && !modeChanged && lastFeedFetch && (now - lastFeedFetch < CACHE_DURATION) && feedPosts.length > 0) {
             return;
         }
 
         try {
             setLoading(true);
-            const response = await socialApi.getFeed(10, 1);
+            if (modeChanged) {
+                setFeedPosts([]);
+                setFeedMode(mode);
+            }
+            
+            const response = await socialApi.getFeed(10, 1, { mode });
             if (response.success) {
                 const paginationData = response.data;
                 setFeedPosts(paginationData.data);
@@ -160,7 +185,7 @@ export const SocialDataProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [lastFeedFetch, feedPosts.length]);
+    }, [lastFeedFetch, feedPosts.length, feedMode]);
 
     const fetchMoreFeed = useCallback(async () => {
         if (loadingMore || !feedPagination.hasMore) return;
@@ -168,7 +193,7 @@ export const SocialDataProvider = ({ children }) => {
         try {
             setLoadingMore(true);
             const nextPage = feedPagination.currentPage + 1;
-            const response = await socialApi.getFeed(10, nextPage);
+            const response = await socialApi.getFeed(10, nextPage, { mode: feedMode });
             
             if (response.success) {
                 const paginationData = response.data;
@@ -184,7 +209,7 @@ export const SocialDataProvider = ({ children }) => {
         } finally {
             setLoadingMore(false);
         }
-    }, [feedPagination, loadingMore]);
+    }, [feedPagination, loadingMore, feedMode]);
 
     const fetchUserProfile = useCallback(async (userId, force = false) => {
         const now = Date.now();
@@ -195,13 +220,21 @@ export const SocialDataProvider = ({ children }) => {
         }
 
         try {
-            const [postsRes, repliesRes] = await Promise.all([
+            const [postsRes, repliesRes, profileRes] = await Promise.all([
                 socialApi.getUserPosts(userId),
-                socialApi.getUserReplies(userId)
+                socialApi.getUserReplies(userId),
+                socialApi.getUserProfile(userId)
             ]);
 
+            let userObj = null;
+            if (profileRes.success && profileRes.data) {
+                userObj = profileRes.data;
+            } else if (postsRes.success && postsRes.data.data.length > 0) {
+                userObj = postsRes.data.data[0].author;
+            }
+
             const newData = {
-                user: postsRes.success && postsRes.data.data.length > 0 ? postsRes.data.data[0].author : null,
+                user: userObj,
                 posts: postsRes.success ? postsRes.data.data : [],
                 replies: repliesRes.success ? repliesRes.data.data : [],
                 lastFetched: now
@@ -286,6 +319,20 @@ export const SocialDataProvider = ({ children }) => {
         });
     };
 
+    // Thêm bài viết mới vào đầu danh sách (Optimistic)
+    const addPostToState = (post) => {
+        setFeedPosts(prev => [post, ...prev]);
+        if (currentUser && profileCache[currentUser.id]) {
+            setProfileCache(prev => ({
+                ...prev,
+                [currentUser.id]: {
+                    ...prev[currentUser.id],
+                    posts: [post, ...prev[currentUser.id].posts]
+                }
+            }));
+        }
+    };
+
     const value = {
         feedPosts,
         feedPagination,
@@ -295,9 +342,12 @@ export const SocialDataProvider = ({ children }) => {
         profileCache,
         removePostFromState,
         updatePostInState,
+        addPostToState,
         updateFollowStatus,
         loading,
-        loadingMore
+        loadingMore,
+        feedMode,
+        setFeedMode
     };
 
     return (

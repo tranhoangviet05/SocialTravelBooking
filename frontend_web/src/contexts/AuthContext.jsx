@@ -22,8 +22,27 @@ export const AuthProvider = ({ children }) => {
                 try {
                     // Lấy profile từ Backend để có role và thông tin chính xác
                     const idToken = await user.getIdToken();
-                    const response = await authApi.getProfile(idToken);
-                    const backendUser = response?.data;
+                    let backendUser = null;
+
+                    try {
+                        const response = await authApi.getProfile(idToken);
+                        backendUser = response?.data;
+                    } catch (profileError) {
+                        // Nếu user chưa tồn tại trong DB (404) → tự động sync
+                        if (profileError?.response?.status === 404 || !backendUser) {
+                            console.log('User chưa có trong DB, đang sync...');
+                            await authApi.syncUser(idToken, {
+                                displayName: user.displayName || '',
+                                avatarUrl: user.photoURL || '',
+                                email: user.email || '',
+                            });
+                            // Retry getProfile sau khi sync
+                            const retryResponse = await authApi.getProfile(idToken);
+                            backendUser = retryResponse?.data;
+                        } else {
+                            throw profileError;
+                        }
+                    }
 
                     if (backendUser) {
                         // Gộp dữ liệu từ Backend vào currentUser

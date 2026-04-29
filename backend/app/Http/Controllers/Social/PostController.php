@@ -23,7 +23,15 @@ class PostController extends Controller
     {
         try {
             $user = $request->attributes->get('userModel');
-            
+
+            // Guard: user chưa sync vào DB
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tài khoản chưa được đồng bộ. Vui lòng đăng nhập lại.'
+                ], 401);
+            }
+
             // Nếu có tham số tìm kiếm thì gọi searchPosts
             if ($request->has('q') || $request->has('tag') || $request->has('location_id')) {
                 $feed = $this->socialService->searchPosts(
@@ -53,6 +61,7 @@ class PostController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Tạo bài viết mới

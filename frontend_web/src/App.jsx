@@ -9,7 +9,6 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import AdminLayout from './components/admin/AdminLayout';
 import ProviderLayout from './components/provider/ProviderLayout';
-import PlaceholderContent from './components/common/PlaceholderContent';
 import HomePage from './pages/tourist/Home';
 import SearchPage from './pages/tourist/Search';
 import ServiceDetailPage from './pages/tourist/ServiceDetail';

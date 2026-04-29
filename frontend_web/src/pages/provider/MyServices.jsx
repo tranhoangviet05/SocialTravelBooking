@@ -802,7 +802,7 @@ const MyServices = () => {
                                                 <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
                                                 <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
                                                     <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
-                                                    {(service.duration_days || service.duration_nights) && (
+                                                    {service.type === 'tour' && (service.duration_days || service.duration_nights) && (
                                                         <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
                                                     )}
                                                 </div>
@@ -908,7 +908,16 @@ const MyServices = () => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
+                                    <select value={form.type} onChange={e => {
+                                        const newType = e.target.value;
+                                        setForm({ 
+                                            ...form, 
+                                            type: newType,
+                                            duration_days: newType !== 'tour' ? '' : form.duration_days,
+                                            duration_nights: newType !== 'tour' ? '' : form.duration_nights,
+                                            price_unit: ['hotel', 'homestay'].includes(newType) ? 'per_room' : 'per_person'
+                                        });
+                                    }} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="tour">🗺️ Tour du lịch</option>
                                         <option value="hotel">🏨 Khách sạn</option>
                                         <option value="homestay">🏡 Homestay</option>
@@ -928,19 +937,21 @@ const MyServices = () => {
                                     <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Địa chỉ chi tiết" />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <input type="number" value={form.duration_days} onChange={e => {
-                                            const days = e.target.value;
-                                            setForm({ ...form, duration_days: days, duration_nights: days && Number(days) > 0 ? String(Number(days) - 1) : form.duration_nights });
-                                        }} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Số ngày (VD: 3)" />
-                                        <span className="text-xs font-bold text-slate-400">Ngày</span>
+                                {form.type === 'tour' && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <input type="number" value={form.duration_days} onChange={e => {
+                                                const days = e.target.value;
+                                                setForm({ ...form, duration_days: days, duration_nights: days && Number(days) > 0 ? String(Number(days) - 1) : form.duration_nights });
+                                            }} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Số ngày (VD: 3)" />
+                                            <span className="text-xs font-bold text-slate-400">Ngày</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input type="number" value={form.duration_nights} onChange={e => setForm({ ...form, duration_nights: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Số đêm (VD: 2)" />
+                                            <span className="text-xs font-bold text-slate-400">Đêm</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <input type="number" value={form.duration_nights} onChange={e => setForm({ ...form, duration_nights: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Số đêm (VD: 2)" />
-                                        <span className="text-xs font-bold text-slate-400">Đêm</span>
-                                    </div>
-                                </div>
+                                )}
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <input required type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Giá (VNĐ)" />

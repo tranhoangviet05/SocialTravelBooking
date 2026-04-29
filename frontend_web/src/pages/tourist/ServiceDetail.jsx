@@ -158,7 +158,7 @@ const ServiceDetail = () => {
     const price = selectedRoomType ? selectedRoomType.base_price : (serviceData.base_price ?? 0);
     const rating = serviceData.rating_avg ?? 0;
     const reviewCount = serviceData.total_reviews ?? serviceData.total_bookings ?? 0;
-    const duration = serviceData.duration_days
+    const duration = (isTour && serviceData.duration_days)
         ? `${serviceData.duration_days} ngày ${serviceData.duration_nights ? serviceData.duration_nights + ' đêm' : ''}`
         : (isHotel ? 'Lưu trú' : 'Trong ngày');
     const reviews = serviceData.reviews ?? [];

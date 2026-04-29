@@ -34,9 +34,9 @@ const ServiceCard = ({ service, className = '' }) => {
     const mainImage = media.find(m => m.is_cover)?.url || media[0]?.url || 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800';
     
     // Duration label
-    const duration = duration_days 
+    const duration = (type === 'tour' && duration_days)
         ? `${duration_days} ngày ${duration_nights ? duration_nights + ' đêm' : ''}`
-        : 'Trong ngày';
+        : (type === 'tour' ? 'Trong ngày' : 'Lưu trú');
 
     const typeLabel = type === 'tour' ? 'Tour' : 'Lưu trú';
     const typeColor = type === 'tour' ? 'bg-amber-500' : 'bg-sky-600';

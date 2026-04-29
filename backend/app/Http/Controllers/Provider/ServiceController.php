@@ -386,14 +386,15 @@ class ServiceController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'base_price' => 'required|numeric|min:0',
-            'total_rooms' => 'required|integer|min:1',
-            'capacity_adults' => 'required|integer|min:1',
+            'name'              => 'required|string|max:255',
+            'rank'              => 'nullable|string|in:standard,premium,vip',
+            'description'       => 'nullable|string',
+            'base_price'        => 'required|numeric|min:0',
+            'total_rooms'       => 'required|integer|min:1',
+            'capacity_adults'   => 'required|integer|min:1',
             'capacity_children' => 'nullable|integer|min:0',
-            'amenities' => 'nullable|array',
-            'images' => 'nullable|array',
+            'amenities'         => 'nullable|array',
+            'images'            => 'nullable|array',
         ]);
 
         $roomType = $service->roomTypes()->create($validated);
@@ -417,15 +418,16 @@ class ServiceController extends Controller
         $roomType = \App\Models\HotelRoomType::where('service_id', $id)->findOrFail($roomTypeId);
 
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'base_price' => 'sometimes|numeric|min:0',
-            'total_rooms' => 'sometimes|integer|min:1',
-            'capacity_adults' => 'sometimes|integer|min:1',
+            'name'              => 'sometimes|string|max:255',
+            'rank'              => 'sometimes|string|in:standard,premium,vip',
+            'description'       => 'nullable|string',
+            'base_price'        => 'sometimes|numeric|min:0',
+            'total_rooms'       => 'sometimes|integer|min:1',
+            'capacity_adults'   => 'sometimes|integer|min:1',
             'capacity_children' => 'nullable|integer|min:0',
-            'amenities' => 'nullable|array',
-            'images' => 'nullable|array',
-            'status' => 'sometimes|string|in:active,inactive',
+            'amenities'         => 'nullable|array',
+            'images'            => 'nullable|array',
+            'status'            => 'sometimes|string|in:active,inactive',
         ]);
 
         $roomType->update($validated);

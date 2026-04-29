@@ -283,22 +283,12 @@ Route::get('/n8n/users', function () {
             $q->whereNull('last_promo_sent_at')
               ->orWhere('last_promo_sent_at', '<', $timeFrame);
         })
-        // 2. CHỈ LẤY ĐƠN HÀNG MỚI (Tránh lấy lại đơn cũ đã từng gửi mail)
-        ->where(function ($q) use ($timeFrame) {
-            // Trường hợp user mới tạo tài khoản và chưa từng nhận mail
-            $q->where(function($sq) use ($timeFrame) {
-                $sq->where('created_at', '>=', $timeFrame)
-                   ->whereNull('last_promo_sent_at');
-            })
-            // Hoặc khách cũ có ít nhất 1 đơn hàng THANH TOÁN MỚI phát sinh SAU lần gửi mail cuối
-            ->orWhereHas('bookings', function ($bq) use ($timeFrame) {
-                $bq->where('payment_status', 'paid')
-                   ->where('created_at', '>=', $timeFrame)
-                   ->where(function($sq) {
-                       $sq->whereRaw('bookings.created_at > users.last_promo_sent_at')
-                          ->orWhereNull('users.last_promo_sent_at');
-                   });
-            });
+        // 2. CHỈ LẤY ĐƠN HÀNG MỚI (Đã gỡ bỏ giới hạn 24h để phục vụ test)
+        ->where(function ($q) {
+            $q->whereNull('last_promo_sent_at')
+              ->orWhereHas('bookings', function ($bq) {
+                  $bq->where('payment_status', 'paid');
+              });
         })
         ->withCount(['bookings' => function ($query) {
             $query->where('payment_status', 'paid');

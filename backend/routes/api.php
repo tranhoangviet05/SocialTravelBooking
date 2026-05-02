@@ -18,6 +18,10 @@ use App\Http\Controllers\Auth\AuthController;
 
 use App\Http\Controllers\General\LocationController;
 use App\Http\Controllers\General\CategoryController;
+use App\Http\Controllers\General\BehaviorTrackingController;
+use App\Http\Controllers\General\RecommendationController;
+use App\Http\Controllers\General\BehaviorRedisController;
+use App\Http\Controllers\General\BehaviorDatabaseController;
 use App\Http\Controllers\General\ServiceController;
 use App\Http\Controllers\Social\PostController;
 use App\Http\Controllers\Social\InteractionController;
@@ -54,13 +58,38 @@ Route::get('/general/get/coupons', [\App\Http\Controllers\General\CouponControll
 // Webhook SePay (Public - không cần auth, SePay gọi vào)
 Route::post('/payment/sepay/webhook', [\App\Http\Controllers\General\PaymentController::class, 'sepayWebhook']);
 
+
+// ========================
+// INTERNAL API FOR n8n (No Auth for local bridge)
+// ========================
+Route::group(['prefix' => 'internal'], function() {
+    // Behavior tracking sync
+    Route::post('/behavior/sync', [BehaviorTrackingController::class, 'syncFromN8n']);
+    Route::get('/behavior/active-users', [BehaviorTrackingController::class, 'getActiveUsers']);
+    Route::post('/behavior/process-recommendations', [BehaviorTrackingController::class, 'processRecommendations']);
+    Route::post('/behavior/cleanup', [BehaviorDatabaseController::class, 'cleanup']);
+
+    // Database Bridge
+    Route::group(['prefix' => 'db'], function() {
+        Route::post('/upsert-behavior', [BehaviorDatabaseController::class, 'upsertBehavior']);
+        Route::post('/process-bulk', [BehaviorDatabaseController::class, 'processBulkRecommendations']);
+        Route::get('/get-pending', [BehaviorDatabaseController::class, 'getPendingUsers']);
+        Route::get('/get-best-interest', [BehaviorDatabaseController::class, 'getBestInterest']);
+        Route::post('/save-recommendations', [BehaviorDatabaseController::class, 'saveRecommendations']);
+        Route::post('/cleanup', [BehaviorDatabaseController::class, 'cleanup']);
+    });
+});
+
 // ========================
 // ROUTE BẢO VỆ (yêu cầu Firebase Auth)
 // ========================
 Route::middleware('firebase.auth')->group(function () {
-
     // 1. Đồng bộ người dùng khi đăng nhập Firebase
     Route::post('/auth/post/sync', [AuthController::class, 'sync']);
+    
+    // Behavior Tracking & Recommendations (Public/User API)
+    Route::post('/track-behavior', [BehaviorTrackingController::class, 'track']);
+    Route::get('/recommendations', [RecommendationController::class, 'index']);
     
     // 2. Upload tệp tin
     Route::post('/upload', [\App\Http\Controllers\General\UploadController::class, 'upload']);

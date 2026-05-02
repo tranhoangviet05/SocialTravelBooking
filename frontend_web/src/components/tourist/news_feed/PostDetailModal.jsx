@@ -11,6 +11,7 @@ import { useSocialData } from '../../../contexts/SocialDataContext';
 import serviceApi from '../../../api/serviceApi';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../../../utils/Helpers';
+import { useBehaviorTracking } from '../../../hooks/useBehaviorTracking';
 
 const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
     const { currentUser } = useAuth();
@@ -32,6 +33,7 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
     const [suggestedServices, setSuggestedServices] = useState([]);
     const [isSearchingService, setIsSearchingService] = useState(false);
     const navigate = useNavigate();
+    const { trackAction } = useBehaviorTracking(currentUser);
 
     useEffect(() => {
         if (isOpen && postId) {
@@ -164,6 +166,15 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
                 // ĐỒNG BỘ VỀ CONTEXT (Cập nhật số lượng bình luận ở feed)
                 updatePostInState(post.id, { 
                     comments_count: post.comments_count + 1 
+                });
+
+                // TRACK BEHAVIOR: Comment
+                trackAction('comment_post', {
+                    post_id: post.id,
+                    location_id: post.location?.id,
+                    service_type: post.service?.type || 'tour',
+                    comment_text: commentContent,
+                    tags: post.hashtags?.map(h => h.id) || []
                 });
             } else {
                 throw new Error("API Error");

@@ -35,10 +35,15 @@ mobile_app/ios/.symlinks/
 # ── Docker ──────────────────────────────────────────────────
 .env                        # file .env gốc ở root (docker-compose dùng)
 
+# ── n8n Local Server ────────────────────────────────────────
+n8n_local/
+n8n_data/
+node_modules/
+
 # ── Editor & OS ─────────────────────────────────────────────
 .vscode/settings.json
 .idea/
 *.log
 .DS_Store
 Thumbs.db
-desktop.ini
+desktop.ini

@@ -1,0 +1,239 @@
+{
+  "name": "Behavioral Targeting & Cross-sell Recommendation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "behavior-collector",
+        "options": {}
+      },
+      "name": "Webhook: Collector",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 100],
+      "id": "webhook-collector"
+    },
+    {
+      "parameters": {
+        "operation": "hincrby",
+        "key": "=user_behavior:{{ $json.user_id }}",
+        "field": "=loc:{{ $json.location_id }}:score",
+        "increment": "={{ Math.floor($json.dwell_time / 10) }}"
+      },
+      "name": "Redis: HINCRBY Score",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [300, 100],
+      "id": "redis-hincrby",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "hset",
+        "key": "=user_behavior:{{ $node[\"Webhook: Collector\"].json.user_id }}",
+        "field": "=loc:{{ $node[\"Webhook: Collector\"].json.location_id }}:last_type",
+        "value": "={{ $node[\"Webhook: Collector\"].json.service_type }}"
+      },
+      "name": "Redis: HSET Last Type",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [500, 100],
+      "id": "redis-hset",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "expire",
+        "key": "=user_behavior:{{ $node[\"Webhook: Collector\"].json.user_id }}",
+        "seconds": 172800
+      },
+      "name": "Redis: EXPIRE (2 days)",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [700, 100],
+      "id": "redis-expire",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sadd",
+        "key": "pending_users",
+        "value": "={{ $node[\"Webhook: Collector\"].json.user_id }}"
+      },
+      "name": "Redis: SADD Pending",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [900, 100],
+      "id": "redis-sadd",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyMinute",
+              "value": 5
+            }
+          ]
+        }
+      },
+      "name": "Cron: Every 5m",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [100, 400],
+      "id": "cron-trigger"
+    },
+    {
+      "parameters": {
+        "operation": "smembers",
+        "key": "pending_users"
+      },
+      "name": "Redis: SMEMBERS Pending",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [300, 400],
+      "id": "redis-smembers",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [500, 400],
+      "id": "split-batches"
+    },
+    {
+      "parameters": {
+        "operation": "hgetall",
+        "key": "=user_behavior:{{ $json.value }}"
+      },
+      "name": "Redis: HGETALL Behavior",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [700, 400],
+      "id": "redis-hgetall",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst items = $input.all();\n\nfor (const item of items) {\n    const redisData = item.json;\n    const userId = $node[\"Split In Batches\"].json.value;\n    \n    let bestLocation = null;\n    let maxScore = 0;\n    const threshold = 10;\n    const locations = {};\n\n    for (const key in redisData) {\n        if (key.startsWith('loc:')) {\n            const parts = key.split(':');\n            const locId = parts[1];\n            const attr = parts[2];\n            \n            if (!locations[locId]) locations[locId] = { id: locId, score: 0, last_type: '' };\n            \n            if (attr === 'score') locations[locId].score = parseInt(redisData[key]);\n            else if (attr === 'last_type') locations[locId].last_type = redisData[key];\n        }\n    }\n\n    for (const locId in locations) {\n        const loc = locations[locId];\n        if (loc.score >= threshold && loc.score > maxScore) {\n            maxScore = loc.score;\n            bestLocation = loc;\n        }\n    }\n\n    if (bestLocation) {\n        results.push({\n            json: {\n                user_id: userId,\n                location_id: parseInt(bestLocation.id),\n                last_anchor_type: bestLocation.last_type,\n                score: bestLocation.score\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "name": "Code: Analyze Best Loc",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "id": "code-analyze"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=WITH recommended_services AS (\n    SELECT \n        id, name, slug, type, base_price, rating_avg, address,\n        (SELECT url FROM service_media WHERE service_id = services.id AND is_cover = true LIMIT 1) as cover_image\n    FROM services\n    WHERE location_id = {{ $json.location_id }}\n      AND type = CASE \n                    WHEN '{{ $json.last_anchor_type }}' = 'tour' THEN 'hotel'::service_type \n                    ELSE 'tour'::service_type \n                 END\n      AND status = 'active'\n    ORDER BY rating_avg DESC, total_bookings DESC\n    LIMIT 5\n)\nINSERT INTO user_recommendations (user_id, location_id, last_anchor_type, suggested_services, updated_at)\nVALUES (\n    '{{ $json.user_id }}', \n    {{ $json.location_id }}, \n    '{{ $json.last_anchor_type }}', \n    (SELECT jsonb_agg(rs) FROM recommended_services rs), \n    NOW()\n)\nON CONFLICT (user_id) DO UPDATE SET\n    location_id = EXCLUDED.location_id,\n    last_anchor_type = EXCLUDED.last_anchor_type,\n    suggested_services = EXCLUDED.suggested_services,\n    updated_at = NOW();"
+      },
+      "name": "Postgres: Cross-sell & Upsert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1100, 400],
+      "id": "postgres-upsert",
+      "credentials": {
+        "postgres": {
+          "id": "postgres-cred",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "srem",
+        "key": "pending_users",
+        "value": "={{ $node[\"Split In Batches\"].json.value }}"
+      },
+      "name": "Redis: SREM Clean",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1300, 400],
+      "id": "redis-srem",
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Collector": {
+      "main": [[{"node": "Redis: HINCRBY Score", "type": "main", "index": 0}]]
+    },
+    "Redis: HINCRBY Score": {
+      "main": [[{"node": "Redis: HSET Last Type", "type": "main", "index": 0}]]
+    },
+    "Redis: HSET Last Type": {
+      "main": [[{"node": "Redis: EXPIRE (2 days)", "type": "main", "index": 0}]]
+    },
+    "Redis: EXPIRE (2 days)": {
+      "main": [[{"node": "Redis: SADD Pending", "type": "main", "index": 0}]]
+    },
+    "Cron: Every 5m": {
+      "main": [[{"node": "Redis: SMEMBERS Pending", "type": "main", "index": 0}]]
+    },
+    "Redis: SMEMBERS Pending": {
+      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+    },
+    "Split In Batches": {
+      "main": [
+        [{"node": "Redis: HGETALL Behavior", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Redis: HGETALL Behavior": {
+      "main": [[{"node": "Code: Analyze Best Loc", "type": "main", "index": 0}]]
+    },
+    "Code: Analyze Best Loc": {
+      "main": [[{"node": "Postgres: Cross-sell & Upsert", "type": "main", "index": 0}]]
+    },
+    "Postgres: Cross-sell & Upsert": {
+      "main": [[{"node": "Redis: SREM Clean", "type": "main", "index": 0}]]
+    },
+    "Redis: SREM Clean": {
+      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "recommender-workflow"
+}

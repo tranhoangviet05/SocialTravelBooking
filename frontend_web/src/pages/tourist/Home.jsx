@@ -7,10 +7,13 @@ import Accommodations from '../../components/tourist/home_page/Accommodations';
 import SpecialOffers from '../../components/tourist/home_page/SpecialOffers';
 import PopularActivities from '../../components/tourist/home_page/PopularActivities';
 
+import RecommendedServices from '../../components/tourist/RecommendedServices';
+
 const HomePage = () => {
     return (
         <React.Fragment>
             <HeroBanner />
+            <RecommendedServices />
             <TrendingDestinations />
             <Accommodations />
             <PopularActivities />

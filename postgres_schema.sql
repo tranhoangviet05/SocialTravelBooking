@@ -22,7 +22,6 @@ CREATE TYPE payment_method        AS ENUM ('wallet', 'momo');
 CREATE TYPE payment_status        AS ENUM ('pending', 'paid', 'refunded');
 CREATE TYPE transaction_type      AS ENUM ('deposit', 'booking_payment', 'refund', 'commission', 'affiliate_reward');
 CREATE TYPE discount_type         AS ENUM ('percent', 'fixed');
-CREATE TYPE ad_status             AS ENUM ('pending', 'active', 'expired', 'paused');
 CREATE TYPE report_type           AS ENUM ('spam', 'fraud', 'inappropriate', 'misleading');
 CREATE TYPE report_status         AS ENUM ('pending', 'resolved', 'dismissed');
 
@@ -264,46 +263,9 @@ CREATE TABLE coupons (
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 14. AD_CAMPAIGNS
--- ============================================================
-CREATE TABLE ad_campaigns (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    provider_id         UUID            NOT NULL REFERENCES provider_profiles(id),
-    post_id             VARCHAR(255),   -- Firestore post ID
-    service_id          UUID            REFERENCES services(id),
-    status              ad_status       NOT NULL DEFAULT 'pending',
-    budget              DECIMAL(15,2)   NOT NULL,
-    spent               DECIMAL(15,2)   NOT NULL DEFAULT 0,
-    duration_days       INT             NOT NULL DEFAULT 7,
-    start_date          TIMESTAMPTZ,
-    end_date            TIMESTAMPTZ,
-    impression_count    INT             NOT NULL DEFAULT 0,
-    click_count         INT             NOT NULL DEFAULT 0,
-    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
-);
 
 -- ============================================================
--- 15. AFFILIATE_CLICKS
--- ============================================================
-CREATE TABLE affiliate_clicks (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    post_id             VARCHAR(255)    NOT NULL, -- Firestore post ID
-    service_id          UUID            NOT NULL REFERENCES services(id),
-    affiliate_user_id   UUID            NOT NULL REFERENCES users(id),
-    clicker_user_id     UUID            REFERENCES users(id),
-    session_token       VARCHAR(255)    NOT NULL,
-    converted           BOOLEAN         NOT NULL DEFAULT FALSE,
-    booking_id          UUID            REFERENCES bookings(id),
-    commission_amount   DECIMAL(15,2)   NOT NULL DEFAULT 0,
-    commission_paid     BOOLEAN         NOT NULL DEFAULT FALSE,
-    clicked_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    converted_at        TIMESTAMPTZ
-);
-
--- ============================================================
--- 16. REPORTS
+-- 15. REPORTS
 -- ============================================================
 CREATE TABLE reports (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -317,6 +279,17 @@ CREATE TABLE reports (
     reviewed_at         TIMESTAMPTZ,
     resolution_note     TEXT,
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 16. USER_RECOMMENDATIONS (Behavioral Targeting)
+-- ============================================================
+CREATE TABLE user_recommendations (
+    user_id             UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    location_id         INT             REFERENCES locations(id) ON DELETE SET NULL,
+    last_anchor_type    service_type,
+    suggested_services  JSONB,
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
@@ -365,8 +338,7 @@ CREATE INDEX idx_wallet_txn_booking    ON wallet_transactions(booking_id);
 CREATE INDEX idx_reviews_service       ON reviews(service_id);
 CREATE INDEX idx_reviews_user          ON reviews(user_id);
 
-CREATE INDEX idx_affiliate_token       ON affiliate_clicks(session_token);
-CREATE INDEX idx_affiliate_user        ON affiliate_clicks(affiliate_user_id);
+CREATE INDEX idx_recommendations_updated ON user_recommendations(updated_at);
 
 -- ============================================================
 -- SEED: System Settings

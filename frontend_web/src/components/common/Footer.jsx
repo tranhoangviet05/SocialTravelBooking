@@ -44,8 +44,8 @@ const Footer = () => {
                         <h4 className="font-bold text-white mb-5 uppercase text-xs tracking-widest">Liên hệ</h4>
                         <ul className="space-y-3 text-sm text-sky-200/60">
                             <li>Hotline: 1900 6868</li>
-                            <li>Email: hello@socialtravel.com</li>
-                            <li>Địa chỉ: 123 Đường du lịch, Quận 1, TP. HCM</li>
+                            <li>Email: sociatravelbooking.business@gmail.com</li>
+                            <li>Địa chỉ: Đà Nẵng, Việt Nam</li>
                         </ul>
                     </div>
                 </div>

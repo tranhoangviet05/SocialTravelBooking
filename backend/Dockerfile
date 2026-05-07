@@ -30,6 +30,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# ── Layer 3: Cài gRPC (cần cho Firebase Firestore) ────────
+# Cache riêng vì compile lâu (~10-15 phút lần đầu)
+# Tối ưu: Bỏ -j$(nproc) để không gây treo máy
+RUN pecl install grpc \
+    && docker-php-ext-enable grpc
+
 # ── Cài Composer ────────────────────────────────────────────
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

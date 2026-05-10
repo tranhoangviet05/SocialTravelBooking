@@ -57,7 +57,7 @@ WORKDIR /var/www
 COPY . .
 
 # ── Xóa sạch cache từ máy local nếu lọt vào ──────────────────
-RUN rm -f bootstrap/cache/*.php
+RUN mkdir -p bootstrap/cache && rm -f bootstrap/cache/*.php
 
 # ── Cài dependencies Laravel (bỏ qua platform req php vì PHP 8.5) ──
 RUN composer install \

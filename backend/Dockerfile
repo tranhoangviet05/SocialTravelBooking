@@ -3,7 +3,7 @@
 # Base: PHP 8.2 FPM + Apache
 # ============================================================
 
-FROM php:8.2-apache
+FROM php:8.4-apache
 
 # ── Cài đặt extension PHP cần thiết ────────────────────────
 RUN apt-get update && apt-get install -y \
@@ -56,12 +56,14 @@ WORKDIR /var/www
 # ── Copy source code ─────────────────────────────────────────
 COPY . .
 
+# ── Xóa sạch cache từ máy local nếu lọt vào ──────────────────
+RUN rm -f bootstrap/cache/*.php
+
 # ── Cài dependencies Laravel (bỏ qua platform req php vì PHP 8.5) ──
 RUN composer install \
     --no-interaction \
     --no-dev \
-    --optimize-autoloader \
-    --ignore-platform-req=php
+    --optimize-autoloader
 
 # ── Phân quyền storage & bootstrap/cache ────────────────────
 RUN chown -R www-data:www-data /var/www \

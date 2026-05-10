@@ -1,26 +1,5 @@
 services:
 
-  # ── PostgreSQL ───────────────────────────────────────────
-  postgres:
-    image: postgres:18
-    container_name: stb_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: social_travel_booking
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    ports:
-      - "5432:5432"
-    networks:
-      - stb_network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # ── Laravel Backend ──────────────────────────────────────
   backend:
     build:
@@ -33,21 +12,14 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: social_travel_booking
-      DB_USERNAME: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-secret}
+
       FIREBASE_CREDENTIALS: /var/www/firebase-service-account.json
     volumes:
       - ./backend:/var/www
       - backend_vendor:/var/www/vendor # anonymous volume giữ vendor không bị ghi đè
     ports:
       - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
+
     networks:
       - stb_network
 
@@ -68,8 +40,9 @@ services:
     networks:
       - stb_network
 
+
 volumes:
-  postgres_data:
+
   backend_vendor:
   frontend_node_modules:
 

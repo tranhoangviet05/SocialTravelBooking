@@ -55,7 +55,7 @@ const SearchPage = () => {
         const fetchServices = async () => {
             setLoading(true);
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/services');
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services`);
                 if (response.data.success) {
                     setServices(response.data.data);
                 }

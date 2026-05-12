@@ -13,7 +13,7 @@ const SpecialOffers = () => {
     useEffect(() => {
         const fetchCoupons = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/coupons');
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/coupons`);
                 if (response.data.success) {
                     setOffers(response.data.data);
                 }

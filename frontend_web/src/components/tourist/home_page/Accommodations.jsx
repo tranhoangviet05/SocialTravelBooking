@@ -11,7 +11,7 @@ const Accommodations = () => {
     useEffect(() => {
         const fetchAccommodations = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/services');
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services`);
                 if (response.data.success) {
                     const filtered = response.data.data.filter(s =>
                         s.type === 'hotel' || s.type === 'homestay'

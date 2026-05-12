@@ -13,7 +13,7 @@ const PopularActivities = () => {
     useEffect(() => {
         const fetchTours = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/services');
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services`);
                 if (response.data.success) {
                     // Lọc lấy các dịch vụ là Tour
                     const filtered = response.data.data.filter(s => s.type === 'tour');

@@ -24,7 +24,7 @@ class ReviewController extends Controller
      */
     public function store(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         
         $validated = $request->validate([
             'booking_id' => 'required|exists:bookings,id',

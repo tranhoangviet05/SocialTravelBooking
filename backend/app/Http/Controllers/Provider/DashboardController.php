@@ -13,7 +13,7 @@ class DashboardController extends Controller
 {
     public function stats(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         $provider = ProviderProfile::where('user_id', $user->id)->first();
 
         if (!$provider) {

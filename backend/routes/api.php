@@ -31,8 +31,17 @@ use App\Http\Controllers\General\ServiceFeedbackController;
 Route::get('/ping', fn() => response()->json([
     'success' => true,
     'message' => 'Social Travel Booking API đang chạy!',
-    'timestamp' => now()->toISOString(),
-]));
+]
+));
+
+// Route công khai để tải ảnh trực tiếp không bị 403 (Không cần Firebase Auth)
+Route::get('/images/{filename}', function ($filename) {
+    $path = storage_path('app/public/images/' . $filename);
+    if (!file_exists($path)) {
+        abort(404);
+    }
+    return response()->file($path);
+});
 
 // Địa điểm & Danh mục (Public)
 Route::get('/locations', [LocationController::class, 'index']);
@@ -83,6 +92,7 @@ Route::middleware('firebase.auth')->group(function () {
             'data' => $userData
         ]);
     });
+    Route::put('/user/update-profile', [\App\Http\Controllers\Social\SocialController::class, 'updateProfile']);
 
     // 3. Routes Mạng xã hội
     Route::get('/user/get/social-status', [\App\Http\Controllers\Social\SocialController::class, 'getSocialStatus']);
@@ -209,7 +219,7 @@ Route::middleware('firebase.auth')->group(function () {
 
         // --- Tự tạo ProviderProfile nếu chưa có (gọi lần đầu) ---
         Route::post('/setup-profile', function (\Illuminate\Http\Request $request) {
-            $user = $request->input('user');
+            $user = $request->user();
             $profile = \App\Models\ProviderProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 [

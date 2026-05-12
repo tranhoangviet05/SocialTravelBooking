@@ -13,6 +13,13 @@ class PostMedia extends Model
     protected $guarded = [];
     protected $table = 'post_media';
 
+    public function getUrlAttribute($value)
+    {
+        if (!$value) return null;
+        if (str_starts_with($value, 'http')) return $value;
+        return url($value);
+    }
+
     public function post()
     {
         return $this->belongsTo(Post::class);

@@ -280,6 +280,18 @@ const Checkout = () => {
         room_type_id: bookingInfo?.room_type_id || null,
         selectedRoomType: bookingInfo?.selectedRoomType || null,
     });
+    
+    // Đồng bộ thông tin từ Profile nếu form đang trống (Lần đầu load)
+    useEffect(() => {
+        if (currentUser) {
+            setForm(f => ({
+                ...f,
+                contactName: f.contactName || currentUser.displayName || currentUser.display_name || '',
+                contactEmail: f.contactEmail || currentUser.email || '',
+                contactPhone: f.contactPhone || currentUser.phone || '',
+            }));
+        }
+    }, [currentUser]);
 
     const [paymentMethod, setPaymentMethod] = useState('sepay');
     const [couponInput, setCouponInput] = useState('');

@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import authApi from '../../api/authApi';
 
 const Profile = () => {
     const navigate = useNavigate();
-    const { currentUser } = useAuth();
+    const { currentUser, refreshProfile } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     
     // States matching 'users' table schema
     const [formData, setFormData] = useState({
@@ -30,6 +32,29 @@ const Profile = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const idToken = await currentUser.getIdToken();
+            const response = await authApi.updateProfile(idToken, {
+                display_name: formData.display_name,
+                username: formData.username,
+                phone: formData.phone
+            });
+
+            if (response.success) {
+                await refreshProfile();
+                setIsEditing(false);
+                alert('Cập nhật hồ sơ thành công!');
+            }
+        } catch (error) {
+            console.error('Lỗi khi cập nhật hồ sơ:', error);
+            alert(error.response?.data?.message || 'Lỗi cập nhật hồ sơ');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -91,7 +116,13 @@ const Profile = () => {
                                 {isEditing ? (
                                     <>
                                         <Button variant="ghost" onClick={() => setIsEditing(false)}>Hủy</Button>
-                                        <Button variant="primary" onClick={() => setIsEditing(false)}>Lưu thay đổi</Button>
+                                        <Button 
+                                            variant="primary" 
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                        >
+                                            {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                                        </Button>
                                     </>
                                 ) : (
                                     <Button variant="primary" onClick={() => setIsEditing(true)}>Chỉnh sửa thông tin</Button>

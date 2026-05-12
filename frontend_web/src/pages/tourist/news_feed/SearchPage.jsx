@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, SlidersHorizontal, MapPin, Hash, User as UserIcon } from 'lucide-react';
 import Avatar from '../../../components/common/Avatar';
 import socialApi from '../../../api/socialApi';
@@ -34,11 +34,7 @@ const SearchFeed = () => {
         }
     }, [tagParam, locationParam, queryParam, locationNameParam]);
 
-    useEffect(() => {
-        handleSearch();
-    }, [searchParams]);
-
-    const handleSearch = async () => {
+    const handleSearch = useCallback(async () => {
         if (!queryParam && !tagParam && !locationParam) return;
 
         try {
@@ -67,12 +63,16 @@ const SearchFeed = () => {
             if (tagParam || locationParam) setActiveTab('posts');
             else if (queryParam && results.users.length > 0) setActiveTab('users');
 
-        } catch (error) {
+        } catch (err) {
             notification.error("Lỗi khi tìm kiếm");
         } finally {
             setLoading(false);
         }
-    };
+    }, [queryParam, tagParam, locationParam, notification, results.users.length]);
+
+    useEffect(() => {
+        handleSearch();
+    }, [handleSearch]);
 
     const onSearchSubmit = (e) => {
         e.preventDefault();

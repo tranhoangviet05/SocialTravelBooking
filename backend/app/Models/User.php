@@ -42,6 +42,13 @@ class User extends Authenticatable
      */
     protected $appends = ['photoURL'];
 
+    public function getAvatarUrlAttribute($value)
+    {
+        if (!$value) return null;
+        if (str_starts_with($value, 'http')) return $value;
+        return url($value);
+    }
+
     public function getPhotoURLAttribute()
     {
         return $this->avatar_url;

@@ -114,7 +114,7 @@ const ServiceDetail = () => {
         setActiveTab('overview');
         const fetchDetail = async () => {
             try {
-                const response = await axios.get(`http://localhost:8000/api/general/get/services/detail/${slug}`);
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services/detail/${slug}`);
                 if (response.data.success) {
                     const data = response.data.data;
                     setServiceData(data);

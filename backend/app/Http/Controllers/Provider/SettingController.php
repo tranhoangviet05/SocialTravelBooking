@@ -13,7 +13,7 @@ class SettingController extends Controller
      */
     public function index(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         $profile = ProviderProfile::where('user_id', $user->id)->first();
 
         if (!$profile) {
@@ -31,7 +31,7 @@ class SettingController extends Controller
      */
     public function update(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         $profile = ProviderProfile::where('user_id', $user->id)->first();
 
         if (!$profile) {

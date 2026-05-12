@@ -61,6 +61,15 @@ const authApi = {
                 'Authorization': `Bearer ${idToken}`
             }
         });
+    },
+
+    updateProfile: (idToken, data) => {
+        const url = '/user/update-profile';
+        return axiosClient.put(url, data, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
     }
 };
 

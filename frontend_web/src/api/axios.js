@@ -4,7 +4,7 @@ import { auth } from '../firebase/firebase.config';
 // Khởi tạo instance của axios
 const axiosClient = axios.create({
     // URL của Backend Laravel (Lấy từ .env)
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
+    baseURL: import.meta.env.VITE_API_URL || "http://localhost:8001/api",
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

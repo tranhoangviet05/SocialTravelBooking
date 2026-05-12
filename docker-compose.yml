@@ -40,8 +40,24 @@ services:
     networks:
       - stb_network
 
+  # ── Caddy Reverse Proxy (Tự động HTTPS + Tên miền) ────────────
+  caddy:
+    image: caddy:alpine
+    container_name: stb_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - stb_network
 
 volumes:
+  caddy_data:
+  caddy_config:
 
   backend_vendor:
   frontend_node_modules:

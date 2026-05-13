@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
 import {
-    Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle
+    Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle, RotateCw, Search
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 
@@ -76,8 +76,8 @@ const MyBookings = () => {
     const loading = loadingStates.bookings && bookings.length === 0;
 
     useEffect(() => { 
-        fetchBookings(); 
-    }, [fetchBookings]);
+        fetchBookings(true, statusFilter); 
+    }, [fetchBookings, statusFilter]);
 
     const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -125,32 +125,39 @@ const MyBookings = () => {
     const getActionButtons = (booking) => {
         const isProcessing = updatingId === booking.id;
         const btnClass = "px-4 py-2 rounded-xl text-[12px] font-bold transition-all disabled:opacity-50 flex items-center gap-1.5";
+        const hasCheckinRequest = booking.tourist_check_in_at && !booking.is_checked_in;
 
         switch (booking.status) {
             case 'pending':
                 return (
-                    <div className="flex gap-2">
-                        <button disabled={isProcessing}
-                            onClick={() => handleStatusUpdate(booking.id, 'confirmed')}
-                            className={`${btnClass} bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20`}>
-                            {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={13} />}
-                            Xác nhận
-                        </button>
-                        <button disabled={isProcessing}
-                            onClick={() => setCancelModal(booking)}
-                            className={`${btnClass} bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100`}>
-                            <XCircle size={13} /> Từ chối
-                        </button>
+                    <div className="flex flex-col items-end gap-1">
+                        <span className="text-[11px] font-bold text-amber-500 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100">
+                            Chờ khách thanh toán...
+                        </span>
+                        <p className="text-[10px] text-slate-400 italic">Hệ thống sẽ tự xác nhận khi có tiền</p>
                     </div>
                 );
             case 'confirmed':
                 return (
-                    <button disabled={isProcessing}
-                        onClick={() => handleStatusUpdate(booking.id, 'ongoing')}
-                        className={`${btnClass} bg-violet-500 text-white hover:bg-violet-600 shadow-lg shadow-violet-500/20`}>
-                        {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Play size={13} />}
-                        Bắt đầu
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        {hasCheckinRequest ? (
+                            <button disabled={isProcessing}
+                                onClick={() => handleStatusUpdate(booking.id, 'ongoing')}
+                                className={`${btnClass} bg-indigo-600 hover:bg-indigo-700 animate-pulse text-white shadow-lg shadow-indigo-600/20`}>
+                                {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Play size={13} />}
+                                Xác nhận Khách Check-in
+                            </button>
+                        ) : (
+                            <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-center">
+                                <p className="text-[11px] font-bold text-slate-400">Đang chờ khách hàng check-in...</p>
+                            </div>
+                        )}
+                        <a href={`tel:${booking.contact_phone || booking.user?.phone}`}
+                            className={`${btnClass} bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 justify-center`}>
+                            <User size={13} />
+                            Liên hệ khách
+                        </a>
+                    </div>
                 );
             case 'ongoing':
                 return (
@@ -168,9 +175,9 @@ const MyBookings = () => {
 
     const statusTabs = [
         { key: 'all', label: 'Tất cả', count: bookings.length },
-        { key: 'pending', label: 'Chờ duyệt' },
+        { key: 'checkin_requested', label: 'Yêu cầu Check-in' },
         { key: 'confirmed', label: 'Đã xác nhận' },
-        { key: 'ongoing', label: 'Đang diễn ra' },
+        { key: 'ongoing', label: 'Đang lưu trú' },
         { key: 'completed', label: 'Hoàn thành' },
         { key: 'cancelled', label: 'Đã hủy' },
     ];
@@ -182,16 +189,33 @@ const MyBookings = () => {
         } catch { return dateStr; }
     };
 
-    const filteredBookings = statusFilter === 'all' 
-        ? bookings 
-        : bookings.filter(b => b.status === statusFilter);
+    const filteredBookings = bookings;
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Lịch đặt chỗ</h2>
-                <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý và xác nhận tất cả đơn đặt chỗ từ khách hàng.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Lịch đặt chỗ</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý và xác nhận tất cả đơn đặt chỗ từ khách hàng.</p>
+                </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Tìm theo mã đơn, tên khách hàng..."
+                        className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-[22px] shadow-sm focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300 placeholder:font-medium"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => fetchBookings()}
+                        className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
+                        <RotateCw size={20} />
+                    </button>
+                </div>
             </div>
 
             {/* Status Filter Tabs */}
@@ -257,6 +281,11 @@ const MyBookings = () => {
                                             {booking.num_adults} người lớn
                                             {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
                                         </span>
+                                        {(booking.contact_phone || booking.user?.phone) && (
+                                            <span className="text-indigo-500 font-bold">
+                                                SĐT: {booking.contact_phone || booking.user?.phone}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Cancel reason */}

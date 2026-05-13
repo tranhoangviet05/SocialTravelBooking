@@ -13,7 +13,8 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    AlertCircle
+    AlertCircle,
+    RotateCw
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
@@ -26,10 +27,6 @@ const BookingManagement = () => {
     const [filterStatus, setFilterStatus] = useState('');
     const [filterPayment, setFilterPayment] = useState('');
     const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
-    const [statusModal, setStatusModal] = useState({ open: false, booking: null });
-    const [newStatus, setNewStatus] = useState('');
-    const [cancelReason, setCancelReason] = useState('');
-    const [updating, setUpdating] = useState(false);
     const [detailModal, setDetailModal] = useState({ open: false, booking: null, loading: false });
 
     const toast = useNotification();
@@ -75,37 +72,6 @@ const BookingManagement = () => {
             console.error('Failed to load booking detail:', error);
             toast?.error?.('Không thể tải chi tiết đơn');
             setDetailModal({ open: false, booking: null, loading: false });
-        }
-    };
-
-    const handleStatusUpdate = async () => {
-        if (!statusModal.booking || !newStatus) return;
-        if (newStatus === 'cancelled' && !cancelReason.trim()) {
-            toast?.error?.('Vui lòng nhập lý do hủy');
-            return;
-        }
-
-        setUpdating(true);
-        try {
-            const response = await adminApi.updateBookingStatus(
-                statusModal.booking.id,
-                newStatus,
-                newStatus === 'cancelled' ? cancelReason : null
-            );
-            if (response.success) {
-                toast?.success?.('Cập nhật trạng thái thành công');
-                setBookings(bookings.map(b =>
-                    b.id === statusModal.booking.id ? { ...b, status: newStatus } : b
-                ));
-                setStatusModal({ open: false, booking: null });
-                setNewStatus('');
-                setCancelReason('');
-            }
-        } catch (error) {
-            console.error('Failed to update booking status:', error);
-            toast?.error?.('Lỗi khi cập nhật trạng thái');
-        } finally {
-            setUpdating(false);
         }
     };
 
@@ -162,39 +128,45 @@ const BookingManagement = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <form onSubmit={handleSearch} className="relative md:col-span-2">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1 group">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                         <input
                             type="text"
                             placeholder="Tìm mã đặt chỗ, khách hàng, dịch vụ..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all font-medium"
+                            className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-[22px] shadow-sm focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300 placeholder:font-medium"
                         />
-                    </form>
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none cursor-pointer"
-                    >
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="pending">Chờ xử lý</option>
-                        <option value="confirmed">Đã xác nhận</option>
-                        <option value="ongoing">Đang diễn ra</option>
-                        <option value="completed">Hoàn thành</option>
-                        <option value="cancelled">Đã hủy</option>
-                    </select>
-                    <select
-                        value={filterPayment}
-                        onChange={(e) => setFilterPayment(e.target.value)}
-                        className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none cursor-pointer"
-                    >
-                        <option value="">Tất cả thanh toán</option>
-                        <option value="pending">Chờ thanh toán</option>
-                        <option value="paid">Đã thanh toán</option>
-                        <option value="refunded">Đã hoàn tiền</option>
-                    </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="h-14 px-4 bg-white border border-slate-100 rounded-[22px] text-sm font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-50 cursor-pointer shadow-sm transition-all"
+                        >
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending">Chờ xử lý</option>
+                            <option value="confirmed">Đã xác nhận</option>
+                            <option value="ongoing">Đang diễn ra</option>
+                            <option value="completed">Hoàn thành</option>
+                            <option value="cancelled">Đã hủy</option>
+                        </select>
+                        <select
+                            value={filterPayment}
+                            onChange={(e) => setFilterPayment(e.target.value)}
+                            className="h-14 px-4 bg-white border border-slate-100 rounded-[22px] text-sm font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-50 cursor-pointer shadow-sm transition-all"
+                        >
+                            <option value="">Tất cả thanh toán</option>
+                            <option value="pending">Chờ thanh toán</option>
+                            <option value="paid">Đã thanh toán</option>
+                            <option value="refunded">Đã hoàn tiền</option>
+                        </select>
+                        <button onClick={() => fetchBookings(meta.current_page)}
+                            className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
+                            <RotateCw size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Table */}
@@ -243,16 +215,6 @@ const BookingManagement = () => {
                                             >
                                                 <Eye size={18} />
                                             </button>
-                                            <button
-                                                onClick={() => {
-                                                    setStatusModal({ open: true, booking: bk });
-                                                    setNewStatus(bk.status);
-                                                }}
-                                                className="p-2 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
-                                                title="Cập nhật trạng thái"
-                                            >
-                                                <CheckCircle2 size={18} />
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -292,73 +254,11 @@ const BookingManagement = () => {
                     </>
                 )}
 
-            {/* Status Update Modal */}
-            {statusModal.open && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setStatusModal({ open: false, booking: null })} />
-                    <div className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-[modalIn_0.3s_ease-out]">
-                        <div className="p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-black text-slate-900">Cập nhật trạng thái đơn</h3>
-                                <button onClick={() => setStatusModal({ open: false, booking: null })} className="p-2 hover:bg-gray-100 rounded-full text-gray-400">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="bg-slate-50 p-4 rounded-2xl mb-6">
-                                <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Mã đơn</p>
-                                <p className="text-lg font-black text-slate-900 mt-1">{statusModal.booking?.booking_code}</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Trạng thái mới</label>
-                                    <select
-                                        value={newStatus}
-                                        onChange={(e) => setNewStatus(e.target.value)}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-                                    >
-                                        <option value="pending">Chờ xử lý</option>
-                                        <option value="confirmed">Đã xác nhận</option>
-                                        <option value="ongoing">Đang diễn ra</option>
-                                        <option value="completed">Hoàn thành</option>
-                                        <option value="cancelled">Đã hủy</option>
-                                    </select>
-                                </div>
-
-                                {newStatus === 'cancelled' && (
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Lý do hủy</label>
-                                        <textarea
-                                            value={cancelReason}
-                                            onChange={(e) => setCancelReason(e.target.value)}
-                                            className="w-full h-24 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 resize-none font-medium"
-                                            placeholder="Nhập lý do hủy đơn..."
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex gap-3 mt-8">
-                                <button onClick={() => setStatusModal({ open: false, booking: null })} className="flex-1 py-4 text-sm font-bold text-slate-500 hover:bg-gray-100 rounded-2xl transition-all">Hủy</button>
-                                <button
-                                    onClick={handleStatusUpdate}
-                                    disabled={updating}
-                                    className="flex-[2] py-4 bg-sky-500 hover:bg-sky-600 text-white text-sm font-black rounded-2xl shadow-lg shadow-sky-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {updating ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                    Cập nhật
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Detail Modal */}
             {detailModal.open && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDetailModal({ open: false, booking: null, loading: false })} />
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
                     <div className="relative w-full max-w-lg bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-[modalIn_0.3s_ease-out] max-h-[80vh] overflow-y-auto">
                         <div className="p-8">
                             <div className="flex items-center justify-between mb-6">

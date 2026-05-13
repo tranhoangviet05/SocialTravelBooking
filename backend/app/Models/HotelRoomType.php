@@ -17,6 +17,7 @@ class HotelRoomType extends Model
         'description',
         'base_price',
         'total_rooms',
+        'inventory',
         'capacity_adults',
         'capacity_children',
         'amenities',
@@ -29,6 +30,7 @@ class HotelRoomType extends Model
         'images' => 'array',
         'base_price' => 'decimal:2',
         'total_rooms' => 'integer',
+        'inventory' => 'integer',
         'capacity_adults' => 'integer',
         'capacity_children' => 'integer',
     ];
@@ -47,13 +49,5 @@ class HotelRoomType extends Model
     public function bookings()
     {
         return $this->hasMany(Booking::class, 'room_type_id');
-    }
-
-    /**
-     * Relationship with Availability
-     */
-    public function availabilities()
-    {
-        return $this->hasMany(ServiceAvailability::class, 'room_type_id');
     }
 }

@@ -11,6 +11,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useSocialData } from '../../../contexts/SocialDataContext';
 import { formatCurrency } from '../../../utils/Helpers';
+import { useBehaviorTracking } from '../../../hooks/useBehaviorTracking';
 
 const Post = ({ post: initialPost }) => {
     const { currentUser } = useAuth();
@@ -24,6 +25,7 @@ const Post = ({ post: initialPost }) => {
     const notification = useNotification();
     const navigate = useNavigate();
     const menuRef = useRef(null);
+    const { trackAction } = useBehaviorTracking(currentUser);
 
     // Xử lý click ra ngoài để đóng menu
     useEffect(() => {
@@ -83,6 +85,16 @@ const Post = ({ post: initialPost }) => {
             if (response.success) {
                 setPost(prev => ({ ...prev, likes_count: response.data.likes_count }));
                 setIsLiked(response.data.liked);
+                
+                // TRACK BEHAVIOR: Like
+                if (response.data.liked) {
+                    trackAction('like_post', { 
+                        post_id: post.id, 
+                        location_id: post.location?.id,
+                        service_type: post.service?.type || 'tour',
+                        tags: post.hashtags?.map(h => h.id) || []
+                    });
+                }
             }
         } catch (error) {
             setIsLiked(previousIsLiked);
@@ -163,7 +175,18 @@ const Post = ({ post: initialPost }) => {
         <>
             <div
                 className={`py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50/30 transition-colors ${post.isSending ? 'opacity-60' : ''}`}
-                onClick={() => !post.isSending && setIsDetailOpen(true)}
+                onClick={() => {
+                    if (!post.isSending) {
+                        setIsDetailOpen(true);
+                        // TRACK BEHAVIOR: View Detail
+                        trackAction('view_post', { 
+                            post_id: post.id, 
+                            location_id: post.location?.id,
+                            service_type: post.service?.type || 'tour',
+                            tags: post.hashtags?.map(h => h.id) || []
+                        });
+                    }
+                }}
             >
                 <div className="flex gap-3 px-1">
                     <div className="flex flex-col items-center">

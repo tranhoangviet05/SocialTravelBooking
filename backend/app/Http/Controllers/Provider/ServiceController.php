@@ -82,6 +82,8 @@ class ServiceController extends Controller
             'price_unit' => 'nullable|string',
             'duration_days' => 'nullable|integer|min:0',
             'duration_nights' => 'nullable|integer|min:0',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
             'images' => 'nullable|array',
             'images.*' => 'url'
         ]);
@@ -105,6 +107,8 @@ class ServiceController extends Controller
                     'price_unit' => $validated['price_unit'] ?? 'per_person',
                     'duration_days' => $validated['duration_days'] ?? null,
                     'duration_nights' => $validated['duration_nights'] ?? null,
+                    'latitude' => $validated['latitude'] ?? null,
+                    'longitude' => $validated['longitude'] ?? null,
                     'status' => 'pending_review'
                 ]);
 
@@ -196,20 +200,52 @@ class ServiceController extends Controller
             'price_unit' => 'nullable|string',
             'duration_days' => 'nullable|integer|min:0',
             'duration_nights' => 'nullable|integer|min:0',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
             'images' => 'nullable|array',
             'images.*' => 'url'
         ]);
 
-        // Khi sửa, đẩy về trạng thái chờ duyệt lại (tùy chọn, ở đây tôi giữ nguyên hoặc set lại)
+        // Khi sửa, đẩy về trạng thái chờ duyệt lại
         $validated['status'] = 'pending_review';
 
-        $service->update($validated);
+        try {
+            DB::transaction(function () use ($validated, $service) {
+                // 1. Tách images ra khỏi validated
+                $images = $validated['images'] ?? null;
+                unset($validated['images']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
-            'data' => $service
-        ]);
+                // 2. Cập nhật các thông tin cơ bản
+                $service->update($validated);
+
+                // 3. Nếu có gửi danh sách ảnh mới, cập nhật lại bảng service_media
+                if ($images !== null) {
+                    // Xóa ảnh cũ (hoặc có thể giữ lại tùy logic, ở đây là ghi đè danh sách mới)
+                    $service->media()->delete();
+                    
+                    foreach ($images as $index => $url) {
+                        \App\Models\ServiceMedia::create([
+                            'service_id' => $service->id,
+                            'url' => $url,
+                            'is_cover' => ($index === 0),
+                            'sort_order' => $index,
+                            'type' => 'image'
+                        ]);
+                    }
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
+                'data' => $service->load('media')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi cập nhật dịch vụ: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -391,6 +427,7 @@ class ServiceController extends Controller
             'description'       => 'nullable|string',
             'base_price'        => 'required|numeric|min:0',
             'total_rooms'       => 'required|integer|min:1',
+            'inventory'         => 'required|integer|min:1',
             'capacity_adults'   => 'required|integer|min:1',
             'capacity_children' => 'nullable|integer|min:0',
             'amenities'         => 'nullable|array',
@@ -423,6 +460,7 @@ class ServiceController extends Controller
             'description'       => 'nullable|string',
             'base_price'        => 'sometimes|numeric|min:0',
             'total_rooms'       => 'sometimes|integer|min:1',
+            'inventory'         => 'sometimes|integer|min:1',
             'capacity_adults'   => 'sometimes|integer|min:1',
             'capacity_children' => 'nullable|integer|min:0',
             'amenities'         => 'nullable|array',

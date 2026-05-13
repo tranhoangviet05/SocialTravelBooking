@@ -13,6 +13,8 @@ import { MOCK_REVIEWS } from '../../data/mockServices';
 import axios from 'axios';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import { useAuth } from '../../contexts/AuthContext';
+import { useBehaviorTracking } from '../../hooks/useBehaviorTracking';
 
 // Amenity icon mapping
 const AMENITY_ICONS = {
@@ -96,6 +98,7 @@ const StarRating = ({ rating, size = 14 }) => (
 const ServiceDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
+    const { currentUser } = useAuth();
 
     const [serviceData, setServiceData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -131,6 +134,20 @@ const ServiceDetail = () => {
         };
         fetchDetail();
     }, [slug]);
+
+    // Theo dõi hành vi: Gửi tín hiệu "view_service" ngay lập tức khi load xong data
+    const { trackAction } = useBehaviorTracking(currentUser, serviceData?.location?.id, serviceData?.type);
+
+    useEffect(() => {
+        if (serviceData && currentUser) {
+            trackAction('view_service', { 
+                service_id: serviceData.id,
+                location_id: serviceData.location?.id,
+                service_type: serviceData.type,
+                dwell_time: 0 // Lần đầu gửi dwell_time = 0
+            });
+        }
+    }, [serviceData?.id, currentUser?.id, trackAction]);
 
     if (loading) {
         return (

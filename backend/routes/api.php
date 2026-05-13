@@ -18,6 +18,10 @@ use App\Http\Controllers\Auth\AuthController;
 
 use App\Http\Controllers\General\LocationController;
 use App\Http\Controllers\General\CategoryController;
+use App\Http\Controllers\General\BehaviorTrackingController;
+use App\Http\Controllers\General\RecommendationController;
+use App\Http\Controllers\General\BehaviorRedisController;
+use App\Http\Controllers\General\BehaviorDatabaseController;
 use App\Http\Controllers\General\ServiceController;
 use App\Http\Controllers\Social\PostController;
 use App\Http\Controllers\Social\InteractionController;
@@ -54,13 +58,38 @@ Route::get('/general/get/coupons', [\App\Http\Controllers\General\CouponControll
 // Webhook SePay (Public - không cần auth, SePay gọi vào)
 Route::post('/payment/sepay/webhook', [\App\Http\Controllers\General\PaymentController::class, 'sepayWebhook']);
 
+
+// ========================
+// INTERNAL API FOR n8n (No Auth for local bridge)
+// ========================
+Route::group(['prefix' => 'internal'], function() {
+    // Behavior tracking sync
+    Route::post('/behavior/sync', [BehaviorTrackingController::class, 'syncFromN8n']);
+    Route::get('/behavior/active-users', [BehaviorTrackingController::class, 'getActiveUsers']);
+    Route::post('/behavior/process-recommendations', [BehaviorTrackingController::class, 'processRecommendations']);
+    Route::post('/behavior/cleanup', [BehaviorDatabaseController::class, 'cleanup']);
+
+    // Database Bridge
+    Route::group(['prefix' => 'db'], function() {
+        Route::post('/upsert-behavior', [BehaviorDatabaseController::class, 'upsertBehavior']);
+        Route::post('/process-bulk', [BehaviorDatabaseController::class, 'processBulkRecommendations']);
+        Route::get('/get-pending', [BehaviorDatabaseController::class, 'getPendingUsers']);
+        Route::get('/get-best-interest', [BehaviorDatabaseController::class, 'getBestInterest']);
+        Route::post('/save-recommendations', [BehaviorDatabaseController::class, 'saveRecommendations']);
+        Route::post('/cleanup', [BehaviorDatabaseController::class, 'cleanup']);
+    });
+});
+
 // ========================
 // ROUTE BẢO VỆ (yêu cầu Firebase Auth)
 // ========================
 Route::middleware('firebase.auth')->group(function () {
-
     // 1. Đồng bộ người dùng khi đăng nhập Firebase
     Route::post('/auth/post/sync', [AuthController::class, 'sync']);
+    
+    // Behavior Tracking & Recommendations (Public/User API)
+    Route::post('/track-behavior', [BehaviorTrackingController::class, 'track']);
+    Route::get('/recommendations', [RecommendationController::class, 'index']);
     
     // 2. Upload tệp tin
     Route::post('/upload', [\App\Http\Controllers\General\UploadController::class, 'upload']);
@@ -68,13 +97,13 @@ Route::middleware('firebase.auth')->group(function () {
     // 3. Lấy thông tin user hiện tại
     Route::get('/user/get/profile', function (\Illuminate\Http\Request $request) {
         $firebaseUid = $request->attributes->get('firebaseUid');
-        $user = \App\Models\User::with('socialProfile')->where('firebase_uid', $firebaseUid)->first();
+        $user = \App\Models\User::with(['socialProfile', 'touristProfile'])->where('firebase_uid', $firebaseUid)->first();
 
         if (!$user) {
             return response()->json(['success' => false, 'message' => 'User not found'], 404);
         }
 
-        // Đảm bảo social_active luôn trả về boolean thật (tránh Postgres trả về 0/1)
+        // Đảm bảo social_active luôn trả về boolean thật
         $userData = $user->toArray();
         $userData['social_active'] = (bool) $user->social_active;
 
@@ -110,6 +139,8 @@ Route::middleware('firebase.auth')->group(function () {
         Route::get('/users/{userId}/profile', [\App\Http\Controllers\Social\SocialController::class, 'getOtherProfile']);
         Route::get('/users/search', [FollowController::class, 'search']);
         Route::get('/suggestions/users', [FollowController::class, 'suggestions']);
+        Route::get('/search/all', [PostController::class, 'searchAll']);
+        Route::get('/profile/me', [\App\Http\Controllers\Social\SocialController::class, 'getMyProfile']);
 
         // Hashtags
         Route::get('/tags/suggestions', [TagController::class, 'suggestions']);
@@ -126,15 +157,68 @@ Route::middleware('firebase.auth')->group(function () {
     Route::middleware('role:tourist,provider,admin')->group(function () {
         Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
         Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
+        Route::get('/user/bookings/{id}', [\App\Http\Controllers\General\BookingController::class, 'show']);
         Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
+        Route::post('/user/bookings/{id}/check-in', [\App\Http\Controllers\General\BookingController::class, 'checkIn']);
+        Route::post('/user/bookings/{id}/undo-check-in', [\App\Http\Controllers\General\BookingController::class, 'undoCheckIn']);
+        Route::post('/user/bookings/{id}/check-out', [\App\Http\Controllers\General\BookingController::class, 'checkOut']);
         Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
         Route::post('/services/{id}/feedbacks', [ServiceFeedbackController::class, 'store']);
 
-        // Payment routes
+        // Tourist profile routes
+        Route::get('/user/tourist-profile', [\App\Http\Controllers\General\TouristProfileController::class, 'show']);
+        Route::put('/user/tourist-profile', [\App\Http\Controllers\General\TouristProfileController::class, 'update']);
+
         Route::post('/payment/initiate', [\App\Http\Controllers\General\PaymentController::class, 'initiate']);
         Route::get('/payment/status/{bookingId}', [\App\Http\Controllers\General\PaymentController::class, 'checkStatus']);
         Route::get('/wallet/balance', [\App\Http\Controllers\General\PaymentController::class, 'walletBalance']);
         Route::post('/coupons/apply', [\App\Http\Controllers\General\CouponController::class, 'apply']);
+
+        // Chat routes
+        Route::get('/chat/unread-count', [\App\Http\Controllers\General\ChatController::class, 'getUnreadCount']);
+        Route::get('/chat/conversations', [\App\Http\Controllers\General\ChatController::class, 'getConversations']);
+        Route::get('/chat/conversations/{id}/messages', [\App\Http\Controllers\General\ChatController::class, 'getMessages']);
+        Route::post('/chat/messages', [\App\Http\Controllers\General\ChatController::class, 'sendMessage']);
+
+        // Broadcasting auth (xác thực kênh riêng tư cho realtime)
+        Route::post('/broadcasting/auth', function (\Illuminate\Http\Request $request) {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+            $pusher = new \Pusher\Pusher(
+                config('broadcasting.connections.reverb.key'),
+                config('broadcasting.connections.reverb.secret'),
+                config('broadcasting.connections.reverb.app_id'),
+                [
+                    'host' => config('broadcasting.connections.reverb.options.host', '127.0.0.1'),
+                    'port' => config('broadcasting.connections.reverb.options.port', 8080),
+                    'scheme' => config('broadcasting.connections.reverb.options.scheme', 'http'),
+                    'useTLS' => config('broadcasting.connections.reverb.options.useTLS', false),
+                ]
+            );
+
+            $channelName = $request->input('channel_name');
+            $socketId = $request->input('socket_id');
+
+            // Xác thực quyền truy cập kênh
+            if (str_starts_with($channelName, 'private-chat.')) {
+                $conversationId = str_replace('private-chat.', '', $channelName);
+                $conversation = \App\Models\Conversation::find($conversationId);
+
+                if (!$conversation) {
+                    return response()->json(['error' => 'Channel not found'], 403);
+                }
+
+                if ($user->id !== $conversation->user_one && $user->id !== $conversation->user_two) {
+                    return response()->json(['error' => 'Forbidden'], 403);
+                }
+            }
+
+            $auth = $pusher->authorizeChannel($channelName, $socketId);
+            return response()->json(json_decode($auth, true));
+        });
     });
 
     // ===========================================================
@@ -208,22 +292,7 @@ Route::middleware('firebase.auth')->group(function () {
     Route::prefix('provider')->middleware('role:provider')->group(function () {
 
         // --- Tự tạo ProviderProfile nếu chưa có (gọi lần đầu) ---
-        Route::post('/setup-profile', function (\Illuminate\Http\Request $request) {
-            $user = $request->input('user');
-            $profile = \App\Models\ProviderProfile::firstOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'business_name' => ($user->display_name ?? 'Nhà cung cấp') . "'s Business",
-                    'status'        => 'pending',
-                    'address'       => '',
-                ]
-            );
-            return response()->json([
-                'success' => true,
-                'message' => 'Hồ sơ nhà cung cấp đã được khởi tạo. Vui lòng chờ Admin phê duyệt.',
-                'data'    => $profile
-            ]);
-        });
+        Route::post('/setup-profile', [\App\Http\Controllers\Provider\ProfileController::class, 'setup']);
 
         // --- Dashboard & Thống kê ---
         Route::get('/dashboard/stats', [\App\Http\Controllers\Provider\DashboardController::class, 'stats']);
@@ -249,6 +318,10 @@ Route::middleware('firebase.auth')->group(function () {
         Route::post('/services/{id}/room-types', [\App\Http\Controllers\Provider\ServiceController::class, 'storeRoomType']);
         Route::put('/services/{id}/room-types/{roomTypeId}', [\App\Http\Controllers\Provider\ServiceController::class, 'updateRoomType']);
         Route::delete('/services/{id}/room-types/{roomTypeId}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroyRoomType']);
+
+        // --- Quản lý Trạng thái khả dụng (Số chỗ/phòng trống theo ngày) ---
+        Route::get('/services/{id}/availability', [\App\Http\Controllers\Provider\AvailabilityController::class, 'index']);
+        Route::post('/services/{id}/availability/batch', [\App\Http\Controllers\Provider\AvailabilityController::class, 'updateBatch']);
 
         // --- Quản lý Đơn đặt chỗ ---
         Route::get('/bookings', [\App\Http\Controllers\Provider\BookingController::class, 'index']);

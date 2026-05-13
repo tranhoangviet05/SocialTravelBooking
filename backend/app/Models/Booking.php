@@ -18,9 +18,11 @@ class Booking extends Model
             'check_in_date' => 'date',
             'check_out_date' => 'date',
             'paid_at' => 'datetime',
-            'released_at' => 'datetime',
             'cancelled_at' => 'datetime',
-            'refunded_at' => 'datetime',
+            'tourist_check_in_at' => 'datetime',
+            'checked_in_at' => 'datetime',
+            'checked_out_at' => 'datetime',
+            'is_checked_in' => 'boolean',
         ];
     }
 

@@ -21,7 +21,7 @@ socialtravelbooking.click {
     }
 
     # n8n Automation (Truy cập qua /n8n)
-    handle /n8n/* {
+    handle_path /n8n/* {
         reverse_proxy n8n:5678
     }
     

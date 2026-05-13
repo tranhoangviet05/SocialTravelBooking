@@ -56,16 +56,12 @@ services:
     image: n8nio/n8n:latest
     container_name: stb_n8n
     restart: unless-stopped
-    ports:
-      - "8888:5678"
+    # Không cần mở port ra ngoài để tránh xung đột, Caddy sẽ lo việc này
     environment:
       - N8N_HOST=socialtravelbooking.click
-      - N8N_PORT=8888
       - N8N_PROTOCOL=https
       - NODE_ENV=production
       - WEBHOOK_URL=https://socialtravelbooking.click/n8n/
-      - N8N_EDITOR_BASE_URL=https://socialtravelbooking.click/n8n/
-      - N8N_PATH=/n8n/
     volumes:
       - n8n_data:/home/node/.n8n
     networks:

@@ -64,6 +64,7 @@ services:
       - N8N_PROTOCOL=https
       - NODE_ENV=production
       - WEBHOOK_URL=https://socialtravelbooking.click/n8n/
+      - N8N_EDITOR_BASE_URL=https://socialtravelbooking.click/n8n/
       - N8N_PATH=/n8n/
     volumes:
       - n8n_data:/home/node/.n8n

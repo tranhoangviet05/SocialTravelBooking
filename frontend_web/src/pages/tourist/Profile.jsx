@@ -37,7 +37,11 @@ const Profile = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const idToken = await currentUser.getIdToken();
+            const { getCurrentUser } = await import('../../firebase/services/authService');
+            const fbUser = getCurrentUser();
+            if (!fbUser) throw new Error('Không tìm thấy người dùng Firebase');
+
+            const idToken = await fbUser.getIdToken();
             const response = await authApi.updateProfile(idToken, {
                 display_name: formData.display_name,
                 username: formData.username,

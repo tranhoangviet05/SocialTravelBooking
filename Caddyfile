@@ -1,8 +1,25 @@
 socialtravelbooking.click {
+    # Backend API
     handle /api/* {
         reverse_proxy backend:8000
     }
+
+    # Images (Lưu tại backend)
+    handle /images/* {
+        reverse_proxy backend:8000
+    }
+
+    # WebSocket (Reverb)
+    handle /app/* {
+        reverse_proxy backend:8080
+    }
+
+    # n8n (Optional: nếu muốn dùng domain)
+    # handle /n8n/* {
+    #     reverse_proxy n8n:5678
+    # }
     
+    # Frontend (Mặc định)
     handle {
         reverse_proxy frontend:80
     }

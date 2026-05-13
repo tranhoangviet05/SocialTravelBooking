@@ -28,12 +28,16 @@ class UploadController extends Controller
                 // Tạo tên file ngẫu nhiên để tránh trùng
                 $filename = Str::random(20) . '.' . $file->getClientOriginalExtension();
                 
-                // Lưu thẳng vào folder public/images/... của backend
+                // Đảm bảo thư mục tồn tại
                 $destinationPath = public_path('images/' . $folder);
+                if (!file_exists($destinationPath)) {
+                    mkdir($destinationPath, 0755, true);
+                }
+                
                 $file->move($destinationPath, $filename);
                 
-                // Trả về đường dẫn public để lưu vào DB (bắt đầu bằng /images/...)
-                $url = '/images/' . ($folder === 'images' ? '' : $folder . '/') . $filename;
+                // Trả về đường dẫn chuẩn (bắt đầu bằng /images/...)
+                $url = '/images/' . trim($folder, '/') . '/' . $filename;
                 $url = str_replace('//', '/', $url);
                 $uploadedUrls[] = $url;
             }

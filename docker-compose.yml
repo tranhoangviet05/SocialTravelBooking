@@ -10,37 +10,33 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-
+      APP_ENV: production
+      APP_DEBUG: "false"
       FIREBASE_CREDENTIALS: /var/www/firebase-service-account.json
     volumes:
       - ./backend:/var/www
-      - backend_vendor:/var/www/vendor # anonymous volume giữ vendor không bị ghi đè
+      - backend_vendor:/var/www/vendor
     ports:
       - "8000:8000"
-
     networks:
       - stb_network
 
-  # ── React Frontend (Dev Server) ──────────────────────────
-  # Dùng cho môi trường development với hot reload
-  # Build production: đổi command thành "npm run build" và dùng Nginx
+  # ── React Frontend (Production) ──────────────────────────
   frontend:
     build:
-      context: ./frontend_web # ✅ Đúng tên thư mục
+      context: ./frontend_web
       dockerfile: Dockerfile
     container_name: stb_frontend
     restart: unless-stopped
     volumes:
-      - ./frontend_web:/app # ✅ Đúng tên thư mục
-      - frontend_node_modules:/app/node_modules # giữ node_modules không bị ghi đè
+      - ./frontend_web:/app
+      - frontend_node_modules:/app/node_modules
     ports:
-      - "5173:80" # Nginx phục vụ trên port 80 bên trong, map ra 5173
+      - "5173:80"
     networks:
       - stb_network
 
-  # ── Caddy Reverse Proxy (Tự động HTTPS + Tên miền) ────────────
+  # ── Caddy Reverse Proxy (HTTPS + Domain) ────────────────────
   caddy:
     image: caddy:alpine
     container_name: stb_caddy
@@ -63,35 +59,18 @@ services:
     ports:
       - "5678:5678"
     environment:
-      - N8N_HOST=${N8N_HOST:-localhost}
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - NODE_ENV=production
-      - WEBHOOK_URL=http://${N8N_HOST:-localhost}:5678/
-    volumes:
-      - n8n_data:/home/node/.n8n
-    networks:
-      - stb_network
-
-  # ── n8n Automation ──────────────────────────────────────────
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: stb_n8n
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
       - N8N_HOST=socialtravelbooking.click
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
       - NODE_ENV=production
       - WEBHOOK_URL=https://socialtravelbooking.click/n8n/
+      - N8N_PATH=/n8n/
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
       - stb_network
 
-  # ── Reverb WebSocket ────────────────────────────────────────
+  # ── Reverb WebSocket (Realtime) ──────────────────────────────
   reverb:
     build:
       context: ./backend

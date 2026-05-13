@@ -73,6 +73,37 @@ services:
     networks:
       - stb_network
 
+  # ── n8n Automation ──────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: stb_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=socialtravelbooking.click
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://socialtravelbooking.click/n8n/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - stb_network
+
+  # ── Reverb WebSocket ────────────────────────────────────────
+  reverb:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stb_reverb
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    networks:
+      - stb_network
+
 networks:
   stb_network:
     driver: bridge

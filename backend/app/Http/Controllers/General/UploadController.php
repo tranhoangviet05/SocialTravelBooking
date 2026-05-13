@@ -33,7 +33,8 @@ class UploadController extends Controller
                 $file->move($destinationPath, $filename);
                 
                 // Trả về đường dẫn public để lưu vào DB (bắt đầu bằng /images/...)
-                $url = '/images/' . $folder . '/' . $filename;
+                $url = '/images/' . ($folder === 'images' ? '' : $folder . '/') . $filename;
+                $url = str_replace('//', '/', $url);
                 $uploadedUrls[] = $url;
             }
         }

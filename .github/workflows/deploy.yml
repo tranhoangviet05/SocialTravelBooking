@@ -2,7 +2,7 @@ name: Deploy Social Travel Booking
 
 on:
   push:
-    branches: [ main ] # Tự động chạy khi bạn push code vào branch main
+    branches: [ master ] # Tự động chạy khi bạn push code vào branch master
 
 jobs:
   deploy:

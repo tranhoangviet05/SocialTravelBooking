@@ -6,6 +6,7 @@ import {
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAdminData } from '../../contexts/AdminDataContext';
+import TableSkeleton from '../../components/common/TableSkeleton';
 
 const Pagination = ({ meta, onPageChange }) => {
     if (!meta || meta.last_page <= 1) return null;
@@ -36,49 +37,62 @@ const Pagination = ({ meta, onPageChange }) => {
 };
 
 const UserManagement = () => {
-    const { users, loadingStates, fetchUsers, meta, setUsers } = useAdminData();
+    const { users, meta, fetchUsers, loadingStates, setUsers, updateUser } = useAdminData();
     const usersMeta = meta?.users || { current_page: 1, last_page: 1, total: 0 };
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [updatingId, setUpdatingId] = useState(null);
+    const [backgroundTasks, setBackgroundTasks] = useState({});
     const toast = useNotification();
 
-    const loading = loadingStates.users && users.length === 0;
-    const lockRef = React.useRef(null);
+    const loading = loadingStates.users;
 
-    const doFetch = useCallback((page = 1, search = '') => {
-        fetchUsers(true, page, { search: search || undefined, role: 'tourist' });
+    const doFetch = useCallback((page = 1, search = '', force = false) => {
+        fetchUsers(force, page, { search: search || undefined, role: 'tourist' });
     }, [fetchUsers]);
 
-    useEffect(() => { doFetch(1, ''); setCurrentPage(1); }, [doFetch]);
-
     useEffect(() => {
+        // Chỉ fetch nếu chưa có dữ liệu hoặc đang tìm kiếm
+        if (!searchTerm && users.length > 0) return;
+        
         const timer = setTimeout(() => {
-            doFetch(1, searchTerm);
+            doFetch(1, searchTerm, false);
             setCurrentPage(1);
-        }, 400);
+        }, searchTerm ? 400 : 0);
         return () => clearTimeout(timer);
-    }, [searchTerm]);
+    }, [searchTerm, doFetch, users.length]);
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
         doFetch(page, searchTerm);
     };
 
-
-
     const handleStatusChange = async (userId, newStatus) => {
-        setUpdatingId(userId);
+        const taskId = `status-${userId}-${Date.now()}`;
+        setBackgroundTasks(prev => ({ ...prev, [userId]: 'updating' }));
+
+        const originalUser = users.find(u => u.id === userId);
+        // Cập nhật lạc quan
+        updateUser({ ...originalUser, status: newStatus, isOptimistic: true });
+
         try {
             const res = await adminApi.updateUserStatus(userId, newStatus);
             if (res.success) {
                 toast.success('Cập nhật trạng thái thành công');
-                setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+                updateUser({ ...res.data, isOptimistic: false });
             }
         } catch (e) {
+            console.error('Update user status error:', e);
             toast.error('Lỗi khi cập nhật trạng thái');
-        } finally { setUpdatingId(null); }
+            // Rollback
+            updateUser({ ...originalUser, isOptimistic: false });
+        } finally {
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[userId];
+                return newTasks;
+            });
+        }
     };
 
     const getRoleBadge = (role) => {
@@ -116,7 +130,7 @@ const UserManagement = () => {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => doFetch(currentPage, searchTerm)}
+                    <button onClick={() => doFetch(currentPage, searchTerm, true)}
                         className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
                         <RotateCw size={20} />
                     </button>
@@ -124,10 +138,7 @@ const UserManagement = () => {
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
-                    <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải danh sách khách du lịch...</p>
-                </div>
+                <TableSkeleton columns={4} rows={8} />
             ) : users.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
                     <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
@@ -149,8 +160,10 @@ const UserManagement = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {users.map((user) => (
-                                        <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group">
+                                    {users.map((user) => {
+                                        const isUpdating = backgroundTasks[user.id] === 'updating' || user.isOptimistic;
+                                        return (
+                                            <tr key={user.id} className={`hover:bg-gray-50/50 transition-colors group relative ${isUpdating ? 'optimistic-updating' : ''}`}>
                                             <td className="px-8 py-5">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-600 font-black text-sm shadow-sm overflow-hidden border border-white">
@@ -177,21 +190,30 @@ const UserManagement = () => {
                                             <td className="px-8 py-5 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     {user.status === 'active' ? (
-                                                        <button onClick={() => handleStatusChange(user.id, 'banned')}
-                                                            className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Ban">
-                                                            <Ban size={18} />
+                                                        <button
+                                                            onClick={() => handleStatusChange(user.id, 'banned')}
+                                                            disabled={isUpdating}
+                                                            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                                                            title="Khóa tài khoản"
+                                                        >
+                                                            {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
                                                         </button>
                                                     ) : (
-                                                        <button onClick={() => handleStatusChange(user.id, 'active')}
-                                                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Unban">
-                                                            <CheckCircle size={18} />
+                                                        <button
+                                                            onClick={() => handleStatusChange(user.id, 'active')}
+                                                            disabled={isUpdating}
+                                                            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer"
+                                                            title="Kích hoạt tài khoản"
+                                                        >
+                                                            {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                                                         </button>
                                                     )}
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
-                                </tbody>
+                                    );
+                                })}
+                            </tbody>
                             </table>
                         </div>
                     </div>

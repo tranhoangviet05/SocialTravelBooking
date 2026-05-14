@@ -19,46 +19,30 @@ import {
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import { useAdminData } from '../../contexts/AdminDataContext';
 
 const BookingManagement = () => {
-    const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { bookings, meta, loadingStates, fetchBookings, updateBooking } = useAdminData();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterPayment, setFilterPayment] = useState('');
-    const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [detailModal, setDetailModal] = useState({ open: false, booking: null, loading: false });
+    const [backgroundTasks, setBackgroundTasks] = useState({});
+    
+    const activeMeta = meta.bookings || { current_page: 1, last_page: 1, total: 0 };
+    const loading = loadingStates.bookings;
 
     const toast = useNotification();
 
     useEffect(() => {
-        fetchBookings();
-    }, [filterStatus, filterPayment]);
-
-    const fetchBookings = async (page = 1) => {
-        setLoading(true);
-        try {
-            const params = { page, per_page: 8 };
-            if (searchTerm) params.search = searchTerm;
-            if (filterStatus) params.status = filterStatus;
-            if (filterPayment) params.payment_status = filterPayment;
-
-            const response = await adminApi.getAllBookings(params);
-            if (response.success) {
-                setBookings(response.data);
-                setMeta(response.meta || { current_page: 1, last_page: 1, total: 0 });
-            }
-        } catch (error) {
-            console.error('Failed to fetch bookings:', error);
-            toast?.error?.('Không thể tải danh sách đặt chỗ');
-        } finally {
-            setLoading(false);
-        }
-    };
+        if (!searchTerm && !filterStatus && !filterPayment && bookings.length > 0) return;
+        fetchBookings(false, 1, { search: searchTerm, status: filterStatus, payment_status: filterPayment });
+    }, [fetchBookings, filterStatus, filterPayment, bookings.length]);
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchBookings();
+        fetchBookings(true, 1, { search: searchTerm, status: filterStatus, payment_status: filterPayment });
     };
 
     const handleViewDetail = async (bookingId) => {
@@ -162,7 +146,7 @@ const BookingManagement = () => {
                             <option value="paid">Đã thanh toán</option>
                             <option value="refunded">Đã hoàn tiền</option>
                         </select>
-                        <button onClick={() => fetchBookings(meta.current_page)}
+                        <button onClick={() => fetchBookings(true, activeMeta.current_page, { search: searchTerm, status: filterStatus, payment_status: filterPayment })}
                             className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
                             <RotateCw size={20} />
                         </button>
@@ -171,19 +155,16 @@ const BookingManagement = () => {
 
                 {/* Table */}
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
-                        <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải danh sách đặt chỗ...</p>
-                    </div>
+                    <TableSkeleton columns={7} rows={8} />
                 ) : (
                     <>
                         <AdminTable
                             headers={['Mã đặt chỗ', 'Khách hàng', 'Dịch vụ', 'Tổng tiền', 'Thanh toán', 'Trạng thái', '']}
                             title="Lịch sử đặt chỗ"
-                            description={`Tổng ${meta.total} đơn đặt chỗ.`}
+                            description={`Tổng ${activeMeta.total} đơn đặt chỗ.`}
                         >
                             {bookings.length > 0 ? bookings.map((bk) => (
-                                <tr key={bk.id} className="hover:bg-gray-50/50 transition-colors group">
+                                <tr key={bk.id} className={`hover:bg-gray-50/50 transition-colors group relative ${backgroundTasks[bk.id] || bk.isOptimistic ? 'optimistic-updating' : ''}`}>
                                     <td className="px-8 py-5">
                                         <span className="font-mono text-[11px] font-bold text-gray-400 block tracking-wider">{bk.booking_code}</span>
                                         <span className="text-[10px] text-gray-300 font-bold mt-0.5 block">{formatDate(bk.created_at)}</span>
@@ -228,22 +209,22 @@ const BookingManagement = () => {
                         </AdminTable>
 
                         {/* Pagination */}
-                        {meta.last_page > 1 && (
+                        {activeMeta.last_page > 1 && (
                             <div className="flex items-center justify-between bg-white px-8 py-4 rounded-2xl border border-gray-100">
                                 <p className="text-sm text-gray-500 font-medium">
-                                    Trang {meta.current_page} / {meta.last_page} ({meta.total} đơn)
+                                    Trang {activeMeta.current_page} / {activeMeta.last_page} ({activeMeta.total} đơn)
                                 </p>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => fetchBookings(meta.current_page - 1)}
-                                        disabled={meta.current_page <= 1}
+                                        onClick={() => fetchBookings(true, activeMeta.current_page - 1, { search: searchTerm, status: filterStatus, payment_status: filterPayment })}
+                                        disabled={activeMeta.current_page <= 1}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all"
                                     >
                                         <ChevronLeft size={20} />
                                     </button>
                                     <button
-                                        onClick={() => fetchBookings(meta.current_page + 1)}
-                                        disabled={meta.current_page >= meta.last_page}
+                                        onClick={() => fetchBookings(true, activeMeta.current_page + 1, { search: searchTerm, status: filterStatus, payment_status: filterPayment })}
+                                        disabled={activeMeta.current_page >= activeMeta.last_page}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all"
                                     >
                                         <ChevronRight size={20} />

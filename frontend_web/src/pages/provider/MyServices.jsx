@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import ServiceCardSkeleton from '../../components/common/ServiceCardSkeleton';
 import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
     CheckCircle, AlertCircle, Image as ImageIcon,
@@ -915,10 +916,11 @@ const MyServices = () => {
         services, locations, categories,
         fetchServices, fetchSystemData,
         loadingStates,
-        setServices, servicesMeta
+        setServices, servicesMeta,
+        addService, updateService, removeService
     } = useProviderData();
 
-    const loading = (loadingStates.services && services.length === 0) || (loadingStates.system && locations.length === 0);
+    const loading = loadingStates.services || loadingStates.system;
     const [hasProfile, setHasProfile] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -949,8 +951,8 @@ const MyServices = () => {
     const [toast, setToast] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
 
-    const doFetch = useCallback((page = 1) => {
-        fetchServices(true, {
+    const doFetch = useCallback((page = 1, force = false) => {
+        fetchServices(force, {
             page,
             per_page: 8,
             search: searchTerm || undefined,
@@ -963,9 +965,10 @@ const MyServices = () => {
     useEffect(() => { fetchSystemData(); }, [fetchSystemData]);
 
     useEffect(() => {
-        doFetch(1);
+        if (!searchTerm && typeFilter === 'all' && services.length > 0) return;
+        doFetch(1, false);
         setCurrentPage(1);
-    }, [searchTerm, typeFilter]);
+    }, [searchTerm, typeFilter, doFetch, services.length]);
 
     const showToast = (msg, type = 'success') => setToast({ message: msg, type });
 
@@ -1024,12 +1027,39 @@ const MyServices = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (submitting) return;
-        if (!form.location_id || !form.category_id) return showToast('Vui lòng chọn Điểm đến và Danh mục', 'error');
+        
+        // 1. Validate cơ bản trước khi đóng modal
+        if (!form.location_id || !form.category_id || !form.name) {
+            return showToast('Vui lòng nhập đầy đủ các trường bắt buộc', 'error');
+        }
 
+        // 2. Đóng Modal ngay lập tức
+        setShowModal(false);
         setSubmitting(true);
-        try {
-            let imageUrls = previewUrls.filter(url => url.startsWith('http'));
 
+        const taskId = editMode ? currentServiceId : `temp-${Date.now()}`;
+        
+        // 3. Tạo dữ liệu "Lạc quan" (Optimistic)
+        if (!editMode) {
+            const tempSvc = {
+                id: taskId,
+                name: form.name,
+                type: form.type,
+                base_price: form.base_price,
+                status: 'pending_review',
+                location: locations.find(l => l.id === Number(form.location_id)),
+                media: selectedFiles.length > 0 ? [{ url: URL.createObjectURL(selectedFiles[0]) }] : [],
+                isOptimistic: true
+            };
+            addService(tempSvc);
+        } else {
+            const existing = services.find(s => s.id === currentServiceId);
+            updateService({ ...existing, ...form, isOptimistic: true });
+        }
+
+        try {
+            // 4. Xử lý upload ảnh ngầm
+            let imageUrls = previewUrls.filter(url => url.startsWith('http'));
             if (selectedFiles.length > 0) {
                 const uploadedUrls = await Promise.all(selectedFiles.map(file => uploadImage(file)));
                 imageUrls = [...imageUrls, ...uploadedUrls];
@@ -1040,11 +1070,6 @@ const MyServices = () => {
                 base_price: Number(form.base_price),
                 category_id: Number(form.category_id),
                 location_id: Number(form.location_id),
-                max_guests: form.max_guests ? Number(form.max_guests) : null,
-                duration_days: form.duration_days ? Number(form.duration_days) : null,
-                duration_nights: form.duration_nights ? Number(form.duration_nights) : null,
-                latitude: form.latitude ? Number(form.latitude) : null,
-                longitude: form.longitude ? Number(form.longitude) : null,
                 images: imageUrls
             };
 
@@ -1053,25 +1078,33 @@ const MyServices = () => {
                 : await providerApi.createService(payload);
 
             if (res.success) {
-                showToast(editMode ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
-                setShowModal(false);
-                doFetch(currentPage);
+                showToast(editMode ? 'Cập nhật thành công!' : 'Đã thêm dịch vụ mới!');
+                if (editMode) {
+                    updateService({ ...res.data, isOptimistic: false });
+                } else {
+                    // Thay thế bản ghi tạm bằng bản ghi thật
+                    setServices(prev => prev.map(s => s.id === taskId ? res.data : s));
+                }
             }
         } catch (err) {
-            showToast(err.response?.data?.message || 'Lỗi xử lý', 'error');
-        } finally { setSubmitting(false); }
+            showToast('Lỗi khi lưu ngầm. Vui lòng thử lại.', 'error');
+            // Rollback nếu lỗi
+            if (editMode) {
+                const original = services.find(s => s.id === currentServiceId);
+                updateService({ ...original, isOptimistic: false });
+            } else {
+                removeService(taskId);
+            }
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleDeleteConfirm = async () => {
         try {
             const res = await providerApi.deleteService(confirmDelete.id);
             if (res.success) {
-                if (services.length === 1 && currentPage > 1) {
-                    doFetch(currentPage - 1);
-                    setCurrentPage(p => p - 1);
-                } else {
-                    doFetch(currentPage);
-                }
+                removeService(confirmDelete.id);
                 showToast('Đã xóa dịch vụ.');
             }
         } catch { showToast('Lỗi khi xóa', 'error'); }
@@ -1138,107 +1171,117 @@ const MyServices = () => {
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => doFetch(1)}
-                            className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
-                            <RotateCw size={20} />
-                        </button>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-emerald-500" size={40} /></div>
+                    <div className="grid gap-4">
+                        {[...Array(5)].map((_, i) => <ServiceCardSkeleton key={i} />)}
+                    </div>
                 ) : services.length === 0 ? (
-                    <div className="py-20 text-center text-slate-400 font-medium">Không có dịch vụ nào.</div>
+                    <div className="py-20 text-center text-slate-400 font-medium bg-white rounded-3xl border border-dashed border-slate-100 shadow-sm">
+                        <Package size={48} className="mx-auto mb-4 opacity-20" />
+                        <p>Không có dịch vụ nào phù hợp với tìm kiếm của bạn.</p>
+                    </div>
                 ) : (
                     <>
                         <div className="grid gap-4">
-                            {services.map(service => (
-                                <div key={service.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
-                                                {service.media?.[0]?.url
-                                                    ? <img src={service.media[0].url} className="w-full h-full object-cover" alt={service.name} />
-                                                    : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-black text-slate-900 truncate">{service.name}</h3>
-                                                <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
-                                                <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
-                                                    <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
-                                                    {service.type === 'tour' && (service.duration_days || service.duration_nights) && (
-                                                        <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
-                                                    )}
+                            {services.map(service => {
+                                const isTemp = String(service.id).startsWith('temp-');
+                                const isUpdating = service.isOptimistic && !isTemp;
+                                const isAdding = service.isOptimistic && isTemp;
+
+                                return (
+                                    <div key={service.id} className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group ${isUpdating ? 'optimistic-updating' : ''} ${isAdding ? 'optimistic-adding' : ''}`}>
+                                        {isAdding && <div className="optimistic-adding-text text-[10px] font-bold uppercase tracking-widest">Đang thêm dịch vụ mới...</div>}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
+                                                    {service.media?.[0]?.url
+                                                        ? <img src={service.media[0].url} className="w-full h-full object-cover" alt={service.name} />
+                                                        : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={24} /></div>}
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-black text-slate-900 truncate uppercase">{service.name}</h3>
+                                                    <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
+                                                    <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
+                                                        <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
+                                                        {service.type === 'tour' && (service.duration_days || service.duration_nights) && (
+                                                            <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                <p className="text-lg font-black text-emerald-600">{Number(service.base_price).toLocaleString()}₫</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng'}</p>
-                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right">
+                                                    <p className="text-lg font-black text-emerald-600">{Number(service.base_price).toLocaleString()}₫</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase">{service.price_unit === 'per_person' ? '/người' : '/phòng'}</p>
+                                                </div>
 
-                                            {/* Action buttons */}
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                {/* Lịch trình - chỉ cho tour */}
-                                                {service.type === 'tour' && (
-                                                    <button
-                                                        onClick={() => setScheduleService(service)}
-                                                        title="Quản lý lịch trình"
-                                                        className="p-2 text-slate-300 hover:text-sky-600 hover:bg-sky-50 rounded-xl flex flex-col items-center gap-0.5"
-                                                    >
-                                                        <CalendarDays size={15} />
-                                                        <span className="text-[9px] font-bold leading-none">Lịch trình</span>
-                                                    </button>
+                                                {/* Action buttons */}
+                                                {!service.isOptimistic && (
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                        {/* Lịch trình - chỉ cho tour */}
+                                                        {service.type === 'tour' && (
+                                                            <button
+                                                                onClick={() => setScheduleService(service)}
+                                                                title="Quản lý lịch trình"
+                                                                className="p-2 text-slate-300 hover:text-sky-600 hover:bg-sky-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                            >
+                                                                <CalendarDays size={15} />
+                                                                <span className="text-[9px] font-bold leading-none">Lịch trình</span>
+                                                            </button>
+                                                        )}
+
+                                                        {/* Tiện nghi - cho hotel/homestay và cả tour (includes/excludes) */}
+                                                        <button
+                                                            onClick={() => setAmenitiesService(service)}
+                                                            title="Tiện nghi & Chi tiết"
+                                                            className="p-2 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                        >
+                                                            <Star size={15} />
+                                                            <span className="text-[9px] font-bold leading-none">Tiện nghi</span>
+                                                        </button>
+
+                                                        {/* Quản lý loại phòng - chỉ cho hotel/homestay */}
+                                                        {(service.type === 'hotel' || service.type === 'homestay') && (
+                                                            <button
+                                                                onClick={() => setRoomTypeService(service)}
+                                                                title="Quản lý phòng"
+                                                                className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                            >
+                                                                <Bed size={15} />
+                                                                <span className="text-[9px] font-bold leading-none">Phòng</span>
+                                                            </button>
+                                                        )}
+
+                                                        {/* Trạng thái khả dụng (Số chỗ/phòng) - Chỉ cho Tour */}
+                                                        {service.type === 'tour' && (
+                                                            <button
+                                                                onClick={() => setAvailabilityService(service)}
+                                                                title="Trạng thái khả dụng"
+                                                                className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl flex flex-col items-center gap-0.5"
+                                                            >
+                                                                <CalendarDays size={15} />
+                                                                <span className="text-[9px] font-bold leading-none">Trống</span>
+                                                            </button>
+                                                        )}
+
+                                                        <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5">
+                                                            <Edit3 size={15} />
+                                                            <span className="text-[9px] font-bold leading-none">Sửa</span>
+                                                        </button>
+                                                        <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl flex flex-col items-center gap-0.5">
+                                                            <Trash2 size={15} />
+                                                            <span className="text-[9px] font-bold leading-none">Xóa</span>
+                                                        </button>
+                                                    </div>
                                                 )}
-
-                                                {/* Tiện nghi - cho hotel/homestay và cả tour (includes/excludes) */}
-                                                <button
-                                                    onClick={() => setAmenitiesService(service)}
-                                                    title="Tiện nghi & Chi tiết"
-                                                    className="p-2 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-xl flex flex-col items-center gap-0.5"
-                                                >
-                                                    <Star size={15} />
-                                                    <span className="text-[9px] font-bold leading-none">Tiện nghi</span>
-                                                </button>
-
-                                                {/* Quản lý loại phòng - chỉ cho hotel/homestay */}
-                                                {(service.type === 'hotel' || service.type === 'homestay') && (
-                                                    <button
-                                                        onClick={() => setRoomTypeService(service)}
-                                                        title="Quản lý phòng"
-                                                        className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5"
-                                                    >
-                                                        <Bed size={15} />
-                                                        <span className="text-[9px] font-bold leading-none">Phòng</span>
-                                                    </button>
-                                                )}
-
-                                                {/* Trạng thái khả dụng (Số chỗ/phòng) - Chỉ cho Tour */}
-                                                {service.type === 'tour' && (
-                                                    <button
-                                                        onClick={() => setAvailabilityService(service)}
-                                                        title="Trạng thái khả dụng"
-                                                        className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl flex flex-col items-center gap-0.5"
-                                                    >
-                                                        <CalendarDays size={15} />
-                                                        <span className="text-[9px] font-bold leading-none">Trống</span>
-                                                    </button>
-                                                )}
-
-                                                <button onClick={() => handleOpenEdit(service)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl flex flex-col items-center gap-0.5">
-                                                    <Edit3 size={15} />
-                                                    <span className="text-[9px] font-bold leading-none">Sửa</span>
-                                                </button>
-                                                <button onClick={() => setConfirmDelete({ id: service.id, name: service.name })} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl flex flex-col items-center gap-0.5">
-                                                    <Trash2 size={15} />
-                                                    <span className="text-[9px] font-bold leading-none">Xóa</span>
-                                                </button>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         <Pagination meta={servicesMeta} onPageChange={handlePageChange} />

@@ -5,6 +5,7 @@ import {
     CheckCircle, AlertCircle, Building2, UserCircle, RotateCw
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
+import ProviderSettingsSkeleton from '../../components/common/ProviderSettingsSkeleton';
 
 // --- Toast ---
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -31,7 +32,7 @@ const MySettings = () => {
         status: ''
     });
 
-    const loading = loadingStates.settings && !settings;
+    const loading = loadingStates.settings;
 
     useEffect(() => {
         fetchSettings();
@@ -65,12 +66,7 @@ const MySettings = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-40">
-                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                <p className="text-slate-400 font-bold">Đang tải cấu hình cửa hàng...</p>
-            </div>
-        );
+        return <ProviderSettingsSkeleton />;
     }
 
     const getStatusText = (status) => {
@@ -92,7 +88,7 @@ const MySettings = () => {
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Cài đặt của hàng</h2>
                         <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý định danh và thông tin kinh doanh của bạn.</p>
                     </div>
-                    <button onClick={() => fetchSettings()}
+                    <button onClick={() => fetchSettings(true)}
                         className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer">
                         <RotateCw size={20} />
                     </button>

@@ -46,6 +46,7 @@ const CategoryModal = ({ isOpen, onClose, onSave, category, isLoading }) => {
         setErrors({});
     }, [category, isOpen]);
 
+
     const validate = () => {
         const e = {};
         if (!formData.name.trim()) e.name = 'Tên danh mục là bắt buộc';
@@ -132,11 +133,12 @@ const CategoryModal = ({ isOpen, onClose, onSave, category, isLoading }) => {
                             </div>
                         </div>
 
+
                         {/* Description */}
                         <div>
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Mô tả ngắn</label>
                             <textarea
-                                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 outline-none transition-all font-semibold text-slate-700 min-h-[100px] resize-none"
+                                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 outline-none transition-all font-semibold text-slate-700 min-h-[100px] resize-none leading-relaxed"
                                 placeholder="Dùng để hiển thị gợi ý cho danh mục này..."
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}

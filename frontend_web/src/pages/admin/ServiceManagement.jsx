@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Search,
     Filter,
@@ -34,9 +34,10 @@ import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAdminData } from '../../contexts/AdminDataContext';
+import TableSkeleton from '../../components/common/TableSkeleton';
 
 const ServiceManagement = () => {
-    const { services, meta, loadingStates, fetchServices, setServices } = useAdminData();
+    const { services, meta, loadingStates, fetchServices, setServices, updateService, removeService, isLoadingServices } = useAdminData();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('');
@@ -53,25 +54,21 @@ const ServiceManagement = () => {
 
     const activeMeta = meta?.services || { current_page: 1, last_page: 1, total: 0 };
 
-    const doFetchServices = async (page = 1) => {
+    const doFetchServices = useCallback(async (page = 1, force = false) => {
         const params = { page, per_page: 8 };
         if (searchTerm) params.search = searchTerm;
         if (filterType) params.type = filterType;
         if (filterStatus) params.status = filterStatus;
-        await fetchServices(true, params);
-    };
+        await fetchServices(force, params);
+    }, [searchTerm, filterType, filterStatus, fetchServices]);
 
     useEffect(() => {
-        fetchServices(false, { page: 1, per_page: 8 });
-    }, []);
-
-    useEffect(() => {
-        doFetchServices(currentPage);
-    }, [filterType, filterStatus, currentPage]);
+        doFetchServices(currentPage, false);
+    }, [filterType, filterStatus, currentPage, doFetchServices]);
 
     const fetchPage = async (page = 1) => {
         setCurrentPage(page);
-        await doFetchServices(page);
+        await doFetchServices(page, true);
     };
 
     const handleSearch = (e) => {
@@ -87,27 +84,34 @@ const ServiceManagement = () => {
             return;
         }
 
-        setUpdating(true);
+        const targetId = statusModal.service.id;
+        const targetStatus = newStatus;
+        const targetReason = rejectionReason;
+
+        // 1. Đóng modal ngay lập tức
+        setStatusModal({ open: false, service: null });
+        setNewStatus('');
+        setRejectionReason('');
+
+        // 2. Cập nhật trạng thái "Lạc quan" (Optimistic)
+        const originalService = services.find(s => s.id === targetId);
+        updateService({ ...originalService, status: targetStatus, isOptimistic: true });
+
         try {
             const response = await adminApi.updateServiceStatus(
-                statusModal.service.id,
-                newStatus,
-                newStatus === 'rejected' ? rejectionReason : null
+                targetId,
+                targetStatus,
+                targetStatus === 'rejected' ? targetReason : null
             );
             if (response.success) {
-                toast?.success?.('Cập nhật trạng thái thành công');
-                setServices(services.map(s =>
-                    s.id === statusModal.service.id ? { ...s, status: newStatus } : s
-                ));
-                setStatusModal({ open: false, service: null });
-                setNewStatus('');
-                setRejectionReason('');
+                toast?.success?.('Đã cập nhật trạng thái dịch vụ!');
+                // Gộp dữ liệu mới từ API với các quan hệ cũ (provider, location, v.v.)
+                updateService({ ...originalService, ...response.data, isOptimistic: false });
             }
         } catch (error) {
-            console.error('Failed to update status:', error);
-            toast?.error?.('Lỗi khi cập nhật trạng thái');
-        } finally {
-            setUpdating(false);
+            toast?.error?.('Lỗi khi cập nhật trạng thái ngầm.');
+            // Rollback nếu lỗi
+            updateService({ ...originalService, isOptimistic: false });
         }
     };
 
@@ -117,7 +121,7 @@ const ServiceManagement = () => {
             const response = await adminApi.deleteService(id);
             if (response.success) {
                 toast?.success?.('Xóa dịch vụ thành công');
-                setServices(services.filter(s => s.id !== id));
+                removeService(id);
             }
         } catch (error) {
             console.error('Delete service error:', error);
@@ -251,11 +255,8 @@ const ServiceManagement = () => {
                 </div>
 
                 {/* Table */}
-                {loadingStates.isLoadingServices ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
-                        <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải danh sách dịch vụ...</p>
-                    </div>
+                {isLoadingServices ? (
+                    <TableSkeleton columns={7} rows={10} />
                 ) : (
                     <>
                         <AdminTable
@@ -264,7 +265,7 @@ const ServiceManagement = () => {
                             description={`Tổng cộng ${activeMeta.total} dịch vụ.`}
                         >
                             {services.length > 0 ? services.map((svc) => (
-                                <tr key={svc.id} className="hover:bg-gray-50/50 transition-colors group relative">
+                                <tr key={svc.id} className={`hover:bg-gray-50/50 transition-colors group relative ${svc.isOptimistic ? 'optimistic-updating' : ''}`}>
                                     <td className="px-8 py-5">
                                         <div className="max-w-[300px]">
                                             <button 
@@ -287,7 +288,7 @@ const ServiceManagement = () => {
                                     </td>
                                     <td className="px-8 py-5">
                                         <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
-                                            {svc.provider?.user?.display_name || 'N/A'}
+                                            {svc.provider?.business_name || svc.provider?.user?.display_name || 'N/A'}
                                         </span>
                                     </td>
                                     <td className="px-8 py-5">

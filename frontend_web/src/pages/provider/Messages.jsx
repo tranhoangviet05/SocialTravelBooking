@@ -4,11 +4,13 @@ import {
     Image as ImageIcon, Paperclip, Smile, Loader2,
     CheckCircle2, Clock, MapPin, User, MessageSquare
 } from 'lucide-react';
+import Skeleton from '../../components/common/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import chatApi from '../../api/chatApi';
 import echo from '../../utils/echo';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import MessageSkeleton from '../../components/common/MessageSkeleton';
 
 const Messages = () => {
     const { currentUser } = useAuth();
@@ -26,6 +28,7 @@ const Messages = () => {
     };
 
     const fetchConversations = useCallback(async () => {
+        setLoading(true);
         try {
             const response = await chatApi.getConversations();
             if (response.success) {
@@ -176,11 +179,7 @@ const Messages = () => {
     };
 
     if (loading) {
-        return (
-            <div className="h-[calc(100vh-160px)] flex items-center justify-center">
-                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-            </div>
-        );
+        return <MessageSkeleton />;
     }
 
     return (
@@ -312,8 +311,16 @@ const Messages = () => {
                         {/* Tin nhắn */}
                         <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-6">
                             {messagesLoading ? (
-                                <div className="flex items-center justify-center h-full">
-                                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                                <div className="space-y-6">
+                                    <div className="flex justify-start">
+                                        <div className="flex gap-3 max-w-[70%]">
+                                            <Skeleton width="32px" height="32px" className="rounded-lg mt-auto" />
+                                            <Skeleton width="150px" height="40px" className="rounded-2xl rounded-tl-none" />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <Skeleton width="120px" height="40px" className="rounded-2xl rounded-tr-none" />
+                                    </div>
                                 </div>
                             ) : messages.length > 0 ? (
                                 messages.map((msg, index) => {

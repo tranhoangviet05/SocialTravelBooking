@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import BookingCardSkeleton from '../../components/common/BookingCardSkeleton';
 import {
     Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle, RotateCw, Search
 } from 'lucide-react';
@@ -69,21 +70,29 @@ const MyBookings = () => {
     } = useProviderData();
 
     const [statusFilter, setStatusFilter] = useState('all');
-    const [updatingId, setUpdatingId] = useState(null);
+    const [backgroundTasks, setBackgroundTasks] = useState({});
     const [toast, setToast] = useState(null);
-    const [cancelModal, setCancelModal] = useState(null); // booking object
+    const [cancelModal, setCancelModal] = useState(null);
 
-    const loading = loadingStates.bookings && bookings.length === 0;
+    const loading = loadingStates.bookings;
 
     useEffect(() => { 
-        fetchBookings(true, statusFilter); 
-    }, [fetchBookings, statusFilter]);
+        if (bookings.length > 0 && statusFilter === 'all') return;
+        fetchBookings(false, statusFilter); 
+    }, [fetchBookings, statusFilter, bookings.length]);
 
     const showToast = (message, type = 'success') => setToast({ message, type });
 
     const handleStatusUpdate = async (bookingId, newStatus, cancelReason = '') => {
-        if (updatingId) return;
-        setUpdatingId(bookingId);
+        const taskType = newStatus === 'cancelled' ? 'cancelling' : 'updating';
+        setBackgroundTasks(prev => ({ ...prev, [bookingId]: taskType }));
+
+        const originalBooking = bookings.find(b => b.id === bookingId);
+        // Cập nhật lạc quan
+        setBookings(prev => prev.map(b => 
+            b.id === bookingId ? { ...b, status: newStatus, isOptimistic: true } : b
+        ));
+
         try {
             const res = await providerApi.updateBookingStatus(bookingId, newStatus, cancelReason);
             if (res.success) {
@@ -95,14 +104,23 @@ const MyBookings = () => {
                 };
                 showToast(statusLabels[newStatus] || 'Cập nhật thành công!');
                 setBookings(prev => prev.map(b =>
-                    b.id === bookingId ? { ...b, status: newStatus } : b
+                    b.id === bookingId ? { ...res.data, isOptimistic: false } : b
                 ));
                 setCancelModal(null);
             }
         } catch (err) {
+            console.error('Update booking error:', err);
             showToast(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái', 'error');
+            // Rollback
+            setBookings(prev => prev.map(b => 
+                b.id === bookingId ? { ...originalBooking, isOptimistic: false } : b
+            ));
         } finally {
-            setUpdatingId(null);
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[bookingId];
+                return newTasks;
+            });
         }
     };
 
@@ -123,7 +141,7 @@ const MyBookings = () => {
     };
 
     const getActionButtons = (booking) => {
-        const isProcessing = updatingId === booking.id;
+        const isProcessing = backgroundTasks[booking.id];
         const btnClass = "px-4 py-2 rounded-xl text-[12px] font-bold transition-all disabled:opacity-50 flex items-center gap-1.5";
         const hasCheckinRequest = booking.tourist_check_in_at && !booking.is_checked_in;
 
@@ -211,7 +229,7 @@ const MyBookings = () => {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => fetchBookings()}
+                    <button onClick={() => fetchBookings(true, statusFilter)}
                         className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
                         <RotateCw size={20} />
                     </button>
@@ -235,9 +253,8 @@ const MyBookings = () => {
 
             {/* Bookings List */}
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border">
-                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải đơn đặt chỗ...</p>
+                <div className="space-y-3">
+                    {[...Array(4)].map((_, i) => <BookingCardSkeleton key={i} />)}
                 </div>
             ) : filteredBookings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
@@ -249,64 +266,66 @@ const MyBookings = () => {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {filteredBookings.map(booking => (
-                        <div key={booking.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    {/* Code + Status */}
-                                    <div className="flex items-center gap-3 mb-3 flex-wrap">
-                                        <span className="text-xs font-mono font-black text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg">
-                                            #{booking.booking_code || booking.id}
-                                        </span>
-                                        {getStatusBadge(booking.status)}
+                    {filteredBookings.map(booking => {
+                        const taskType = backgroundTasks[booking.id];
+                        const isUpdating = taskType === 'updating' || booking.isOptimistic;
+                        const isCancelling = taskType === 'cancelling';
+
+                        return (
+                            <div key={booking.id} className={`bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all relative group ${isUpdating || isCancelling ? 'optimistic-updating' : ''}`}>
+                                {(isUpdating || isCancelling) && (
+                                    <div className="optimistic-adding-text text-[10px] font-bold uppercase">
+                                        {isCancelling ? 'Đang hủy đơn...' : 'Đang cập nhật...'}
                                     </div>
-
-                                    {/* Service name */}
-                                    <h3 className="text-sm font-black text-slate-900 mb-2">
-                                        {booking.service?.name || 'Dịch vụ'}
-                                    </h3>
-
-                                    {/* Details */}
-                                    <div className="flex items-center gap-5 text-xs text-slate-400 font-medium flex-wrap">
-                                        <span className="flex items-center gap-1.5">
-                                            <User size={13} />
-                                            {booking.contact_name || booking.user?.display_name || 'Khách hàng'}
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <CalendarCheck size={13} />
-                                            {formatDate(booking.check_in_date)}
-                                            {booking.check_out_date && ` → ${formatDate(booking.check_out_date)}`}
-                                        </span>
-                                        <span>
-                                            {booking.num_adults} người lớn
-                                            {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
-                                        </span>
-                                        {(booking.contact_phone || booking.user?.phone) && (
-                                            <span className="text-indigo-500 font-bold">
-                                                SĐT: {booking.contact_phone || booking.user?.phone}
+                                )}
+                                
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3 mb-3 flex-wrap">
+                                            <span className="text-xs font-mono font-black text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg">
+                                                #{booking.booking_code || booking.id}
                                             </span>
+                                            {getStatusBadge(booking.status)}
+                                        </div>
+
+                                        <h3 className="text-sm font-black text-slate-900 mb-2">
+                                            {booking.service?.name || 'Dịch vụ'}
+                                        </h3>
+
+                                        <div className="flex items-center gap-5 text-xs text-slate-400 font-medium flex-wrap">
+                                            <span className="flex items-center gap-1.5">
+                                                <User size={13} />
+                                                {booking.contact_name || booking.user?.display_name || 'Khách hàng'}
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <CalendarCheck size={13} />
+                                                {formatDate(booking.check_in_date)}
+                                                {booking.check_out_date && ` → ${formatDate(booking.check_out_date)}`}
+                                            </span>
+                                            <span>
+                                                {booking.num_adults} người lớn
+                                                {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
+                                            </span>
+                                        </div>
+
+                                        {booking.cancel_reason && (
+                                            <p className="text-xs text-rose-400 mt-2 flex items-center gap-1 font-bold">
+                                                <XCircle size={11} /> Lý do hủy: {booking.cancel_reason}
+                                            </p>
                                         )}
                                     </div>
 
-                                    {/* Cancel reason */}
-                                    {booking.cancel_reason && (
-                                        <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
-                                            <XCircle size={11} /> Lý do hủy: {booking.cancel_reason}
+                                    <div className="text-right flex-shrink-0">
+                                        <p className="text-xl font-black text-emerald-600 mb-1">
+                                            {Number(booking.total_amount || 0).toLocaleString('vi-VN')}₫
                                         </p>
-                                    )}
-                                </div>
-
-                                {/* Right: Price + Actions */}
-                                <div className="text-right flex-shrink-0">
-                                    <p className="text-xl font-black text-emerald-600 mb-1">
-                                        {Number(booking.total_amount || 0).toLocaleString('vi-VN')}₫
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-3">Tổng tiền</p>
-                                    {getActionButtons(booking)}
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-3">Tổng tiền</p>
+                                        {getActionButtons(booking)}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -314,7 +333,7 @@ const MyBookings = () => {
             {cancelModal && (
                 <CancelModal
                     bookingCode={cancelModal.booking_code || cancelModal.id}
-                    loading={updatingId === cancelModal.id}
+                    loading={backgroundTasks[cancelModal.id] === 'cancelling'}
                     onConfirm={(reason) => handleStatusUpdate(cancelModal.id, 'cancelled', reason)}
                     onCancel={() => setCancelModal(null)}
                 />

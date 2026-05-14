@@ -22,6 +22,7 @@ import AdminMetricCard from '../../components/admin/AdminMetricCard';
 import AdminTable from '../../components/admin/AdminTable';
 import { useAdminData } from '../../contexts/AdminDataContext';
 import { useAuth } from '../../contexts/AuthContext';
+import DashboardSkeleton from '../../components/common/DashboardSkeleton';
 
 const DashboardManagement = () => {
     const auth = useAuth();
@@ -30,7 +31,7 @@ const DashboardManagement = () => {
         stats: dashboardData, fetchStats, loadingStates
     } = useAdminData();
 
-    const loading = loadingStates.stats && !dashboardData;
+    const loading = loadingStates.stats;
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -81,12 +82,7 @@ const DashboardManagement = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <Loader2 className="w-12 h-12 text-sky-500 animate-spin mb-4" />
-                <p className="text-slate-400 font-bold">Đang tải dữ liệu Dashboard...</p>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     if (error) {

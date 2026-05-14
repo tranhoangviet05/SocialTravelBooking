@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, Bell, Shield, Database, Globe, Percent, Loader2, Sparkles, AlertTriangle, RotateCw } from 'lucide-react';
 import adminApi from '../../api/adminApi';
+import SettingsSkeleton from '../../components/common/SettingsSkeleton';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const SettingManagement = () => {
@@ -52,12 +53,7 @@ const SettingManagement = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
-                <p className="text-slate-400 font-bold">Đang tải cấu hình...</p>
-            </div>
-        );
+        return <SettingsSkeleton />;
     }
 
     return (

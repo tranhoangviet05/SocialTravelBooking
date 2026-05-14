@@ -22,7 +22,7 @@ import {
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
-
+import TableSkeleton from '../../components/common/TableSkeleton';
 import { useAdminData } from '../../contexts/AdminDataContext';
 
 const ProviderManagement = () => {
@@ -36,12 +36,12 @@ const ProviderManagement = () => {
     const [statusModal, setStatusModal] = useState({ open: false, provider: null });
     const [newStatus, setNewStatus] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
-    const [updating, setUpdating] = useState(false);
+    const [backgroundTasks, setBackgroundTasks] = useState({});
     const [detailModal, setDetailModal] = useState({ open: false, provider: null, loading: false });
 
     const toast = useNotification();
     
-    const loading = loadingStates.providers && providers.length === 0;
+    const loading = loadingStates.providers;
 
     useEffect(() => {
         fetchProviders(false, 1, { search: searchTerm, status: filterStatus });
@@ -77,27 +77,47 @@ const ProviderManagement = () => {
             return;
         }
 
-        setUpdating(true);
+        const targetId = statusModal.provider.id;
+        const targetStatus = newStatus;
+        const targetReason = rejectionReason;
+
+        // 1. Đóng modal
+        setStatusModal({ open: false, provider: null });
+        setNewStatus('');
+        setRejectionReason('');
+
+        // 2. Cập nhật lạc quan
+        setBackgroundTasks(prev => ({ ...prev, [targetId]: 'updating' }));
+        const originalProvider = providers.find(p => p.id === targetId);
+        setProviders(prev => prev.map(p => 
+            p.id === targetId ? { ...p, status: targetStatus, isOptimistic: true } : p
+        ));
+
         try {
             const response = await adminApi.updateProviderStatus(
-                statusModal.provider.id,
-                newStatus,
-                newStatus === 'rejected' ? rejectionReason : null
+                targetId,
+                targetStatus,
+                targetStatus === 'rejected' ? targetReason : null
             );
             if (response.success) {
                 toast?.success?.('Cập nhật trạng thái thành công');
-                setProviders(providers.map(p =>
-                    p.id === statusModal.provider.id ? { ...p, status: newStatus } : p
+                setProviders(prev => prev.map(p =>
+                    p.id === targetId ? { ...response.data, isOptimistic: false } : p
                 ));
-                setStatusModal({ open: false, provider: null });
-                setNewStatus('');
-                setRejectionReason('');
             }
         } catch (error) {
             console.error('Failed to update provider status:', error);
             toast?.error?.('Lỗi khi cập nhật trạng thái');
+            // Rollback
+            setProviders(prev => prev.map(p => 
+                p.id === targetId ? { ...originalProvider, isOptimistic: false } : p
+            ));
         } finally {
-            setUpdating(false);
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[targetId];
+                return newTasks;
+            });
         }
     };
 
@@ -173,10 +193,7 @@ const ProviderManagement = () => {
 
                 {/* Table */}
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
-                        <Loader2 className="w-10 h-10 text-sky-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải danh sách đối tác...</p>
-                    </div>
+                    <TableSkeleton columns={6} rows={10} />
                 ) : (
                     <>
                         <AdminTable
@@ -185,7 +202,7 @@ const ProviderManagement = () => {
                             description={`${providerMeta.total} nhà cung cấp đã đăng ký.`}
                         >
                             {providers.length > 0 ? providers.map((p) => (
-                                <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
+                                <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors group relative ${backgroundTasks[p.id] || p.isOptimistic ? 'optimistic-updating' : ''}`}>
                                     <td className="px-8 py-5">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">

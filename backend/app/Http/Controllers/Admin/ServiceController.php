@@ -223,6 +223,7 @@ class ServiceController extends Controller
             $service->rejection_reason = $request->rejection_reason;
         }
         $service->save();
+        $service->load(['provider.user:id,display_name,email', 'category:id,name', 'location:id,name', 'media']);
 
         return response()->json([
             'success' => true,

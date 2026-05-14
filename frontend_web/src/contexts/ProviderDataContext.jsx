@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import providerApi from '../api/providerApi';
 
@@ -28,67 +28,64 @@ export const ProviderDataProvider = ({ children }) => {
     const [categories, setCategories] = useState([]);
 
     // Loading & Loaded states
-    const [loadingStates, setLoadingStates] = useState({
-        stats: false,
-        services: false,
-        bookings: false,
-        reviews: false,
-        wallet: false,
-        settings: false,
-        system: false
-    });
+    const [loadingStates, setLoadingStates] = useState({});
+    const [loadedStates, setLoadedStates] = useState({});
 
-    const [loadedStates, setLoadedStates] = useState({
-        stats: false,
-        services: false,
-        bookings: false,
-        reviews: false,
-        wallet: false,
-        settings: false,
-        system: false
-    });
-
-    // Reset data on logout
-    useEffect(() => {
-        if (!currentUser || currentUser.role !== 'provider') {
-            setStats(null);
-            setServices([]);
-            setBookings([]);
-            setReviews([]);
-            setWallet(null);
-            setSettings(null);
-            setLoadedStates({
-                stats: false,
-                services: false,
-                bookings: false,
-                reviews: false,
-                wallet: false,
-                settings: false
-            });
-        }
-    }, [currentUser]);
+    // Refs for stable callbacks
+    const loadedStatesRef = useRef({});
+    const loadingStatesRef = useRef({});
+    useEffect(() => { loadedStatesRef.current = loadedStates; }, [loadedStates]);
+    useEffect(() => { loadingStatesRef.current = loadingStates; }, [loadingStates]);
 
     const setOneLoading = (key, val) => setLoadingStates(prev => ({ ...prev, [key]: val }));
     const setOneLoaded = (key, val) => setLoadedStates(prev => ({ ...prev, [key]: val }));
 
+    const isParamsEmpty = (p) => {
+        if (!p) return true;
+        return !Object.values(p).some(v => v !== undefined && v !== null && v !== '' && v !== 'all' && v !== false);
+    };
+
+    // Reset data on logout
+    useEffect(() => {
+        if (!currentUser || currentUser.role !== 'provider') {
+            setStats(null); setServices([]); setBookings([]); setReviews([]);
+            setWallet(null); setSettings(null);
+            setLoadedStates({});
+            setLoadingStates({});
+        }
+    }, [currentUser]);
+
+    const withMinDelay = async (promise, minDelay = 500) => {
+        const start = Date.now();
+        const result = await promise;
+        const elapsed = Date.now() - start;
+        if (elapsed < minDelay) await new Promise(r => setTimeout(r, minDelay - elapsed));
+        return result;
+    };
+
     const fetchStats = useCallback(async (force = false) => {
-        if (loadedStates.stats && !force) return;
+        if (loadingStatesRef.current.stats && !force) return;
+        if (loadedStatesRef.current.stats && !force) return;
         setOneLoading('stats', true);
         try {
-            const res = await providerApi.getStats();
+            const apiCall = providerApi.getStats();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setStats(res.data);
                 setOneLoaded('stats', true);
             }
         } catch (err) { console.error('ProviderData: fetchStats error', err); }
         finally { setOneLoading('stats', false); }
-    }, [loadedStates.stats]);
+    }, []);
 
     const fetchServices = useCallback(async (force = false, params = {}) => {
-        if (loadedStates.services && !force && !params.page) return;
+        const isDefault = isParamsEmpty(params);
+        if (loadingStatesRef.current.services && !force) return;
+        if (loadedStatesRef.current.services && !force && isDefault) return;
         setOneLoading('services', true);
         try {
-            const res = await providerApi.getServices(params);
+            const apiCall = providerApi.getServices(params);
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setServices(res.data);
                 setServicesMeta(res.meta || { current_page: 1, last_page: 1, total: 0 });
@@ -96,82 +93,94 @@ export const ProviderDataProvider = ({ children }) => {
             }
         } catch (err) { console.error('ProviderData: fetchServices error', err); }
         finally { setOneLoading('services', false); }
-    }, [loadedStates.services]);
+    }, []);
 
     const fetchBookings = useCallback(async (force = false, status = 'all') => {
-        if (loadedStates.bookings && !force && status === 'all') return;
+        const isDefault = status === 'all';
+        if (loadingStatesRef.current.bookings && !force) return;
+        if (loadedStatesRef.current.bookings && !force && isDefault) return;
         setOneLoading('bookings', true);
         try {
-            const res = await providerApi.getBookings(status);
+            const apiCall = providerApi.getBookings(status);
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setBookings(res.data);
                 setOneLoaded('bookings', true);
             }
         } catch (err) { console.error('ProviderData: fetchBookings error', err); }
         finally { setOneLoading('bookings', false); }
-    }, [loadedStates.bookings]);
+    }, []);
 
     const fetchReviews = useCallback(async (force = false) => {
-        if (loadedStates.reviews && !force) return;
+        if (loadingStatesRef.current.reviews && !force) return;
+        if (loadedStatesRef.current.reviews && !force) return;
         setOneLoading('reviews', true);
         try {
-            const res = await providerApi.getReviews();
+            const apiCall = providerApi.getReviews();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setReviews(res.data);
                 setOneLoaded('reviews', true);
             }
         } catch (err) { console.error('ProviderData: fetchReviews error', err); }
         finally { setOneLoading('reviews', false); }
-    }, [loadedStates.reviews]);
+    }, []);
 
     const fetchWallet = useCallback(async (force = false) => {
-        if (loadedStates.wallet && !force) return;
+        if (loadingStatesRef.current.wallet && !force) return;
+        if (loadedStatesRef.current.wallet && !force) return;
         setOneLoading('wallet', true);
         try {
-            const res = await providerApi.getWallet();
+            const apiCall = providerApi.getWallet();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setWallet(res.data);
                 setOneLoaded('wallet', true);
             }
         } catch (err) { console.error('ProviderData: fetchWallet error', err); }
         finally { setOneLoading('wallet', false); }
-    }, [loadedStates.wallet]);
+    }, []);
 
     const fetchWalletReport = useCallback(async (force = false) => {
-        if (loadedStates.walletReport && !force) return;
+        if (loadingStatesRef.current.walletReport && !force) return;
+        if (loadedStatesRef.current.walletReport && !force) return;
         setOneLoading('walletReport', true);
         try {
-            const res = await providerApi.getWalletReport();
+            const apiCall = providerApi.getWalletReport();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setWalletReport(res.data);
                 setOneLoaded('walletReport', true);
             }
         } catch (err) { console.error('ProviderData: fetchWalletReport error', err); }
         finally { setOneLoading('walletReport', false); }
-    }, [loadedStates.walletReport]);
+    }, []);
 
     const fetchSettings = useCallback(async (force = false) => {
-        if (loadedStates.settings && !force) return;
+        if (loadingStatesRef.current.settings && !force) return;
+        if (loadedStatesRef.current.settings && !force) return;
         setOneLoading('settings', true);
         try {
-            const res = await providerApi.getSettings();
+            const apiCall = providerApi.getSettings();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setSettings(res.data);
                 setOneLoaded('settings', true);
             }
         } catch (err) { console.error('ProviderData: fetchSettings error', err); }
         finally { setOneLoading('settings', false); }
-    }, [loadedStates.settings]);
+    }, []);
 
     const fetchSystemData = useCallback(async (force = false) => {
-        if (loadedStates.system && !force && locations.length > 0) return;
+        if (loadingStatesRef.current.system && !force) return;
+        if (loadedStatesRef.current.system && !force && locations.length > 0) return;
         setOneLoading('system', true);
         try {
-            // Lấy toàn bộ địa điểm và danh mục (không phân trang)
-            const [locRes, catRes] = await Promise.all([
+            const apiCall = Promise.all([
                 providerApi.getPublicLocations(),
                 providerApi.getPublicCategories()
             ]);
+            const [locRes, catRes] = force ? await withMinDelay(apiCall) : await apiCall;
             
             if (locRes.data) setLocations(locRes.data);
             else if (locRes.success) setLocations(locRes.data || []);
@@ -185,7 +194,7 @@ export const ProviderDataProvider = ({ children }) => {
         } finally { 
             setOneLoading('system', false); 
         }
-    }, [loadedStates.system, locations.length]);
+    }, [locations.length]);
 
     const reloadAll = useCallback(async () => {
         await Promise.all([
@@ -200,13 +209,34 @@ export const ProviderDataProvider = ({ children }) => {
         ]);
     }, [fetchStats, fetchServices, fetchBookings, fetchReviews, fetchWallet, fetchWalletReport, fetchSettings, fetchSystemData]);
 
+    // CRUD Helpers (for client-side sync)
+    const addService = (svc) => setServices(prev => [svc, ...prev]);
+    const updateService = (svc) => setServices(prev => prev.map(s => s.id === svc.id ? svc : s));
+    const removeService = (id) => setServices(prev => prev.filter(s => s.id !== id));
+
+    const updateBooking = (bk) => setBookings(prev => prev.map(b => b.id === bk.id ? bk : b));
+
     const value = {
+        // Data
         stats, services, bookings, reviews, wallet, walletReport, settings, locations, categories,
         servicesMeta,
+        
+        // Loading States
         loadingStates, loadedStates,
+        isLoadingStats: loadingStates.stats,
+        isLoadingServices: loadingStates.services,
+        isLoadingBookings: loadingStates.bookings,
+        
+        // Setters
+        setStats, setServices, setBookings, setReviews, setWallet, setWalletReport, setSettings, setLocations, setCategories,
+
+        // Fetch Functions
         fetchStats, fetchServices, fetchBookings, fetchReviews, fetchWallet, fetchWalletReport, fetchSettings, fetchSystemData,
         reloadAll,
-        setServices, setBookings, setReviews, setSettings
+
+        // CRUD Helpers
+        addService, updateService, removeService,
+        updateBooking
     };
 
     return (

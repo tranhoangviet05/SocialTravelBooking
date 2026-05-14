@@ -16,11 +16,12 @@ import {
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
+import TableSkeleton from '../../components/common/TableSkeleton';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAdminData } from '../../contexts/AdminDataContext';
 
 const CouponManagement = () => {
-    const [coupons, setCoupons] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { coupons, fetchCoupons, loadingStates, addCoupon, updateCoupon, removeCoupon } = useAdminData();
     const [searchTerm, setSearchTerm] = useState('');
     const [modal, setModal] = useState({ isOpen: false, coupon: null });
     const [formData, setFormData] = useState({
@@ -32,32 +33,18 @@ const CouponManagement = () => {
         valid_from: '',
         valid_until: ''
     });
+    const [backgroundTasks, setBackgroundTasks] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
     const toast = useNotification();
 
     useEffect(() => {
-        fetchCoupons();
-    }, []);
-
-    const fetchCoupons = async () => {
-        setLoading(true);
-        try {
-            const response = await adminApi.getAllCoupons({ search: searchTerm });
-            if (response.success) {
-                setCoupons(response.data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch coupons:', error);
-            toast?.error?.('Không thể tải danh sách mã giảm giá');
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchCoupons(false, 1, { search: searchTerm });
+    }, [fetchCoupons]);
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchCoupons();
+        fetchCoupons(true, 1, { search: searchTerm });
     };
 
     const handleOpenModal = (coupon = null) => {
@@ -93,13 +80,19 @@ const CouponManagement = () => {
             let response;
             if (modal.coupon) {
                 response = await adminApi.updateCoupon(modal.coupon.id, formData);
+                if (response.success) {
+                    toast?.success?.('Cập nhật thành công');
+                    updateCoupon(response.data);
+                }
             } else {
                 response = await adminApi.createCoupon(formData);
+                if (response.success) {
+                    toast?.success?.('Tạo mới thành công');
+                    addCoupon(response.data);
+                }
             }
 
             if (response.success) {
-                toast?.success?.(modal.coupon ? 'Cập nhật thành công' : 'Tạo mới thành công');
-                fetchCoupons();
                 setModal({ isOpen: false, coupon: null });
             }
         } catch (error) {
@@ -113,15 +106,27 @@ const CouponManagement = () => {
 
     const handleDelete = async (id) => {
         if (!window.confirm('Bạn có chắc muốn xóa mã giảm giá này?')) return;
+        
+        setBackgroundTasks(prev => ({ ...prev, [id]: 'deleting' }));
+        const originalCoupon = coupons.find(c => c.id === id);
+        removeCoupon(id);
+
         try {
             const response = await adminApi.deleteCoupon(id);
             if (response.success) {
                 toast?.success?.('Đã xóa mã giảm giá');
-                setCoupons(coupons.filter(c => c.id !== id));
             }
         } catch (error) {
             console.error('Delete coupon error:', error);
             toast?.error?.('Không thể xóa mã giảm giá');
+            // Rollback
+            if (originalCoupon) addCoupon(originalCoupon);
+        } finally {
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[id];
+                return newTasks;
+            });
         }
     };
 
@@ -168,72 +173,86 @@ const CouponManagement = () => {
                     </div>
                 </div>
 
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
-                        <Loader2 className="w-10 h-10 text-rose-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải mã giảm giá...</p>
-                    </div>
+                {loadingStates.coupons ? (
+                    <TableSkeleton columns={6} rows={8} />
                 ) : (
                     <AdminTable
-                        headers={['Mã code', 'Loại hình', 'Giá trị giảm', 'Đơn tối thiểu', 'Hạn dùng', 'Lượt dùng', '']}
+                        headers={['Mã', 'Loại', 'Giá trị', 'Đơn tối thiểu', 'Hạn dùng', 'Lượt dùng', '']}
                         title="Tất cả mã giảm giá"
-                        description={`Hiện có ${coupons.length} chiến dịch.`}
+                        description={`Hiện có ${coupons.length} mã đang hoạt động.`}
                     >
-                        {coupons.length > 0 ? coupons.map(c => (
-                            <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
-                                <td className="px-8 py-5">
-                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg font-mono font-black text-xs border-2 border-dashed border-amber-200">
-                                        {c.code}
-                                    </span>
-                                </td>
-                                <td className="px-8 py-5 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                    {c.type === 'percent' ? (
-                                        <div className="flex items-center gap-1.5 text-sky-500">
-                                            <Percent size={14} /> Phần trăm
+                        {coupons.length > 0 ? coupons.map((c) => {
+                            const isDeleting = backgroundTasks[c.id] === 'deleting';
+                            return (
+                                <tr key={c.id} className={`hover:bg-gray-50/50 transition-colors group relative ${isDeleting ? 'optimistic-updating' : ''}`}>
+                                    <td className="px-8 py-5">
+                                        {isDeleting ? (
+                                            <div className="optimistic-adding-text text-[10px] font-bold uppercase text-rose-500">Đang xóa...</div>
+                                        ) : (
+                                            <span className="font-mono text-sm font-black text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-100">{c.code}</span>
+                                        )}
+                                    </td>
+                                    <td className="px-8 py-5 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                        {c.type === 'percent' ? (
+                                            <div className="flex items-center gap-1.5 text-sky-500">
+                                                <Percent size={14} /> Phần trăm
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5 text-emerald-500">
+                                                <DollarSign size={14} /> Cố định
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-8 py-5">
+                                        <span className="text-sm font-black text-slate-900">
+                                            {c.type === 'percent' ? `${c.discount_value}%` : formatCurrency(c.discount_value)}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-5">
+                                        <span className="text-sm font-bold text-slate-600">{formatCurrency(c.min_order_amount || 0)}</span>
+                                    </td>
+                                    <td className="px-8 py-5 text-sm font-medium text-slate-500">
+                                        <div className="flex flex-col gap-0.5">
+                                            <span>Từ: {formatDate(c.valid_from)}</span>
+                                            <span>Đến: {formatDate(c.valid_until)}</span>
                                         </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 text-emerald-500">
-                                            <DollarSign size={14} /> Cố định
+                                    </td>
+                                    <td className="px-8 py-5">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-indigo-500 rounded-full"
+                                                    style={{ width: `${Math.min((c.used_count / (c.usage_limit || 1)) * 100, 100)}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-500">{c.used_count}/{c.usage_limit || '∞'}</span>
                                         </div>
-                                    )}
-                                </td>
-                                <td className="px-8 py-5 text-sm font-black text-slate-900">
-                                    {c.type === 'percent' ? `${c.discount_value}%` : formatCurrency(c.discount_value)}
-                                </td>
-                                <td className="px-8 py-5 text-sm text-gray-500 font-medium">
-                                    {c.min_order_amount > 0 ? formatCurrency(c.min_order_amount) : 'Không giới hạn'}
-                                </td>
-                                <td className="px-8 py-5">
-                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                                        <Calendar size={14} /> {formatDate(c.valid_until)}
-                                    </div>
-                                </td>
-                                <td className="px-8 py-5">
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-black text-slate-700">{c.used_count || 0}</span>
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">/ {c.usage_limit || '∞'}</span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-5 text-right">
-                                    <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                        <button
-                                            onClick={() => handleOpenModal(c)}
-                                            className="p-2 text-gray-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl transition-all"
-                                        >
-                                            <Edit3 size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(c.id)}
-                                            className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )) : (
+                                    </td>
+                                    <td className="px-8 py-5 text-right">
+                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button
+                                                onClick={() => handleOpenModal(c)}
+                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                title="Sửa"
+                                            >
+                                                <Edit3 size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(c.id)}
+                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                title="Xóa"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        }) : (
                             <tr>
-                                <td colSpan={7} className="px-8 py-16 text-center text-gray-400 font-bold">Không tìm thấy mã nào.</td>
+                                <td colSpan={7} className="px-8 py-10 text-center text-slate-400 font-bold">
+                                    Chưa có mã giảm giá nào
+                                </td>
                             </tr>
                         )}
                     </AdminTable>

@@ -18,47 +18,32 @@ import {
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
+import TableSkeleton from '../../components/common/TableSkeleton';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAdminData } from '../../contexts/AdminDataContext';
 
 const ReportManagement = () => {
-    const [reports, setReports] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { reports, meta, loadingStates, fetchReports, updateReport } = useAdminData();
     const [filterStatus, setFilterStatus] = useState('');
-    const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [resolveModal, setResolveModal] = useState({ open: false, report: null });
     const [resolutionNote, setResolutionNote] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [detailModal, setDetailModal] = useState({ open: false, report: null, loading: false });
+    const [backgroundTasks, setBackgroundTasks] = useState({});
+
+    const activeMeta = meta.reports || { current_page: 1, last_page: 1, total: 0 };
 
     const toast = useNotification();
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchReports(1);
+            fetchReports(false, 1, { status: filterStatus, search: searchTerm });
         }, 400);
         return () => clearTimeout(timer);
-    }, [filterStatus, searchTerm]);
+    }, [fetchReports, filterStatus, searchTerm]);
 
-    const fetchReports = async (page = 1) => {
-        setLoading(true);
-        try {
-            const params = { page, per_page: 8 };
-            if (filterStatus) params.status = filterStatus;
-            if (searchTerm) params.search = searchTerm;
-
-            const response = await adminApi.getAllReports(params);
-            if (response.success) {
-                setReports(response.data);
-                setMeta(response.meta || { current_page: 1, last_page: 1, total: 0 });
-            }
-        } catch (error) {
-            console.error('Failed to fetch reports:', error);
-            toast?.error?.('Không thể tải danh sách báo cáo');
-        } finally {
-            setLoading(false);
-        }
-    };
+    // fetchReports is now from context
 
     const handleViewDetail = async (id) => {
         setDetailModal({ open: true, report: null, loading: true });
@@ -79,23 +64,41 @@ const ReportManagement = () => {
             return;
         }
 
+        const targetId = resolveModal.report.id;
+        const targetStatus = status;
+        const targetNote = resolutionNote;
+
         setSubmitting(true);
+        // Optimistic UI
+        setBackgroundTasks(prev => ({ ...prev, [targetId]: 'resolving' }));
+        const originalReport = reports.find(r => r.id === targetId);
+        updateReport({ ...originalReport, status: targetStatus, isOptimistic: true });
+
+        // Close modal
+        setResolveModal({ open: false, report: null });
+        setResolutionNote('');
+
         try {
-            const response = await adminApi.resolveReport(resolveModal.report.id, {
-                status,
-                resolution_note: resolutionNote
+            const response = await adminApi.resolveReport(targetId, {
+                status: targetStatus,
+                resolution_note: targetNote
             });
             if (response.success) {
                 toast?.success?.('Đã cập nhật trạng thái báo cáo');
-                fetchReports(meta.current_page);
-                setResolveModal({ open: false, report: null });
-                setResolutionNote('');
+                updateReport({ ...response.data, isOptimistic: false });
             }
         } catch (error) {
             console.error('Resolve report error:', error);
             toast?.error?.('Lỗi khi xử lý báo cáo');
+            // Rollback
+            updateReport({ ...originalReport, isOptimistic: false });
         } finally {
             setSubmitting(false);
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[targetId];
+                return newTasks;
+            });
         }
     };
 
@@ -161,7 +164,7 @@ const ReportManagement = () => {
                             <option value="resolved">Đã giải quyết</option>
                             <option value="dismissed">Đã bác bỏ</option>
                         </select>
-                        <button onClick={() => fetchReports(meta.current_page)}
+                        <button onClick={() => fetchReports(true, activeMeta.current_page, { status: filterStatus, search: searchTerm })}
                             className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
                             <RotateCw size={20} />
                         </button>
@@ -169,86 +172,89 @@ const ReportManagement = () => {
                 </div>
             </div>
 
-            {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100">
-                        <Loader2 className="w-10 h-10 text-rose-500 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">Đang tải danh sách báo cáo...</p>
-                    </div>
+            {loadingStates.reports ? (
+                    <TableSkeleton columns={6} rows={8} />
                 ) : (
                     <>
                         <AdminTable
-                            headers={['Loại báo cáo', 'Nội dung', 'Người báo cáo', 'Sự kiện/Dịch vụ', 'Trạng thái', '']}
-                            title="Danh sách báo cáo"
-                            description={`${meta.total} yêu cầu khiếu nại.`}
+                            headers={['Nội dung', 'Loại', 'Người báo cáo', 'Đối tượng', 'Trạng thái', '']}
+                            title="Báo cáo vi phạm"
+                            description={`Hiện có ${activeMeta.total} báo cáo đang chờ.`}
                         >
-                            {reports.map((r) => (
-                                <tr key={r.id} className="hover:bg-gray-50/50 transition-colors group">
-                                    <td className="px-8 py-5">
-                                        <div className="flex flex-col">
+                            {reports.map((r) => {
+                                const isResolving = backgroundTasks[r.id] === 'resolving' || r.isOptimistic;
+                                return (
+                                    <tr key={r.id} className={`hover:bg-gray-50/50 transition-colors group ${isResolving ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <td className="px-8 py-5">
+                                            {isResolving ? (
+                                                <div className="text-[10px] font-bold uppercase text-slate-400">Đang xử lý...</div>
+                                            ) : (
+                                                <p className="text-sm text-slate-700 font-medium max-w-[200px] line-clamp-2">{r.description || 'Không có mô tả chi tiết.'}</p>
+                                            )}
+                                        </td>
+                                        <td className="px-8 py-5">
                                             <span className="text-[10px] font-black uppercase text-rose-500 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 w-fit">
                                                 {getTypeLabel(r.type)}
                                             </span>
-                                            <span className="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-tighter">ID: {r.id.split('-')[0]}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <p className="text-sm text-slate-700 font-medium max-w-[200px] line-clamp-2">{r.description || 'Không có mô tả chi tiết.'}</p>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-2">
-                                            <User size={14} className="text-gray-400" />
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-600">{r.reporter?.display_name || 'Khách'}</p>
-                                                <p className="text-[10px] text-gray-300 font-bold">{formatDate(r.created_at)}</p>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-2">
+                                                <User size={14} className="text-gray-400" />
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-600">{r.reporter?.display_name || 'Khách'}</p>
+                                                    <p className="text-[10px] text-gray-300 font-bold">{formatDate(r.created_at)}</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <p className="text-xs font-black text-indigo-600 truncate max-w-[150px]">{r.service?.name || r.post_id || 'N/A'}</p>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusStyle(r.status)}`}>
-                                            {getStatusLabel(r.status)}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                            <button
-                                                onClick={() => handleViewDetail(r.id)}
-                                                className="p-2 text-gray-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl transition-all"
-                                                title="Xem chi tiết"
-                                            >
-                                                <Eye size={18} />
-                                            </button>
-                                            {r.status === 'pending' && (
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <p className="text-xs font-black text-indigo-600 truncate max-w-[150px]">{r.service?.name || r.post_id || 'N/A'}</p>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusStyle(r.status)}`}>
+                                                {getStatusLabel(r.status)}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all">
                                                 <button
-                                                    onClick={() => setResolveModal({ open: true, report: r })}
-                                                    className="p-2 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
-                                                    title="Xử lý"
+                                                    onClick={() => handleViewDetail(r.id)}
+                                                    className="p-2 text-gray-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl transition-all"
+                                                    title="Xem chi tiết"
                                                 >
-                                                    <CheckCircle2 size={18} />
+                                                    <Eye size={18} />
                                                 </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                                {r.status === 'pending' && (
+                                                    <button
+                                                        onClick={() => setResolveModal({ open: true, report: r })}
+                                                        className="p-2 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                                                        title="Xử lý"
+                                                    >
+                                                        <CheckCircle2 size={18} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </AdminTable>
 
-                        {meta.last_page > 1 && (
+                        {activeMeta.last_page > 1 && (
                             <div className="flex items-center justify-between bg-white px-8 py-4 rounded-2xl border border-gray-100 mt-4">
-                                <p className="text-sm text-gray-500 font-medium whitespace-nowrap">Trang {meta.current_page} / {meta.last_page}</p>
+                                <p className="text-sm text-gray-500 font-medium">
+                                    Trang {activeMeta.current_page} / {activeMeta.last_page} ({activeMeta.total} báo cáo)
+                                </p>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => fetchReports(meta.current_page - 1)}
-                                        disabled={meta.current_page <= 1}
+                                        onClick={() => fetchReports(true, activeMeta.current_page - 1, { status: filterStatus, search: searchTerm })}
+                                        disabled={activeMeta.current_page <= 1}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all"
                                     >
                                         <ChevronLeft size={20} />
                                     </button>
                                     <button
-                                        onClick={() => fetchReports(meta.current_page + 1)}
-                                        disabled={meta.current_page >= meta.last_page}
+                                        onClick={() => fetchReports(true, activeMeta.current_page + 1, { status: filterStatus, search: searchTerm })}
+                                        disabled={activeMeta.current_page >= activeMeta.last_page}
                                         className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:text-slate-900 hover:bg-gray-50 disabled:opacity-30 transition-all"
                                     >
                                         <ChevronRight size={20} />

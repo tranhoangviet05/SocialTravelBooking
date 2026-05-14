@@ -4,23 +4,20 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import DashboardSkeleton from '../../components/common/DashboardSkeleton';
 
 const ProviderDashboard = () => {
     const { stats, fetchStats, loadingStates } = useProviderData();
-    const loading = loadingStates.stats && !stats;
+    const loading = loadingStates.stats;
     const navigate = useNavigate();
 
     useEffect(() => {
+        if (stats) return;
         fetchStats();
-    }, [fetchStats]);
+    }, [fetchStats, stats]);
 
     if (loading || !stats) {
-        return (
-            <div className="flex flex-col items-center justify-center py-32">
-                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                <p className="text-slate-400 font-bold">Đang tải dữ liệu...</p>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     const statCards = [
@@ -64,8 +61,8 @@ const ProviderDashboard = () => {
                         Chào mừng <span className="text-emerald-600 font-black">{stats?.business_name || 'Nhà cung cấp'}</span>, đây là hiệu suất kinh doanh của bạn!
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => fetchStats()}
+                <div className="flex items-center gap-2">
+                    <button onClick={() => fetchStats(true)}
                         className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer">
                         <RotateCw size={20} />
                     </button>

@@ -280,9 +280,10 @@ Route::middleware('firebase.auth')->group(function () {
 });
 
 // ===========================================================
-// N8N AUTOMATION ROUTES (Public for local dev)
+// N8N AUTOMATION ROUTES (Secured with Sanctum)
 // ===========================================================
-Route::get('/n8n/users', function () {
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/n8n/users', function () {
     // Chỉ lấy những khách CÓ HOẠT ĐỘNG trong vòng 24h qua và chưa nhận email trong 24h qua
     $timeFrame = now()->subHours(24);
 
@@ -358,25 +359,26 @@ Route::get('/n8n/services', function () {
         'data' => \App\Models\Service::with('media')->where('status', 'active')->get()
     ]);
 });
-Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
-    $locationId = $request->query('location_id');
-    $query = \App\Models\Service::with('media')
-        ->where('type', 'hotel')
-        ->where('status', 'active');
-    
-    if ($locationId) {
-        $query->where('location_id', $locationId);
-    }
+    Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
+        $locationId = $request->query('location_id');
+        $query = \App\Models\Service::with('media')
+            ->where('type', 'hotel')
+            ->where('status', 'active');
+        
+        if ($locationId) {
+            $query->where('location_id', $locationId);
+        }
 
-    return response()->json([
-        'success' => true,
-        'data' => $query->get()
-    ]);
-});
-Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
+        return response()->json([
+            'success' => true,
+            'data' => $query->get()
+        ]);
+    });
 
-// N8n tạo Voucher
-Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
+    Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
+
+    // N8n tạo Voucher
+    Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate([
         'code' => 'required|string|max:50',
         'type' => 'required|in:percent,fixed',
@@ -405,4 +407,5 @@ Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
             'message' => 'Lỗi khi tạo mã giảm giá: ' . $e->getMessage()
         ], 500);
     }
+});
 });

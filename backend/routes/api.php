@@ -356,12 +356,12 @@ Route::get('/n8n/user-history/{userId}', function ($userId) {
 Route::get('/n8n/services', function () {
     return response()->json([
         'success' => true,
-        'data' => \App\Models\Service::with('media')->where('status', 'active')->get()
+        'data' => \App\Models\Service::with(['media', 'location'])->where('status', 'active')->get()
     ]);
 });
     Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
         $locationId = $request->query('location_id');
-        $query = \App\Models\Service::with('media')
+        $query = \App\Models\Service::with(['media', 'location'])
             ->where('type', 'hotel')
             ->where('status', 'active');
         

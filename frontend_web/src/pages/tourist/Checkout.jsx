@@ -283,12 +283,16 @@ const Checkout = () => {
         selectedRoomType: null,
     });
 
+    const [booking, setBooking] = useState(null);
+    const [error, setError] = useState(null);
+
     // 1. Nếu vào bằng link Email (có bookingId), lấy data từ Server
     useEffect(() => {
         if (!bookingId) return;
 
         const fetchBooking = async () => {
             setLoadingBooking(true);
+            setError(null);
             try {
                 const res = await bookingApi.getBookingById(bookingId);
                 if (res.success && res.data) {
@@ -312,9 +316,12 @@ const Checkout = () => {
                     
                     // Nếu đơn đã có booking sẵn, nhảy thẳng sang bước thanh toán 
                     setStep(2); 
+                } else {
+                    setError(res.message || "Không tìm thấy dữ liệu đơn hàng.");
                 }
             } catch (err) {
                 console.error("Error fetching booking:", err);
+                setError(err.response?.data?.message || "Lỗi kết nối đến máy chủ (404).");
             } finally {
                 setLoadingBooking(false);
             }
@@ -452,13 +459,22 @@ const Checkout = () => {
                     <X size={48} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-black text-slate-800 mb-2">Đơn hàng không tồn tại</h2>
-                    <p className="text-slate-400 max-w-xs mx-auto">Đơn hàng #{bookingId.substring(0,8)}... không tìm thấy hoặc đã bị hủy.</p>
+                    <h2 className="text-2xl font-black text-slate-800 mb-2">Không tìm thấy đơn hàng</h2>
+                    <p className="text-slate-400 max-w-xs mx-auto mb-4">Mã đơn: #{bookingId.substring(0,8)}...</p>
+                    <div className="bg-rose-50 text-rose-600 text-xs p-3 rounded-xl font-mono mb-6">
+                        Lỗi: {error || "Server trả về 404 (Không tìm thấy route hoặc đơn hàng)"}
+                    </div>
                 </div>
-                <button onClick={() => navigate('/my-bookings')}
-                    className="px-8 py-4 bg-slate-800 text-white rounded-2xl font-black shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all hover:scale-105 active:scale-95">
-                    Quay lại đơn hàng của tôi
-                </button>
+                <div className="flex gap-3">
+                    <button onClick={() => navigate('/my-bookings')}
+                        className="px-6 py-4 bg-slate-800 text-white rounded-2xl font-black shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all hover:scale-105 active:scale-95">
+                        Quay lại đơn hàng
+                    </button>
+                    <button onClick={() => window.location.reload()}
+                        className="px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black hover:bg-slate-50 transition-all">
+                        Thử lại
+                    </button>
+                </div>
             </div>
         );
     }

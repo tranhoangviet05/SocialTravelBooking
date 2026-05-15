@@ -133,7 +133,7 @@ Route::middleware('firebase.auth')->group(function () {
     // ===========================================================
     // TOURIST ROUTES (Khách du lịch - Cần User Model)
     // ===========================================================
-        Route::get('/bookings/{id}', [\App\Http\Controllers\General\BookingController::class, 'show']);
+        Route::get('/user/booking-details/{id}', [\App\Http\Controllers\General\BookingController::class, 'show']);
 
         Route::middleware('role:tourist,provider,admin')->group(function () {
             Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);

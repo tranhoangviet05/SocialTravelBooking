@@ -135,13 +135,7 @@ Route::middleware('firebase.auth')->group(function () {
     // ===========================================================
     Route::middleware('role:tourist,provider,admin')->group(function () {
         Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
-        Route::get('/bookings/{id}', function ($id) {
-            $booking = \App\Models\Booking::with(['service.provider', 'service.media', 'service.roomTypes'])
-                ->where('id', $id)
-                ->where('user_id', auth()->id())
-                ->firstOrFail();
-            return response()->json(['success' => true, 'data' => $booking]);
-        });
+        Route::get('/bookings/{id}', [\App\Http\Controllers\General\BookingController::class, 'show']);
         Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
         Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
         Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);

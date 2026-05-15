@@ -138,6 +138,24 @@ class BookingController extends Controller
             ], 500);
         }
     }
+    /**
+     * Lấy thông tin chi tiết một đơn đặt chỗ
+     * GET /api/bookings/{id}
+     */
+    public function show(Request $request, $id)
+    {
+        $userId = $request->user->id;
+
+        $booking = Booking::with(['service.provider', 'service.media', 'service.roomTypes'])
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->firstOrFail();
+
+        return response()->json([
+            'success' => true,
+            'data' => $booking
+        ]);
+    }
 
     /**
      * Lấy danh sách đặt chỗ của user hiện tại

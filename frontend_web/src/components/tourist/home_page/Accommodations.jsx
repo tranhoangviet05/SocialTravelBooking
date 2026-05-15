@@ -39,7 +39,20 @@ const Accommodations = () => {
         }
     };
 
-    if (loading) return <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-sky-500" size={40} /></div>;
+    if (loading) {
+        return (
+            <section className="py-16 bg-white overflow-hidden">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="h-8 bg-slate-100 rounded w-1/4 mb-10 animate-pulse" />
+                    <div className="flex gap-6">
+                        {[1, 2, 3, 4].map(n => (
+                            <div key={n} className="w-1/4 h-80 bg-slate-50 rounded-2xl border border-slate-100 animate-pulse" />
+                        ))}
+                    </div>
+                </div>
+            </section>
+        );
+    }
     if (accommodations.length === 0) return null;
 
     return (

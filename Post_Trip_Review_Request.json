@@ -1,0 +1,130 @@
+{
+  "name": "Post-Trip Review Request",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger (9 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        500
+      ],
+      "id": "225075f0-e4f8-5063-9f94-8d4006f99522"
+    },
+    {
+      "parameters": {
+        "url": "https://socialtravelbooking.click/api/n8n/completed-bookings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 1|mNdpqCEqhxMNqKXZosjONpHVjnA0jtcRL1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP: Lấy Đơn Hoàn Tất",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        520,
+        500
+      ],
+      "id": "784g4355-b013-5864-ab5d-646427425922"
+    },
+    {
+      "parameters": {
+        "fromEmail": "dangthanhvu0103@gmail.com",
+        "toEmail": "={{ $json.contact_email }}",
+        "subject": "Chia sẻ trải nghiệm tại {{ $json.service.name }} của bạn! ✨",
+        "html": "=<div style=\"font-family: sans-serif; padding: 25px; border: 1px solid #27ae60; border-radius: 10px;\">\n  <h2 style=\"color: #27ae60;\">Chuyến đi của bạn thế nào?</h2>\n  <p>Chào {{ $json.contact_name }}, cảm ơn bạn đã lựa chọn <b>{{ $json.service.name }}</b> cho chuyến đi vừa qua.</p>\n  <p>Hãy dành chút thời gian chia sẻ cảm nhận của bạn để cộng đồng cùng biết nhé!</p>\n  <div style=\"text-align: center; margin-top: 20px;\">\n    <a href=\"http://localhost:5173/service/{{ $json.service.slug }}#reviews\" style=\"background-color: #27ae60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Đánh giá ngay</a>\n  </div>\n</div>",
+        "options": {}
+      },
+      "name": "Send Email: Xin Đánh Giá",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        740,
+        500
+      ],
+      "id": "14144d4b-9783-5744-9869-656528427922"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://socialtravelbooking.click/api/n8n/bookings/{{ $json.id }}/mark-review-requested",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 1|mNdpqCEqhxMNqKXZosjONpHVjnA0jtcRL1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP: Đánh Dấu Đã Xin",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        960,
+        500
+      ],
+      "id": "d2d22e44-5743-5959-9090-232324427922"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (9 AM)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Lấy Đơn Hoàn Tất",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Lấy Đơn Hoàn Tất": {
+      "main": [
+        [
+          {
+            "node": "Send Email: Xin Đánh Giá",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email: Xin Đánh Giá": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Đánh Dấu Đã Xin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "84123fb77f7e6a9f9951cf3a5ace9dc97726cc2c3849f0a36d07ce70182ed16b"
+  }
+}

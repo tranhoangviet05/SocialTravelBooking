@@ -219,7 +219,7 @@ const MyBookings = () => {
                                         {booking.status === 'pending' && (
                                             <>
                                                 {booking.payment_status === 'pending' && (
-                                                    <Button variant="primary" size="sm" onClick={() => navigate('/checkout', { state: { service: { ...booking.service, id: booking.service_id } } })}>
+                                                    <Button variant="primary" size="sm" onClick={() => navigate(`/checkout/${booking.id}`)}>
                                                         Thanh toán ngay
                                                     </Button>
                                                 )}

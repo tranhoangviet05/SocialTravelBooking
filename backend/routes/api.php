@@ -34,16 +34,16 @@ Route::get('/ping', fn() => response()->json([
 ]
 ));
 
-// Route công khai để tải ảnh trực tiếp (Hỗ trợ mọi đường dẫn trong storage/app/public)
+// Route công khai để tải ảnh trực tiếp (Hỗ trợ mọi đường dẫn & Ảnh mặc định)
 Route::get('/images/{path}', function ($path) {
     $fullPath = storage_path('app/public/' . $path);
-    if (!file_exists($fullPath)) {
-        // Thử tìm trong images/ nếu path chưa có images/
-        $altPath = storage_path('app/public/images/' . $path);
-        if (file_exists($altPath)) return response()->file($altPath);
-        abort(404);
-    }
-    return response()->file($fullPath);
+    if (file_exists($fullPath)) return response()->file($fullPath);
+
+    $altPath = storage_path('app/public/images/' . $path);
+    if (file_exists($altPath)) return response()->file($altPath);
+
+    // Nếu không tìm thấy, trả về một ảnh mặc định để không bị lỗi 404
+    return response()->file(public_path('images/default-tour.jpg'));
 })->where('path', '.*');
 
 // Địa điểm & Danh mục (Public)
@@ -280,13 +280,36 @@ Route::get('/n8n/user-history/{id}', function ($id) {
 
 Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
     $locId = $request->query('location_id');
-    $query = \App\Models\Service::where('type', 'hotel');
+    $query = \App\Models\Service::with(['location', 'media'])->where('type', 'hotel')->where('status', 'active');
     if ($locId) $query->where('location_id', $locId);
-    return response()->json(['success' => true, 'data' => $query->get()]);
+    
+    $hotels = $query->limit(3)->get()->map(function($h) {
+        $h->media->map(function($m) {
+            $path = str_replace('public/', '', $m->getRawOriginal('url'));
+            $m->image_url = url('/api/images/' . $path);
+            return $m;
+        });
+        return $h;
+    });
+    return response()->json(['success' => true, 'data' => $hotels]);
 });
 
 Route::get('/n8n/services', function () {
-    return response()->json(['success' => true, 'data' => \App\Models\Service::all()]);
+    $services = \App\Models\Service::with(['location', 'media'])
+        ->where('type', 'tour')
+        ->where('status', 'active')
+        ->orderBy('created_at', 'desc')
+        ->limit(3)
+        ->get()
+        ->map(function($s) {
+            $s->media->map(function($m) {
+                $path = str_replace('public/', '', $m->getRawOriginal('url'));
+                $m->image_url = url('/api/images/' . $path);
+                return $m;
+            });
+            return $s;
+        });
+    return response()->json(['success' => true, 'data' => $services]);
 });
 
 Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
@@ -299,13 +322,15 @@ Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
     return response()->json(['success' => false], 404);
 });
 
-Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
-    $coupon = \App\Models\Coupon::create([
-        'code' => 'STB' . strtoupper(\Illuminate\Support\Str::random(6)),
-        'type' => 'percent', // Khớp với ENUM 'percent' hoặc 'fixed'
-        'discount_value' => 20,
-        'valid_until' => now()->addDays(30)
-    ]);
+// Lấy một mã giảm giá ngẫu nhiên có sẵn trong DB (Dành cho n8n)
+Route::get('/n8n/coupons/random', function () {
+    $coupon = \App\Models\Coupon::where('valid_until', '>', now())
+        ->inRandomOrder()
+        ->first();
+        
+    if (!$coupon) {
+        return response()->json(['success' => false, 'message' => 'Không còn mã giảm giá nào hiệu lực'], 404);
+    }
     return response()->json(['success' => true, 'data' => $coupon]);
 });
 
@@ -355,10 +380,21 @@ Route::post('/n8n/bookings/{id}/mark-review-requested', function ($id) {
 
 Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
 
-// API DÀNH RIÊNG CHO DEV TEST
+// API DÀNH RIÊNG CHO DEV TEST (Xóa toàn bộ cờ để test lại từ đầu)
 Route::get('/n8n/users/reset-testing', function () {
+    // 1. Reset cờ gửi mail quảng cáo ở bảng users
     \App\Models\User::whereNotNull('last_promo_sent_at')->update(['last_promo_sent_at' => null]);
-    return response()->json(['success' => true, 'message' => 'Đã reset toàn bộ trạng thái email.']);
+    
+    // 2. Reset cờ nhắc nhở thanh toán & xin đánh giá ở bảng bookings
+    \App\Models\Booking::query()->update([
+        'last_reminded_at' => null,
+        'review_requested_at' => null
+    ]);
+
+    return response()->json([
+        'success' => true, 
+        'message' => 'Đã "cởi trói" toàn bộ người dùng và đơn hàng. Sẵn sàng test lại từ đầu!'
+    ]);
 });
 
 // Admin lấy danh sách Log (Giữ lại trong auth để bảo mật)

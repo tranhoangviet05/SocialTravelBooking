@@ -429,6 +429,40 @@ Route::get('/n8n/services', function () {
         ], 201);
     });
 
+    // 1. Lấy đơn hàng Bỏ dở (Chờ thanh toán > 2 tiếng)
+    Route::get('/n8n/bookings/abandoned', function () {
+        $twoHoursAgo = now()->subHours(2);
+        $bookings = \App\Models\Booking::with(['user', 'service'])
+            ->where('payment_status', 'pending')
+            ->where('created_at', '<=', $twoHoursAgo)
+            ->whereNull('last_reminded_at')
+            ->get();
+        return response()->json(['success' => true, 'data' => $bookings]);
+    });
+
+    // 2. Đánh dấu đã nhắc nhở đơn bỏ dở
+    Route::post('/n8n/bookings/{id}/mark-reminded', function ($id) {
+        $booking = \App\Models\Booking::findOrFail($id);
+        $booking->update(['last_reminded_at' => now()]);
+        return response()->json(['success' => true]);
+    });
+
+    // 3. Lấy đơn hàng đã Hoàn tất (Để xin đánh giá)
+    Route::get('/n8n/bookings/completed', function () {
+        $bookings = \App\Models\Booking::with(['user', 'service'])
+            ->where('status', 'completed')
+            ->whereNull('review_requested_at')
+            ->get();
+        return response()->json(['success' => true, 'data' => $bookings]);
+    });
+
+    // 4. Đánh dấu đã gửi yêu cầu đánh giá
+    Route::post('/n8n/bookings/{id}/mark-review-requested', function ($id) {
+        $booking = \App\Models\Booking::findOrFail($id);
+        $booking->update(['review_requested_at' => now()]);
+        return response()->json(['success' => true]);
+    });
+
     // Admin lấy danh sách Log (Sắp xếp mới nhất lên đầu)
     Route::get('/admin/automation-logs', function () {
         return response()->json([

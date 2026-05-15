@@ -208,17 +208,28 @@ class SocialController extends Controller
      */
     public function createPost(\Illuminate\Http\Request $request)
     {
-        $content = $request->input('content', 'Bài đăng tự động từ n8n');
-        Log::info('N8N Auto Post: ' . $content);
+        // 1. Tìm Admin đầu tiên trong hệ thống
+        $admin = \App\Models\User::where('role', 'admin')->first();
+        
+        if (!$admin) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy tài khoản Admin'], 404);
+        }
+
+        // 2. Lấy nội dung từ n8n
+        $content = $request->input('content', 'Bài đăng tự động từ Social Travel Booking');
+        
+        // 3. Tạo bài đăng thật vào Database
+        $post = \App\Models\Post::create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'user_id' => $admin->id,
+            'content' => $content,
+            'status' => 'public',
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Bài viết đã được đăng tự động thành công!',
-            'data' => [
-                'post_id' => bin2hex(random_bytes(8)),
-                'content' => $content,
-                'created_at' => now()->toDateTimeString()
-            ]
+            'message' => 'Admin đã đăng bài tự động thành công!',
+            'data' => $post
         ]);
     }
 }

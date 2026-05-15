@@ -283,7 +283,19 @@ Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
     $query = \App\Models\Service::with(['location', 'media'])->where('type', 'hotel')->where('status', 'active');
     if ($locId) $query->where('location_id', $locId);
     
-    $hotels = $query->limit(3)->get()->map(function($h) {
+    $hotels = $query->get();
+
+    // FALLBACK: Nếu không có khách sạn ở địa điểm này, lấy 3 khách sạn bất kỳ
+    if ($hotels->isEmpty()) {
+        $hotels = \App\Models\Service::with(['location', 'media'])
+            ->where('type', 'hotel')
+            ->where('status', 'active')
+            ->inRandomOrder()
+            ->limit(3)
+            ->get();
+    }
+
+    $hotels = $hotels->map(function($h) {
         $h->media->map(function($m) {
             $originalUrl = $m->getRawOriginal('url');
             if (str_starts_with($originalUrl, 'http')) {
@@ -305,20 +317,31 @@ Route::get('/n8n/services', function () {
         ->where('status', 'active')
         ->orderBy('created_at', 'desc')
         ->limit(3)
-        ->get()
-        ->map(function($s) {
-            $s->media->map(function($m) {
-                $originalUrl = $m->getRawOriginal('url');
-                if (str_starts_with($originalUrl, 'http')) {
-                    $m->image_url = $originalUrl;
-                } else {
-                    $path = str_replace('public/', '', $originalUrl);
-                    $m->image_url = url('/api/images/' . $path);
-                }
-                return $m;
-            });
-            return $s;
+        ->get();
+
+    // FALLBACK: Nếu rỗng, lấy 3 cái ngẫu nhiên
+    if ($services->isEmpty()) {
+        $services = \App\Models\Service::with(['location', 'media'])
+            ->where('type', 'tour')
+            ->where('status', 'active')
+            ->inRandomOrder()
+            ->limit(3)
+            ->get();
+    }
+
+    $services = $services->map(function($s) {
+        $s->media->map(function($m) {
+            $originalUrl = $m->getRawOriginal('url');
+            if (str_starts_with($originalUrl, 'http')) {
+                $m->image_url = $originalUrl;
+            } else {
+                $path = str_replace('public/', '', $originalUrl);
+                $m->image_url = url('/api/images/' . $path);
+            }
+            return $m;
         });
+        return $s;
+    });
     return response()->json(['success' => true, 'data' => $services]);
 });
 

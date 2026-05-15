@@ -223,7 +223,7 @@ class SocialController extends Controller
             'id' => (string) \Illuminate\Support\Str::uuid(),
             'user_id' => $admin->id,
             'content' => $content,
-            'status' => 'public',
+            'visibility' => 'public',
         ]);
 
         return response()->json([

@@ -299,13 +299,15 @@ Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
     return response()->json(['success' => false], 404);
 });
 
-Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
-    $coupon = \App\Models\Coupon::create([
-        'code' => 'STB' . strtoupper(\Illuminate\Support\Str::random(6)),
-        'type' => 'percent', // Khớp với ENUM 'percent' hoặc 'fixed'
-        'discount_value' => 20,
-        'valid_until' => now()->addDays(30)
-    ]);
+// Lấy một mã giảm giá ngẫu nhiên có sẵn trong DB (Dành cho n8n)
+Route::get('/n8n/coupons/random', function () {
+    $coupon = \App\Models\Coupon::where('valid_until', '>', now())
+        ->inRandomOrder()
+        ->first();
+        
+    if (!$coupon) {
+        return response()->json(['success' => false, 'message' => 'Không còn mã giảm giá nào hiệu lực'], 404);
+    }
     return response()->json(['success' => true, 'data' => $coupon]);
 });
 
@@ -355,10 +357,21 @@ Route::post('/n8n/bookings/{id}/mark-review-requested', function ($id) {
 
 Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
 
-// API DÀNH RIÊNG CHO DEV TEST
+// API DÀNH RIÊNG CHO DEV TEST (Xóa toàn bộ cờ để test lại từ đầu)
 Route::get('/n8n/users/reset-testing', function () {
+    // 1. Reset cờ gửi mail quảng cáo ở bảng users
     \App\Models\User::whereNotNull('last_promo_sent_at')->update(['last_promo_sent_at' => null]);
-    return response()->json(['success' => true, 'message' => 'Đã reset toàn bộ trạng thái email.']);
+    
+    // 2. Reset cờ nhắc nhở thanh toán & xin đánh giá ở bảng bookings
+    \App\Models\Booking::query()->update([
+        'last_reminded_at' => null,
+        'review_requested_at' => null
+    ]);
+
+    return response()->json([
+        'success' => true, 
+        'message' => 'Đã "cởi trói" toàn bộ người dùng và đơn hàng. Sẵn sàng test lại từ đầu!'
+    ]);
 });
 
 // Admin lấy danh sách Log (Giữ lại trong auth để bảo mật)

@@ -152,7 +152,7 @@ Route::middleware('firebase.auth')->group(function () {
         Route::get('/payment/status/{bookingId}', [\App\Http\Controllers\General\PaymentController::class, 'checkStatus']);
         Route::get('/wallet/balance', [\App\Http\Controllers\General\PaymentController::class, 'walletBalance']);
         Route::post('/coupons/apply', [\App\Http\Controllers\General\CouponController::class, 'apply']);
-    });
+    }); // Kết thúc nhóm role:tourist,provider,admin (dòng 136)
 
     // ===========================================================
     // ADMIN ROUTES (Quản trị viên)
@@ -223,148 +223,40 @@ Route::middleware('firebase.auth')->group(function () {
     // PROVIDER ROUTES (Nhà cung cấp)
     // ===========================================================
     Route::prefix('provider')->middleware('role:provider')->group(function () {
-
-        // --- Tự tạo ProviderProfile nếu chưa có (gọi lần đầu) ---
         Route::post('/setup-profile', function (\Illuminate\Http\Request $request) {
             $user = $request->user();
             $profile = \App\Models\ProviderProfile::firstOrCreate(
                 ['user_id' => $user->id],
-                [
-                    'business_name' => ($user->display_name ?? 'Nhà cung cấp') . "'s Business",
-                    'status'        => 'pending',
-                    'address'       => '',
-                ]
+                ['business_name' => ($user->display_name ?? 'Nhà cung cấp') . "'s Business", 'status' => 'pending', 'address' => '']
             );
-            return response()->json([
-                'success' => true,
-                'message' => 'Hồ sơ nhà cung cấp đã được khởi tạo. Vui lòng chờ Admin phê duyệt.',
-                'data'    => $profile
-            ]);
+            return response()->json(['success' => true, 'data' => $profile]);
         });
-
-        // --- Dashboard & Thống kê ---
         Route::get('/dashboard/stats', [\App\Http\Controllers\Provider\DashboardController::class, 'stats']);
-
-        // --- Quản lý Dịch vụ (CRUD) ---
         Route::get('/services', [\App\Http\Controllers\Provider\ServiceController::class, 'index']);
         Route::post('/services', [\App\Http\Controllers\Provider\ServiceController::class, 'store']);
         Route::get('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'show']);
         Route::put('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'update']);
         Route::delete('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroy']);
-
-        // --- Lịch trình dịch vụ (Tour) ---
         Route::get('/services/{id}/schedules', [\App\Http\Controllers\Provider\ServiceController::class, 'getSchedules']);
         Route::post('/services/{id}/schedules', [\App\Http\Controllers\Provider\ServiceController::class, 'storeSchedule']);
         Route::put('/services/{id}/schedules/{scheduleId}', [\App\Http\Controllers\Provider\ServiceController::class, 'updateSchedule']);
         Route::delete('/services/{id}/schedules/{scheduleId}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroySchedule']);
-
-        // --- Tiện nghi / Bao gồm / Không bao gồm ---
         Route::put('/services/{id}/amenities', [\App\Http\Controllers\Provider\ServiceController::class, 'updateAmenities']);
-
-        // --- Loại phòng (Hotel) ---
         Route::get('/services/{id}/room-types', [\App\Http\Controllers\Provider\ServiceController::class, 'getRoomTypes']);
         Route::post('/services/{id}/room-types', [\App\Http\Controllers\Provider\ServiceController::class, 'storeRoomType']);
         Route::put('/services/{id}/room-types/{roomTypeId}', [\App\Http\Controllers\Provider\ServiceController::class, 'updateRoomType']);
         Route::delete('/services/{id}/room-types/{roomTypeId}', [\App\Http\Controllers\Provider\ServiceController::class, 'destroyRoomType']);
-
-        // --- Quản lý Đơn đặt chỗ ---
         Route::get('/bookings', [\App\Http\Controllers\Provider\BookingController::class, 'index']);
         Route::get('/bookings/{id}', [\App\Http\Controllers\Provider\BookingController::class, 'show']);
         Route::patch('/bookings/{id}/status', [\App\Http\Controllers\Provider\BookingController::class, 'updateStatus']);
-
-        // --- Quản lý Đánh giá ---
         Route::get('/reviews', [\App\Http\Controllers\Provider\ReviewController::class, 'index']);
         Route::post('/reviews/{id}/reply', [\App\Http\Controllers\Provider\ReviewController::class, 'reply']);
-
-        // --- Quản lý Ví tiền & Doanh thu ---
         Route::get('/wallet', [\App\Http\Controllers\Provider\WalletController::class, 'index']);
         Route::get('/wallet/report', [\App\Http\Controllers\Provider\WalletController::class, 'report']);
-
-        // --- Cấu hình cửa hàng ---
         Route::get('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'index']);
         Route::put('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'update']);
     });
-});
-
-// ===========================================================
-// Các API n8n đã được chuyển xuống mục Public n8n routes ở cuối file
-
-// API DÀNH RIÊNG CHO DEV TEST: Xóa trạng thái đã gửi để test đi test lại
-Route::get('/n8n/users/reset-testing', function () {
-    \App\Models\User::whereNotNull('last_promo_sent_at')->update(['last_promo_sent_at' => null]);
-    return response()->json(['success' => true, 'message' => 'Đã reset toàn bộ trạng thái email. Các user đã hiển thị lại!']);
-});
-
-Route::get('/n8n/bookings', [\App\Http\Controllers\Admin\BookingController::class, 'index']);
-Route::get('/n8n/user-history/{userId}', function ($userId) {
-    if (!\Illuminate\Support\Str::isUuid($userId)) {
-        return response()->json(['success' => false, 'message' => 'Invalid UUID'], 400);
-    }
-    $bookings = \App\Models\Booking::where('user_id', $userId)->with('service.media')->get();
-    $paidCount = \App\Models\Booking::where('user_id', $userId)->where('payment_status', 'paid')->count();
-    $totalCount = $bookings->count();
-    
-    return response()->json([
-        'success' => true,
-        'paid_bookings_count' => $paidCount,
-        'total_bookings_count' => $totalCount,
-        'data' => $bookings
-    ]);
-});
-Route::get('/n8n/services', function () {
-    return response()->json([
-        'success' => true,
-        'data' => \App\Models\Service::with(['media', 'location'])->where('status', 'active')->get()
-    ]);
-});
-    Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
-        $locationId = $request->query('location_id');
-        $query = \App\Models\Service::with(['media', 'location'])
-            ->where('type', 'hotel')
-            ->where('status', 'active');
-        
-        if ($locationId) {
-            $query->where('location_id', $locationId);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $query->get()
-        ]);
-    });
-
-    Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
-
-    // N8n tạo Voucher
-    Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
-    $validated = $request->validate([
-        'code' => 'required|string|max:50',
-        'type' => 'required|in:percent,fixed',
-        'discount_value' => 'required|numeric|min:0',
-        'min_order_amount' => 'nullable|numeric|min:0',
-        'usage_limit' => 'nullable|integer|min:1',
-        'per_user_limit' => 'nullable|integer|min:1',
-        'valid_from' => 'nullable|date',
-        'valid_until' => 'nullable|date|after_or_equal:valid_from',
-    ]);
-
-    try {
-        $coupon = \App\Models\Coupon::firstOrCreate(
-            ['code' => $validated['code']],
-            $validated
-        );
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Lấy/Tạo mã giảm giá từ n8n thành công',
-            'data' => $coupon
-        ], 201);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Lỗi khi tạo mã giảm giá: ' . $e->getMessage()
-        ], 500);
-    }
+}); // Kết thúc nhóm firebase.auth (dòng 69)
 
 // ===========================================================
 // N8N AUTOMATION ROUTES (Công khai cho n8n)
@@ -466,8 +358,14 @@ Route::post('/n8n/bookings/{id}/mark-review-requested', function ($id) {
 
 Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
 
+// API DÀNH RIÊNG CHO DEV TEST
+Route::get('/n8n/users/reset-testing', function () {
+    \App\Models\User::whereNotNull('last_promo_sent_at')->update(['last_promo_sent_at' => null]);
+    return response()->json(['success' => true, 'message' => 'Đã reset toàn bộ trạng thái email.']);
+});
+
 // Admin lấy danh sách Log (Giữ lại trong auth để bảo mật)
-Route::middleware('auth:sanctum')->get('/admin/automation-logs', function () {
+Route::middleware('firebase.auth')->get('/admin/automation-logs', function () {
     return response()->json([
         'success' => true,
         'data' => \App\Models\AutomationLog::orderBy('created_at', 'desc')->get()

@@ -16,7 +16,7 @@ const ServiceReviews = ({ serviceId }) => {
 
     const fetchReviews = async () => {
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services/${serviceId}/feedbacks`);
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/general/get/services/${serviceId}/feedbacks`);
             if (response.data.success) {
                 setReviews(response.data.data);
             }
@@ -46,7 +46,7 @@ const ServiceReviews = ({ serviceId }) => {
             }
             const idToken = await fbUser.getIdToken();
             const response = await axios.post(
-                `${import.meta.env.VITE_API_BASE_URL}/services/${serviceId}/feedbacks`,
+                `${import.meta.env.VITE_API_URL}/services/${serviceId}/feedbacks`,
                 { 
                     content: content,
                     rating: rating

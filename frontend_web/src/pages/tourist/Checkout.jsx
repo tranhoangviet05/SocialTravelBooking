@@ -385,8 +385,6 @@ const Checkout = () => {
 
     const [step, setStep] = useState(1); // 1=form, 2=payment, 3=done
     const [isProcessing, setIsProcessing] = useState(false);
-    const [errors, setErrors] = useState({});
-    const [booking, setBooking] = useState(null);
     const [paymentData, setPaymentData] = useState(null);
     const [walletBalance, setWalletBalance] = useState(null);
 

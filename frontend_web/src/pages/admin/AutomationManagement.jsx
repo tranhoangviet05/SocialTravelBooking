@@ -12,7 +12,7 @@ import {
     Loader2,
     RotateCw,
     Search,
-    Play
+    Play,
     History,
     Mail,
     User as UserIcon,
@@ -28,10 +28,7 @@ const AutomationManagement = () => {
     const { automation, loadingStates, fetchAutomation, setAutomation } = useAdminData();
     const [searchTerm, setSearchTerm] = useState('');
     const [backgroundTasks, setBackgroundTasks] = useState({});
-    const [workflows, setWorkflows] = useState([]);
     const [automationLogs, setAutomationLogs] = useState([]);
-    const [connection, setConnection] = useState({ status: 'offline', url: '', version: '' });
-    const [loading, setLoading] = useState(true);
     const [logsLoading, setLogsLoading] = useState(true);
     const [togglingId, setTogglingId] = useState(null);
     const toast = useNotification();
@@ -43,10 +40,8 @@ const AutomationManagement = () => {
     useEffect(() => {
         if (automation && automation.workflows?.length > 0) return;
         fetchAutomation();
-    }, [fetchAutomation, automation]);
-        fetchWorkflows();
         fetchLogs();
-    }, []);
+    }, [fetchAutomation, automation]);
 
     const fetchLogs = async () => {
         setLogsLoading(true);
@@ -62,21 +57,7 @@ const AutomationManagement = () => {
         }
     };
 
-    const fetchWorkflows = async () => {
-        setLoading(true);
-        try {
-            const response = await adminApi.getAutomationWorkflows();
-            if (response.success) {
-                setWorkflows(response.data);
-                setConnection(response.connection);
-            }
-        } catch (error) {
-            console.error('Fetch workflows error:', error);
-            toast?.error?.('Không thể kết nối với hệ thống n8n');
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
     const toggleStatus = async (id) => {
         setBackgroundTasks(prev => ({ ...prev, [id]: 'toggling' }));
@@ -251,20 +232,7 @@ const AutomationManagement = () => {
                 </div>
             )}
 
-            {/* Performance Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                    { label: 'Tổng số lần Trigger', value: '12,854', icon: Activity, color: 'text-sky-500', bg: 'bg-sky-50' },
-                    { label: 'Tiết kiệm thời gian', value: '450 giờ', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
-                    { label: 'Tỷ lệ chuyển đổi', value: '+12.5%', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' }
-                ].map((stat, i) => (
-                    <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-xl transition-all hover:translate-y-[-4px]">
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{stat.label}</p>
-                            <p className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{stat.value}</p>
-                        </div>
-                        <div className={`w-16 h-16 rounded-[1.8rem] flex items-center justify-center transition-all group-hover:scale-110 ${stat.bg} ${stat.color}`}>
-                            <stat.icon size={28} />
+
                 {/* Automation Logs Table */}
                 <div className="grid grid-cols-1 gap-6">
                     <AdminTable
@@ -361,8 +329,7 @@ const AutomationManagement = () => {
                                 <stat.icon size={28} />
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
             </div>
         </div>
     );

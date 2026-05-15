@@ -344,24 +344,7 @@ class BookingController extends Controller
         }
     }
 
-    /**
-     * Lấy chi tiết một đơn đặt chỗ
-     * GET /api/user/bookings/{id}
-     */
-    public function show(Request $request, $id)
-    {
-        $userId = $request->user->id;
-        $booking = Booking::with(['service.media', 'roomType', 'provider'])
-            ->where('id', $id)
-            ->where('user_id', $userId)
-            ->firstOrFail();
-
-        return response()->json([
-            'success' => true,
-            'data' => $booking
-        ]);
-    }
-
+    
     /**
      * Check-in (Tourist nhấn nút yêu cầu)
      * POST /api/user/bookings/{id}/check-in

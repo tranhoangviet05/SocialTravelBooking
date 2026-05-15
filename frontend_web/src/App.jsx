@@ -73,22 +73,11 @@ function App() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/service/:slug" element={<ServiceDetailPage />} />
 
-                    {/* Các route yêu cầu đăng nhập đối với Tourist */}
-                    <Route element={<ProtectedRoute allowedRoles={['tourist', 'provider']} />}>
-                      <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="/my-bookings" element={<MyBookingsPage />} />
-                      <Route path="/booking-detail/:bookingCode" element={<BookingDetailPage />} />
-                      <Route path="/cart" element={<CartPage />} />
-                      <Route path="/wishlist" element={<WishlistPage />} />
-                      <Route path="/checkout" element={<CheckoutPage />} />
-                      <Route path="/success" element={<SuccessPage />} />
-                      <Route path="/onboarding" element={<Onboarding />} />
-                    </Route>
-                  </Route> {/* Close MainLayout */}
                   {/* Các route yêu cầu đăng nhập đối với Tourist */}
                   <Route element={<ProtectedRoute allowedRoles={['tourist', 'provider']} />}>
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/my-bookings" element={<MyBookingsPage />} />
+                    <Route path="/booking-detail/:bookingCode" element={<BookingDetailPage />} />
                     <Route path="/cart" element={<CartPage />} />
                     <Route path="/wishlist" element={<WishlistPage />} />
                     <Route path="/checkout" element={<CheckoutPage />} />
@@ -157,20 +146,6 @@ function App() {
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/provider/messages" element={<Messages />} />
                   </Route>
-                {/* === HỆ THỐNG NHÀ CUNG CẤP (PROVIDER) === */}
-                <Route element={
-                  <ProtectedRoute allowedRoles={['provider']}>
-                    <ProviderLayout />
-                  </ProtectedRoute>
-                }>
-                  <Route path={API_ENDPOINTS.PROVIDER_DASHBOARD} element={<ProviderDashboard />} />
-                  <Route path={API_ENDPOINTS.PROVIDER_SERVICES} element={<ProviderMyServices />} />
-                  <Route path={API_ENDPOINTS.PROVIDER_BOOKINGS} element={<ProviderMyBookings />} />
-                  <Route path={API_ENDPOINTS.PROVIDER_REVIEWS} element={<ProviderMyReviews />} />
-                  {/* Fallback endpoints without absolute object mapping in case they misalign */}
-                  <Route path="/provider/wallet" element={<ProviderMyWallet />} />
-                  <Route path="/provider/settings" element={<ProviderMySettings />} />
-                </Route>
 
               </Routes>
             </ProviderDataProvider>

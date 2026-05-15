@@ -390,9 +390,19 @@ Route::get('/n8n/user-history/{id}', function ($id) {
     if (!\Illuminate\Support\Str::isUuid($id)) {
         return response()->json(['success' => false, 'message' => 'Invalid UUID'], 400);
     }
-    $bookings = \App\Models\Booking::where('user_id', $id)->with('service.media')->get();
+
+    // Lấy số lượng tổng quát (nhanh)
     $paidCount = \App\Models\Booking::where('user_id', $id)->where('payment_status', 'paid')->count();
-    $totalCount = $bookings->count();
+    $totalCount = \App\Models\Booking::where('user_id', $id)->count();
+
+    // Chỉ lấy 5 đơn hàng gần nhất để tránh quá tải Server (gây lỗi 502)
+    $bookings = \App\Models\Booking::where('user_id', $id)
+        ->with(['service' => function($query) {
+            $query->select('id', 'type', 'name'); // Chỉ lấy các cột cần thiết
+        }, 'service.media'])
+        ->orderBy('created_at', 'desc')
+        ->limit(5)
+        ->get();
     
     return response()->json([
         'success' => true,

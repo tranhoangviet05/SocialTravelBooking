@@ -18,6 +18,7 @@ class ServiceSchedule extends Model
     {
         return [
             'activities' => 'array',
+            'meals' => 'array',
         ];
     }
 

@@ -170,11 +170,16 @@ const MyBookings = () => {
                                 <p className="text-[11px] font-bold text-slate-400">Đang chờ khách hàng check-in...</p>
                             </div>
                         )}
-                        <a href={`tel:${booking.contact_phone || booking.user?.phone}`}
+                        <button
+                            onClick={() => {
+                                const name = encodeURIComponent(booking.contact_name || booking.user?.display_name || '');
+                                const avatar = encodeURIComponent(booking.user?.avatar_url || '');
+                                window.open(`/provider/messages?userId=${booking.user_id}&name=${name}&avatar=${avatar}`, '_blank');
+                            }}
                             className={`${btnClass} bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 justify-center`}>
                             <User size={13} />
                             Liên hệ khách
-                        </a>
+                        </button>
                     </div>
                 );
             case 'ongoing':

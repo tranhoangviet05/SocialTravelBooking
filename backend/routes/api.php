@@ -52,6 +52,9 @@ Route::get('/general/get/services/detail/{slug}', [ServiceController::class, 'sh
 Route::get('/general/get/services/latest', [ServiceController::class, 'latest']);
 Route::get('/general/get/services/{id}/feedbacks', [ServiceFeedbackController::class, 'index']);
 
+// Bài đăng mạng xã hội (Public)
+Route::get('/general/get/posts/latest', [PostController::class, 'latest']);
+
 // Mã giảm giá (Public)
 Route::get('/general/get/coupons', [\App\Http\Controllers\General\CouponController::class, 'index']);
 
@@ -162,6 +165,7 @@ Route::middleware('firebase.auth')->group(function () {
         Route::post('/user/bookings/{id}/check-in', [\App\Http\Controllers\General\BookingController::class, 'checkIn']);
         Route::post('/user/bookings/{id}/undo-check-in', [\App\Http\Controllers\General\BookingController::class, 'undoCheckIn']);
         Route::post('/user/bookings/{id}/check-out', [\App\Http\Controllers\General\BookingController::class, 'checkOut']);
+        Route::get('/user/bookings/by-code/{code}', [\App\Http\Controllers\General\BookingController::class, 'getByCode']);
         Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
         Route::post('/services/{id}/feedbacks', [ServiceFeedbackController::class, 'store']);
 

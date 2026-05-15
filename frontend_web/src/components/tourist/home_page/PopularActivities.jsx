@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import ServiceCard from '../services/ServiceCard';
+import { ServiceCardVerticalSkeleton } from '../../common/HomeSkeletons';
 import axios from 'axios';
 
 const PopularActivities = () => {
@@ -48,7 +49,27 @@ const PopularActivities = () => {
         ? tours 
         : tours.filter(t => t.location?.name === activeLocation);
 
-    if (loading) return <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-sky-500" size={40} /></div>;
+    if (loading) {
+        return (
+            <section className="py-24 bg-slate-50/50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        <div className="space-y-4">
+                            <div className="w-12 h-1 bg-sky-100 rounded-full"></div>
+                            <div className="h-10 w-64 bg-slate-100 rounded-lg animate-pulse"></div>
+                            <div className="h-4 w-48 bg-slate-100 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[...Array(4)].map((_, i) => (
+                            <ServiceCardVerticalSkeleton key={i} />
+                        ))}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+    
     if (tours.length === 0) return null;
 
     return (
@@ -56,8 +77,9 @@ const PopularActivities = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-3">Hoạt động phổ biến</h2>
-                        <p className="text-gray-500 font-medium">Khám phá những trải nghiệm thú vị nhất tại Việt Nam</p>
+                        <div className="w-12 h-1 bg-sky-500 rounded-full mb-4"></div>
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Hoạt động phổ biến</h2>
+                        <p className="text-slate-400 font-semibold text-sm uppercase tracking-wider">Khám phá những trải nghiệm thú vị nhất</p>
                     </div>
                     
                     <div className="flex gap-2">

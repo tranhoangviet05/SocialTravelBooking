@@ -208,4 +208,26 @@ class PostController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Lấy 3 bài viết mới nhất cho trang chủ (Công khai)
+     */
+    public function latest(Request $request)
+    {
+        try {
+            $limit = $request->get('limit', 3);
+            $posts = $this->socialService->getLatestPosts($limit);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $posts
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('PostController@latest error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi lấy bài viết mới nhất'
+            ], 500);
+        }
+    }
 }

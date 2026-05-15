@@ -1,84 +1,142 @@
-import React from 'react';
-import { Heart, MessageCircle, Share2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, MessageCircle, Share2, Repeat2, Send, MoreHorizontal, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { CommunityPostSkeleton } from '../../common/HomeSkeletons';
 
 const CommunityFeed = () => {
-    const posts = [
-        {
-            id: 1,
-            user: "Linh Nguyễn",
-            time: "2 giờ trước tại Cao Bằng",
-            avatar: "https://i.pravatar.cc/150?u=linh",
-            content: "Lần đầu trải nghiệm săn mây tại Cửa Đất thực sự tuyệt vời. Một bầu trời mây dạt sẵn như là đang ở nơi xa xăm nào đó...",
-            image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop",
-            likes: "1.2k",
-            comments: 88
-        },
-        {
-            id: 2,
-            user: "Minh Hoàng",
-            time: "Hôm qua tại Sapa",
-            avatar: "https://i.pravatar.cc/150?u=minh",
-            content: "Chuyến đi Fansipan sáng nay nắng đẹp. Thật may mắn khi thực sự đứng ở đỉnh núi xanh mát...",
-            image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=800&auto=format&fit=crop",
-            likes: "2.5k",
-            comments: 152
-        },
-        {
-            id: 3,
-            user: "Mai Vy",
-            time: "3 giờ trước tại Hội An",
-            avatar: "https://i.pravatar.cc/150?u=vy",
-            content: "Mùa thu Hội An đang rất 'tình'. Cảm giác đi bộ dạo quanh phố cổ khi không khí thoảng nhẹ mát lạnh...",
-            image: "https://images.unsplash.com/photo-1555432329-1983e979f829?q=80&w=800&auto=format&fit=crop",
-            likes: "2.8k",
-            comments: 201
-        }
-    ];
+    const [posts, setPosts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLatestPosts = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/api/general/get/posts/latest');
+                if (response.data.success) {
+                    setPosts(response.data.data);
+                }
+            } catch (error) {
+                console.error("Lỗi khi lấy bài viết cộng đồng:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLatestPosts();
+    }, []);
+
+    if (loading) {
+        return (
+            <section className="py-20 bg-slate-50/30">
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        <div className="space-y-4">
+                            <div className="w-12 h-1 bg-sky-100 rounded-full"></div>
+                            <div className="h-10 w-64 bg-slate-100 rounded-lg animate-pulse"></div>
+                            <div className="h-4 w-48 bg-slate-100 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[...Array(3)].map((_, i) => (
+                            <CommunityPostSkeleton key={i} />
+                        ))}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    if (posts.length === 0) return null;
 
     return (
-        <section className="py-8 bg-white">
+        <section className="py-20 bg-slate-50/30">
             <div className="max-w-7xl mx-auto px-4">
-                <div className="mb-10">
-                    <p className="text-sky-500 font-bold text-xs uppercase tracking-widest mb-2">Cộng đồng</p>
-                    <h2 className="text-3xl font-black text-slate-900">Khoảnh khắc chia sẻ</h2>
+                <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <div className="w-12 h-1 bg-sky-500 rounded-full mb-4"></div>
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Khoảnh khắc chia sẻ</h2>
+                        <p className="text-slate-400 font-semibold text-sm uppercase tracking-wider">Góc nhìn thực tế từ cộng đồng du lịch</p>
+                    </div>
+                    <button className="text-sky-600 font-bold text-sm hover:underline flex items-center gap-1 group">
+                        Khám phá thêm <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {posts.map(post => (
-                        <div key={post.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="p-6 flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                    <div className="relative">
-                                        <img src={post.avatar} className="w-12 h-12 rounded-full object-cover ring-2 ring-sky-50" alt="" />
-                                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div key={post.id} className="bg-white p-5 rounded-3xl border border-gray-100 flex flex-col h-full shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                            <div className="flex gap-3 flex-1">
+                                {/* Left: Avatar & Thread Line */}
+                                <div className="flex flex-col items-center">
+                                    <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 ring-1 ring-gray-100 shrink-0">
+                                        <img 
+                                            src={post.author?.avatar_url || `https://ui-avatars.com/api/?name=${post.author?.display_name || 'User'}&background=random`} 
+                                            className="w-full h-full object-cover" 
+                                            alt="" 
+                                        />
                                     </div>
-                                    <div>
-                                        <h4 className="font-black text-slate-800 text-sm">{post.user}</h4>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{post.time}</p>
+                                    <div className="w-[1.5px] grow bg-gray-100 my-2 rounded-full"></div>
+                                </div>
+
+                                {/* Right: Content */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center mb-0.5">
+                                        <h4 className="font-bold text-[13px] text-slate-900 truncate">
+                                            {post.author?.social_profile?.username || post.author?.display_name}
+                                        </h4>
+                                        <span className="text-[11px] text-gray-400 shrink-0">
+                                            {formatDistanceToNow(new Date(post.created_at), { addSuffix: false, locale: vi })}
+                                        </span>
                                     </div>
+
+                                    {post.location && (
+                                        <p className="text-[11px] text-sky-600 font-bold mb-2 truncate">
+                                            {post.location.name}
+                                        </p>
+                                    )}
+
+                                    <div className="mt-1">
+                                        <p className="text-[13px] text-slate-700 leading-relaxed line-clamp-4">
+                                            {post.content}
+                                        </p>
+                                    </div>
+
+                                    {/* Media Preview (Small) */}
+                                    {post.media && post.media.length > 0 && (
+                                        <div className="mt-3 overflow-hidden rounded-xl border border-gray-50 aspect-[4/3]">
+                                            <img 
+                                                src={post.media[0].url} 
+                                                className="w-full h-full object-cover" 
+                                                alt="" 
+                                            />
+                                        </div>
+                                    )}
                                 </div>
-                                <button className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-sky-500 transition-colors">...</button>
                             </div>
-                            <div className="px-6 pb-4">
-                                <p className="text-sm text-slate-600 leading-relaxed line-clamp-2 font-medium">{post.content}</p>
-                            </div>
-                            <div className="px-6 h-72">
-                                <div className="w-full h-full overflow-hidden rounded-[2rem]">
-                                    <img src={post.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="" />
-                                </div>
-                            </div>
-                            <div className="p-6 flex items-center justify-between bg-gray-50/50">
-                                <div className="flex items-center space-x-8">
-                                    <button className="flex items-center gap-2 text-xs text-slate-500 font-black hover:text-rose-500 transition-colors">
-                                        <Heart size={18} className="group-hover:animate-pulse" /> {post.likes}
+
+                            {/* Actions Footer */}
+                            <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col gap-3">
+                                <div className="flex items-center gap-4 text-slate-900">
+                                    <button className="hover:scale-110 active:scale-95 transition-transform cursor-pointer">
+                                        <Heart size={18} />
                                     </button>
-                                    <button className="flex items-center gap-2 text-xs text-slate-500 font-black hover:text-sky-500 transition-colors">
-                                        <MessageCircle size={18} /> {post.comments}
+                                    <button className="hover:scale-110 active:scale-95 transition-transform cursor-pointer">
+                                        <MessageCircle size={18} />
+                                    </button>
+                                    <button className="hover:scale-110 active:scale-95 transition-transform cursor-pointer">
+                                        <Repeat2 size={18} />
+                                    </button>
+                                    <button className="hover:scale-110 active:scale-95 transition-transform cursor-pointer">
+                                        <Send size={18} />
                                     </button>
                                 </div>
-                                <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-white hover:text-sky-500 hover:shadow-md transition-all">
-                                    <Share2 size={18} />
-                                </button>
+
+                                <div className="flex items-center gap-2 text-[12px] text-gray-400 font-medium">
+                                    <span>{post.comments_count || 0} câu trả lời</span>
+                                    <span>•</span>
+                                    <span>{post.likes_count || 0} lượt thích</span>
+                                </div>
                             </div>
                         </div>
                     ))}

@@ -17,6 +17,7 @@ const ServiceCard = ({ service, className = '' }) => {
         duration_days,
         duration_nights,
         max_guests,
+        price_unit,
         media = [],
         tags = [],
         provider,
@@ -32,6 +33,9 @@ const ServiceCard = ({ service, className = '' }) => {
     const soldCount = total_bookings || 0;
     const locationName = location?.name || 'Việt Nam';
     const mainImage = media.find(m => m.is_cover)?.url || media[0]?.url || 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800';
+    
+    // Price unit label
+    const unitLabel = price_unit === 'per_person' ? 'người' : 'phòng';
     
     // Duration label
     const duration = (type === 'tour' && duration_days)
@@ -57,102 +61,96 @@ const ServiceCard = ({ service, className = '' }) => {
     return (
         <Link
             to={`/service/${slug}`}
-            className={`group block bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 ${className}`}
+            className={`group flex flex-col h-full bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 border border-gray-100/50 ${className}`}
         >
-            {/* Image */}
+            {/* Image Section */}
             <div className="relative aspect-[16/10] overflow-hidden">
                 <img
                     src={mainImage}
                     alt={name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
 
-                {/* Type badge */}
-                <span className={`absolute top-3 right-3 ${typeColor} text-white text-xs font-bold px-2.5 py-1 rounded-full`}>
-                    {typeLabel}
-                </span>
+                {/* Glassmorphism Badge: Type */}
+                <div className="absolute top-4 left-4">
+                    <span className={`backdrop-blur-md ${type === 'tour' ? 'bg-amber-500/90' : 'bg-sky-600/90'} text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm`}>
+                        {typeLabel}
+                    </span>
+                </div>
 
-                {/* Favorite */}
+                {/* Favorite Button */}
                 <button
                     onClick={handleFavorite}
-                    className={`absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-all cursor-pointer ${
+                    className={`absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md shadow-sm transition-all ${
                         isFavorited 
-                            ? 'bg-rose-500 text-white hover:bg-rose-600' 
-                            : 'bg-white/90 backdrop-blur-sm text-gray-400 hover:text-red-500 hover:bg-white'
+                            ? 'bg-rose-500 text-white' 
+                            : 'bg-white/80 text-gray-500 hover:text-rose-500'
                     }`}
-                    title={isFavorited ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
                 >
-                    <Heart size={16} className={isFavorited ? 'fill-current' : 'group-hover:fill-current transition-colors'} />
+                    <Heart size={16} className={isFavorited ? 'fill-current' : ''} />
                 </button>
 
-                {/* Sold count */}
-                <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <span>Đã bán {soldCount}</span>
+                {/* Sold Badge */}
+                <div className="absolute bottom-4 left-4 bg-slate-900/60 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <Users size={12} />
+                    <span>{soldCount} lượt đặt</span>
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="p-4">
-                {/* Location */}
-                <div className="flex items-center gap-1 text-sky-600 text-xs font-semibold mb-2">
-                    <MapPin size={12} />
-                    <span>{locationName}</span>
+            {/* Content Section */}
+            <div className="p-5 flex flex-col flex-grow">
+                {/* Location & Rating */}
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1 text-sky-600 text-[11px] font-bold uppercase tracking-wider">
+                        <MapPin size={12} strokeWidth={2.5} />
+                        <span>{locationName}</span>
+                    </div>
+                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md">
+                        <Star size={10} className="text-amber-400 fill-amber-400" />
+                        <span className="text-[11px] font-bold text-amber-700">{rating}</span>
+                    </div>
                 </div>
 
-                {/* Name */}
-                <h3 className="text-slate-900 font-bold text-sm leading-snug mb-2 line-clamp-2 group-hover:text-sky-700 transition-colors">
+                {/* Service Name */}
+                <h3 className="text-slate-900 font-extrabold text-[15px] leading-snug mb-3 line-clamp-2 group-hover:text-sky-700 transition-colors">
                     {name}
                 </h3>
 
-                {/* Provider */}
-                <div className="flex items-center gap-1.5 mb-3">
-                    <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                {/* Provider Info */}
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200">
                         {provider?.business_name?.[0] || 'P'}
                     </div>
-                    <span className="text-xs text-gray-500">{provider?.business_name || 'Hệ thống'}</span>
+                    <span className="text-[12px] text-slate-400 font-medium">{provider?.business_name || 'Hệ thống'}</span>
                 </div>
 
                 {/* Tags */}
                 {tags && tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                        {tags.slice(0, 3).map((t, i) => (
-                            <span key={i} className="text-[11px] text-slate-500 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-                                {t}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                        {tags.slice(0, 2).map((t, i) => (
+                            <span key={i} className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 uppercase tracking-tighter">
+                                # {t}
                             </span>
                         ))}
                     </div>
                 )}
 
-                {/* Info row */}
-                <div className="flex items-center gap-3 mb-3 text-xs text-gray-400">
-                    <span className="flex items-center gap-1">
+                {/* Footer Info Row */}
+                <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Từ</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-[17px] font-black text-sky-700">{formatPrice(price)}</span>
+                            {type === 'hotel' || type === 'homestay' ? (
+                                <span className="text-[10px] text-slate-400 font-bold">/ đêm / {unitLabel}</span>
+                            ) : (
+                                <span className="text-[10px] text-slate-400 font-bold">/ {unitLabel}</span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-400">
                         <Clock size={12} />
-                        {duration}
-                    </span>
-                    <span className="flex items-center gap-1">
-                        <Users size={12} />
-                        Tối đa {max_guests || 'N/A'}
-                    </span>
-                </div>
-
-                {/* Rating */}
-                <div className="flex items-center gap-2 mb-3">
-                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg">
-                        <Star size={12} className="text-amber-400 fill-amber-400" />
-                        <span className="text-xs font-bold text-amber-700">{rating}</span>
-                    </div>
-                </div>
-
-                {/* Price */}
-                <div className="flex items-end justify-between pt-3 border-t border-gray-100">
-                    <div>
-                        <span className="text-lg font-black text-sky-700">{formatPrice(price)}</span>
-                        {type === 'hotel' || type === 'homestay' ? (
-                            <span className="text-xs text-gray-400"> / đêm</span>
-                        ) : null}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">/{media_count || media.length} ảnh</span>
+                        <span className="text-[11px] font-bold">{duration}</span>
                     </div>
                 </div>
             </div>

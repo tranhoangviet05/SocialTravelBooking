@@ -4,7 +4,7 @@ import {
     Loader2, CheckCircle2, QrCode, Wallet, ChevronRight,
     Clock, AlertCircle, RefreshCw, Copy, Check, Shield,
     CreditCard, Banknote, User, Phone, Mail, MessageSquare,
-    Tag, X
+    Tag, X, Map, Hotel, Home, Car, BedDouble
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import bookingApi from '../../api/bookingApi';
@@ -268,10 +268,11 @@ const Checkout = () => {
 
     // Form state
     const [form, setForm] = useState({
-        checkInDate: bookingInfo?.date || '',
-        checkOutDate: '',
+        checkInDate: bookingInfo?.startDate || bookingInfo?.date || '',
+        checkOutDate: bookingInfo?.endDate || '',
         numAdults: bookingInfo?.adults || 1,
-        numChildren: bookingInfo?.children || 0,
+        numChildren: service?.type === 'tour' ? 0 : (bookingInfo?.children || 0),
+        numRooms: bookingInfo?.rooms || 1,
         contactName: currentUser?.displayName || currentUser?.display_name || '',
         contactEmail: currentUser?.email || '',
         contactPhone: currentUser?.phone || '',
@@ -321,15 +322,21 @@ const Checkout = () => {
         let nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
         if (nights < 1) nights = 1;
         
-        subtotal = basePrice * nights;
-        priceDetails = `${nights} đêm × ${fmt(basePrice)}`;
+        subtotal = basePrice * nights * form.numRooms;
+        priceDetails = `${nights} đêm × ${form.numRooms} phòng × ${fmt(Math.floor(basePrice))}`;
+    } else if (service?.type === 'tour') {
+        // Tính theo vé
+        subtotal = basePrice * form.numAdults;
+        priceDetails = `${form.numAdults} vé × ${fmt(Math.floor(basePrice))}`;
     } else {
         // Tính theo người
         const adultPrice = basePrice * form.numAdults;
         const childPrice = basePrice * 0.5 * form.numChildren;
         subtotal = adultPrice + childPrice;
-        priceDetails = `${form.numAdults} người lớn ${form.numChildren > 0 ? `+ ${form.numChildren} trẻ em` : ''} × ${fmt(basePrice)}`;
+        priceDetails = `${form.numAdults} người lớn ${form.numChildren > 0 ? `+ ${form.numChildren} trẻ em` : ''} × ${fmt(Math.floor(basePrice))}`;
     }
+
+    subtotal = Math.floor(subtotal);
 
     const totalAmount  = Math.max(0, subtotal - discountAmount);
 
@@ -445,7 +452,7 @@ const Checkout = () => {
     const today = new Date().toISOString().split('T')[0];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 py-10 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 pt-28 pb-10 px-4">
             <div className="max-w-5xl mx-auto">
                 <h1 className="text-2xl font-black text-slate-800 mb-2 text-center">Xác nhận & Thanh toán</h1>
                 <p className="text-center text-slate-400 text-sm mb-8">Đặt dịch vụ an toàn, hoàn tiền dễ dàng</p>
@@ -492,30 +499,38 @@ const Checkout = () => {
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <FormField
-                                            label="Ngày tham gia *" type="date" min={today}
-                                            value={form.checkInDate} error={errors.checkInDate}
-                                            onChange={v => setField('checkInDate', v)}
+                                            label="Ngày nhận / Bắt đầu" type="date"
+                                            value={form.checkInDate} readOnly
                                         />
-                                        {(service.type === 'hotel' || service.type === 'homestay') && (
+                                        {(service.type === 'hotel' || service.type === 'homestay' || service.type === 'tour') && (
                                             <FormField
-                                                label="Ngày trả phòng" type="date" min={form.checkInDate || today}
-                                                value={form.checkOutDate}
-                                                onChange={v => setField('checkOutDate', v)}
+                                                label={service.type === 'tour' ? "Ngày kết thúc" : "Ngày trả phòng"} type="date"
+                                                value={form.checkOutDate} readOnly
                                             />
                                         )}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1.5">Người lớn</label>
-                                            <select value={form.numAdults} onChange={e => setField('numAdults', +e.target.value)}
-                                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-400 transition-colors bg-white">
-                                                {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n} người lớn</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1.5">Trẻ em</label>
-                                            <select value={form.numChildren} onChange={e => setField('numChildren', +e.target.value)}
-                                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-400 transition-colors bg-white">
-                                                {[0,1,2,3,4].map(n => <option key={n} value={n}>{n} trẻ em</option>)}
-                                            </select>
+                                        <div className={service.type === 'hotel' || service.type === 'homestay' ? 'sm:col-span-2 grid grid-cols-3 gap-4' : 'sm:col-span-2 grid grid-cols-2 gap-4'}>
+                                            {(service.type === 'hotel' || service.type === 'homestay') && (
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Số lượng phòng</label>
+                                                    <div className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2.5 text-sm font-black text-slate-700">
+                                                        {form.numRooms} phòng
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1.5">{service.type === 'tour' ? 'Số lượng vé' : 'Người lớn'}</label>
+                                                <div className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2.5 text-sm font-black text-slate-700">
+                                                    {form.numAdults} {service.type === 'tour' ? 'vé' : 'người lớn'}
+                                                </div>
+                                            </div>
+                                            {service.type !== 'tour' && (
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Trẻ em</label>
+                                                    <div className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2.5 text-sm font-black text-slate-700">
+                                                        {form.numChildren} trẻ em
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="sm:col-span-2">
                                             <label className="block text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1">
@@ -703,14 +718,14 @@ const Checkout = () => {
                                     <p className="text-xs text-slate-400 mt-0.5">
                                         {service.provider?.business_name || 'Nhà cung cấp'}
                                     </p>
-                                    <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-100">
-                                        {service.type === 'tour' ? '🗺️ Tour' :
-                                         service.type === 'hotel' ? '🏨 Khách sạn' :
-                                         service.type === 'homestay' ? '🏡 Homestay' : '🚌 Xe'}
+                                    <span className="flex items-center gap-1 mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-100 w-fit">
+                                        {service.type === 'tour' ? <><Map size={10} /> Tour</> :
+                                         service.type === 'hotel' ? <><Hotel size={10} /> Khách sạn</> :
+                                         service.type === 'homestay' ? <><Home size={10} /> Homestay</> : <><Car size={10} /> Xe</>}
                                     </span>
                                     {form.selectedRoomType && (
-                                        <p className="text-[10px] font-bold text-purple-600 mt-1">
-                                            🛏️ {form.selectedRoomType.name}
+                                        <p className="flex items-center gap-1 text-[10px] font-bold text-purple-600 mt-1">
+                                            <BedDouble size={10} /> {form.selectedRoomType.name}
                                         </p>
                                     )}
                                 </div>
@@ -771,7 +786,7 @@ const Checkout = () => {
 };
 
 /* ─── FormField Component ────────────────────────────────────────── */
-const FormField = ({ label, icon, value, onChange, error, placeholder, type = 'text', min }) => (
+const FormField = ({ label, icon, value, onChange, error, placeholder, type = 'text', min, readOnly = false }) => (
     <div>
         <label className="flex items-center gap-1 text-xs font-bold text-slate-500 mb-1.5">
             {icon && <span className="text-slate-400">{icon}</span>}
@@ -779,10 +794,12 @@ const FormField = ({ label, icon, value, onChange, error, placeholder, type = 't
         </label>
         <input
             type={type} value={value} min={min}
-            onChange={e => onChange(e.target.value)}
+            onChange={e => !readOnly && onChange(e.target.value)}
             placeholder={placeholder}
+            readOnly={readOnly}
             className={`w-full border rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition-all
-                ${error ? 'border-rose-400 bg-rose-50 focus:border-rose-500' : 'border-slate-200 focus:border-sky-400 bg-white'}`}
+                ${readOnly ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 
+                  error ? 'border-rose-400 bg-rose-50 focus:border-rose-500' : 'border-slate-200 focus:border-sky-400 bg-white'}`}
         />
         {error && <p className="text-xs text-rose-500 mt-1 font-medium">{error}</p>}
     </div>

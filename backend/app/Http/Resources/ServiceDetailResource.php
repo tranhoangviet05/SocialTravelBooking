@@ -39,14 +39,15 @@ class ServiceDetailResource extends JsonResource
                 'day_number' => (int) $s->day_number,
                 'title' => $s->title,
                 'description' => $s->description,
-                'time' => $s->time,
+                'activities' => $s->activities ?? [],
             ])->sortBy('day_number')->values(),
             'provider' => $this->when($this->relationLoaded('provider'), function () {
                 return [
                     'id' => $this->provider->id,
                     'business_name' => $this->provider->business_name,
-                    'contact_phone' => $this->provider->contact_phone,
-                    'avatar_url' => $this->provider->avatar_url,
+                    'contact_phone' => $this->provider->phone,
+                    'avatar_url' => $this->provider->user?->avatar_url,
+                    'user_id' => $this->provider->user_id,
                 ];
             }),
             'location' => $this->when($this->relationLoaded('location'), function () {
@@ -91,8 +92,16 @@ class ServiceDetailResource extends JsonResource
                     'amenities' => $rt->amenities ?? [],
                     'images' => $rt->images ?? [],
                     'status' => $rt->status,
+                    'inventory' => (int) $rt->inventory,
                 ]);
             }),
+            'availabilities' => $this->availabilities->map(fn($a) => [
+                'id' => $a->id,
+                'available_date' => $a->available_date,
+                'total_slots' => (int) $a->total_slots,
+                'booked_slots' => (int) $a->booked_slots,
+                'price_override' => $a->price_override ? (float) $a->price_override : null,
+            ]),
         ];
     }
 }

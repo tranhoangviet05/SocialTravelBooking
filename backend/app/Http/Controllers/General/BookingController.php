@@ -196,7 +196,7 @@ class BookingController extends Controller
     {
         $userId = $request->user->id;
 
-        $bookings = Booking::with(['service.media', 'roomType'])
+        $bookings = Booking::with(['service.media', 'roomType', 'provider.user'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -231,6 +231,12 @@ class BookingController extends Controller
                     'is_checked_in' => (bool)$bk->is_checked_in,
                     'checked_in_at' => $bk->checked_in_at,
                     'checked_out_at' => $bk->checked_out_at,
+                    'provider' => $bk->provider ? [
+                        'id' => $bk->provider->id,
+                        'business_name' => $bk->provider->business_name,
+                        'avatar_url' => $bk->provider->user?->avatar_url,
+                        'user_id' => $bk->provider->user_id
+                    ] : null,
                     'created_at' => $bk->created_at?->toISOString(),
                 ];
             });
@@ -427,6 +433,30 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'data' => $bookings
+        ]);
+    }
+
+    /**
+     * Lấy thông tin chi tiết đơn hàng qua mã code (Dành cho link trong chat)
+     */
+    public function getByCode(Request $request, $code)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::with(['service.media', 'service.location', 'provider.user', 'roomType'])
+            ->where('booking_code', $code)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn đặt chỗ này.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $booking
         ]);
     }
 }

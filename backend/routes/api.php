@@ -422,3 +422,15 @@ Route::get('/bookings/{id}', function ($id) {
         ->firstOrFail();
     return response()->json(['success' => true, 'data' => $booking]);
 });
+// === N8N AUTOMATION MARKING ROUTES ===
+Route::post('/n8n/bookings/{id}/mark-reminded', function ($id) {
+    $booking = \App\Models\Booking::findOrFail($id);
+    $booking->update(['last_reminded_at' => now()]);
+    return response()->json(['success' => true]);
+});
+
+Route::post('/n8n/bookings/{id}/mark-abandoned-emailed', function ($id) {
+    $booking = \App\Models\Booking::findOrFail($id);
+    $booking->update(['last_reminded_at' => now()]);
+    return response()->json(['success' => true]);
+});

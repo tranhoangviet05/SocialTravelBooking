@@ -407,5 +407,33 @@ Route::get('/n8n/services', function () {
             'message' => 'Lỗi khi tạo mã giảm giá: ' . $e->getMessage()
         ], 500);
     }
-});
+    });
+
+    // N8n lưu Log hoạt động
+    Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'user_id' => 'nullable|uuid',
+            'email' => 'required|email',
+            'display_name' => 'required|string',
+            'campaign_type' => 'required|string',
+            'service_name' => 'nullable|string',
+            'status' => 'nullable|string',
+            'metadata' => 'nullable|array'
+        ]);
+
+        $log = \App\Models\AutomationLog::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => $log
+        ], 201);
+    });
+
+    // Admin lấy danh sách Log (Sắp xếp mới nhất lên đầu)
+    Route::get('/admin/automation-logs', function () {
+        return response()->json([
+            'success' => true,
+            'data' => \App\Models\AutomationLog::orderBy('created_at', 'desc')->get()
+        ]);
+    });
 });

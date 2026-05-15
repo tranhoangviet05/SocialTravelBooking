@@ -9,6 +9,7 @@ const bookingApi = {
      * @param {object} data - { service_id, check_in_date, check_out_date, num_adults, num_children, contact_name, contact_email, contact_phone, special_requests, coupon_code, payment_method }
      */
     createBooking: (data) => axiosClient.post('/bookings', data),
+    getBookingById: (id) => axiosClient.get(`/bookings/${id}`),
 
     /**
      * Khởi tạo thanh toán

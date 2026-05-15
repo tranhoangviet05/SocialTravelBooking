@@ -135,6 +135,13 @@ Route::middleware('firebase.auth')->group(function () {
     // ===========================================================
     Route::middleware('role:tourist,provider,admin')->group(function () {
         Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
+        Route::get('/bookings/{id}', function ($id) {
+            $booking = \App\Models\Booking::with(['service.provider', 'service.media', 'service.roomTypes'])
+                ->where('id', $id)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+            return response()->json(['success' => true, 'data' => $booking]);
+        });
         Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
         Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
         Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
@@ -280,56 +287,7 @@ Route::middleware('firebase.auth')->group(function () {
 });
 
 // ===========================================================
-// N8N AUTOMATION ROUTES (Secured with Sanctum)
-// ===========================================================
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/n8n/users', function () {
-    // Chỉ lấy những khách CÓ HOẠT ĐỘNG trong vòng 24h qua và chưa nhận email trong 24h qua
-    $timeFrame = now()->subHours(24);
-
-    $users = \App\Models\User::where('role', 'tourist')
-        ->where('status', 'active')
-        // 1. CHỐNG GỬI TRÙNG TRONG NGÀY: Nếu vừa gửi trong 24h thì không quét lại nữa
-        ->where(function ($q) use ($timeFrame) {
-            $q->whereNull('last_promo_sent_at')
-              ->orWhere('last_promo_sent_at', '<', $timeFrame);
-        })
-        // 2. CHỈ LẤY ĐƠN HÀNG MỚI (Đã gỡ bỏ giới hạn 24h để phục vụ test)
-        ->where(function ($q) {
-            $q->whereNull('last_promo_sent_at')
-              ->orWhereHas('bookings', function ($bq) {
-                  $bq->where('payment_status', 'paid');
-              });
-        })
-        ->withCount(['bookings' => function ($query) {
-            $query->where('payment_status', 'paid');
-        }])
-        ->get()
-        ->map(function($user) {
-            $user->bookings_count = (int) $user->bookings_count;
-            return $user;
-        });
-        
-    return response()->json([
-        'success' => true,
-        'data' => $users
-    ]);
-});
-
-// API Đánh dấu User đã được gửi Email
-Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
-    if (!\Illuminate\Support\Str::isUuid($id)) {
-        return response()->json(['success' => false, 'message' => 'Invalid UUID'], 400);
-    }
-    
-    $user = \App\Models\User::find($id);
-    if ($user) {
-        $user->last_promo_sent_at = now();
-        $user->save();
-        return response()->json(['success' => true, 'message' => 'Đã đánh dấu báo cáo gửi email thành công.']);
-    }
-    return response()->json(['success' => false, 'message' => 'User not found'], 404);
-});
+// Các API n8n đã được chuyển xuống mục Public n8n routes ở cuối file
 
 // API DÀNH RIÊNG CHO DEV TEST: Xóa trạng thái đã gửi để test đi test lại
 Route::get('/n8n/users/reset-testing', function () {
@@ -412,8 +370,59 @@ Route::get('/n8n/services', function () {
 }); // Kết thúc nhóm auth:sanctum
 
 // ===========================================================
-// N8N AUTOMATION ROUTES (Công khai hoặc dùng Secret Key)
+// N8N AUTOMATION ROUTES (Công khai cho n8n)
 // ===========================================================
+Route::get('/n8n/users', function () {
+    $timeFrame = now()->subHours(24);
+    $users = \App\Models\User::where('role', 'tourist')
+        ->where('status', 'active')
+        ->where(function ($q) use ($timeFrame) {
+            $q->whereNull('last_promo_sent_at')
+              ->orWhere('last_promo_sent_at', '<', $timeFrame);
+        })
+        ->withCount(['bookings' => function ($query) {
+            $query->where('payment_status', 'paid');
+        }])
+        ->get();
+    return response()->json(['success' => true, 'data' => $users]);
+});
+
+Route::get('/n8n/user-history/{id}', function ($id) {
+    return response()->json(['success' => true, 'data' => \App\Models\Booking::where('user_id', $id)->with('service')->get()]);
+});
+
+Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
+    $locId = $request->query('location_id');
+    $query = \App\Models\Service::where('type', 'hotel');
+    if ($locId) $query->where('location_id', $locId);
+    return response()->json(['success' => true, 'data' => $query->get()]);
+});
+
+Route::get('/n8n/services', function () {
+    return response()->json(['success' => true, 'data' => \App\Models\Service::all()]);
+});
+
+Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
+    $user = \App\Models\User::find($id);
+    if ($user) {
+        $user->last_promo_sent_at = now();
+        $user->save();
+        return response()->json(['success' => true]);
+    }
+    return response()->json(['success' => false], 404);
+});
+
+Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
+    $coupon = \App\Models\Coupon::create([
+        'code' => 'STB' . strtoupper(\Illuminate\Support\Str::random(6)),
+        'discount_type' => 'percentage',
+        'discount_value' => 20,
+        'is_active' => true,
+        'expires_at' => now()->addDays(30)
+    ]);
+    return response()->json(['success' => true, 'data' => $coupon]);
+});
+
 Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate([
         'user_id' => 'nullable|uuid',
@@ -424,13 +433,8 @@ Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
         'status' => 'nullable|string',
         'metadata' => 'nullable|array'
     ]);
-
     $log = \App\Models\AutomationLog::create($validated);
-
-    return response()->json([
-        'success' => true,
-        'data' => $log
-    ], 201);
+    return response()->json(['success' => true, 'data' => $log], 201);
 });
 
 Route::get('/n8n/bookings/abandoned', function () {

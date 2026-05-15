@@ -75,6 +75,7 @@ function App() {
                     <Route path="/cart" element={<CartPage />} />
                     <Route path="/wishlist" element={<WishlistPage />} />
                     <Route path="/checkout" element={<CheckoutPage />} />
+                    <Route path="/checkout/:bookingId" element={<CheckoutPage />} />
                     <Route path="/success" element={<SuccessPage />} />
                     <Route path="/onboarding" element={<Onboarding />} />
                   </Route>

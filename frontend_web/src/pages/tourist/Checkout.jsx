@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
     Loader2, CheckCircle2, QrCode, Wallet, ChevronRight,
     Clock, AlertCircle, RefreshCw, Copy, Check, Shield,
@@ -260,26 +260,82 @@ const InfoRow = ({ label, value, highlight, copyable }) => {
 const Checkout = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { bookingId } = useParams();
     const { currentUser } = useAuth();
+    const [loadingBooking, setLoadingBooking] = useState(!!bookingId);
 
-    // Service data từ ServiceDetail navigate state
-    const service = location.state?.service;
-    const bookingInfo = location.state?.bookingInfo;
+    // Dữ liệu từ navigate state (nếu có)
+    const [service, setService] = useState(location.state?.service);
+    const [bookingInfo, setBookingInfo] = useState(location.state?.bookingInfo);
 
     // Form state
     const [form, setForm] = useState({
-        checkInDate: bookingInfo?.date || '',
+        checkInDate: '',
         checkOutDate: '',
-        numAdults: bookingInfo?.adults || 1,
-        numChildren: bookingInfo?.children || 0,
-        contactName: currentUser?.displayName || currentUser?.display_name || '',
-        contactEmail: currentUser?.email || '',
-        contactPhone: currentUser?.phone || '',
+        numAdults: 1,
+        numChildren: 0,
+        contactName: '',
+        contactEmail: '',
+        contactPhone: '',
         specialRequests: '',
         couponCode: '',
-        room_type_id: bookingInfo?.room_type_id || null,
-        selectedRoomType: bookingInfo?.selectedRoomType || null,
+        room_type_id: null,
+        selectedRoomType: null,
     });
+
+    // 1. Nếu vào bằng link Email (có bookingId), lấy data từ Server
+    useEffect(() => {
+        if (!bookingId) return;
+
+        const fetchBooking = async () => {
+            setLoadingBooking(true);
+            try {
+                const res = await bookingApi.getBookingById(bookingId);
+                if (res.success && res.data) {
+                    const b = res.data;
+                    setService(b.service);
+                    setBooking(b); // Lưu booking có sẵn để thanh toán
+                    
+                    setForm({
+                        checkInDate: b.check_in_date ? b.check_in_date.split('T')[0] : '',
+                        checkOutDate: b.check_out_date ? b.check_out_date.split('T')[0] : '',
+                        numAdults: b.num_adults || 1,
+                        numChildren: b.num_children || 0,
+                        contactName: b.contact_name || '',
+                        contactEmail: b.contact_email || '',
+                        contactPhone: b.contact_phone || '',
+                        specialRequests: b.special_requests || '',
+                        couponCode: b.coupon_code || '',
+                        room_type_id: b.room_type_id || null,
+                        selectedRoomType: b.service?.room_types?.find(r => r.id === b.room_type_id) || null,
+                    });
+                    
+                    // Nếu đơn đã có booking sẵn, nhảy thẳng sang bước thanh toán 
+                    setStep(2); 
+                }
+            } catch (err) {
+                console.error("Error fetching booking:", err);
+            } finally {
+                setLoadingBooking(false);
+            }
+        };
+
+        fetchBooking();
+    }, [bookingId]);
+
+    // 2. Nếu vào từ trang Detail (có bookingInfo qua state)
+    useEffect(() => {
+        if (!bookingId && bookingInfo) {
+            setForm(f => ({
+                ...f,
+                checkInDate: bookingInfo.date || '',
+                numAdults: bookingInfo.adults || 1,
+                numChildren: bookingInfo.children || 0,
+                room_type_id: bookingInfo.room_type_id || null,
+                selectedRoomType: bookingInfo.selectedRoomType || null,
+            }));
+        }
+    }, [bookingId, bookingInfo]);
     
     // Đồng bộ thông tin từ Profile nếu form đang trống (Lần đầu load)
     useEffect(() => {
@@ -352,6 +408,15 @@ const Checkout = () => {
             .then(res => setWalletBalance(res?.data?.balance ?? 0))
             .catch(() => setWalletBalance(0));
     }, [service]);
+
+    if (loadingBooking) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+                <Loader2 size={40} className="animate-spin text-sky-500" />
+                <p className="text-slate-500 font-bold">Đang tải thông tin đơn hàng...</p>
+            </div>
+        );
+    }
 
     if (!service) {
         return (

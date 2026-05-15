@@ -49,7 +49,7 @@
         "fromEmail": "dangthanhvu0103@gmail.com",
         "toEmail": "={{ $json.contact_email }}",
         "subject": "Chia sẻ trải nghiệm tại {{ $json.service.name }} của bạn! ✨",
-        "html": "=<div style=\"font-family: sans-serif; padding: 25px; border: 1px solid #27ae60; border-radius: 10px;\">\n  <h2 style=\"color: #27ae60;\">Chuyến đi của bạn thế nào?</h2>\n  <p>Chào {{ $json.contact_name }}, cảm ơn bạn đã lựa chọn <b>{{ $json.service.name }}</b> cho chuyến đi vừa qua.</p>\n  <p>Hãy dành chút thời gian chia sẻ cảm nhận của bạn để cộng đồng cùng biết nhé!</p>\n  <div style=\"text-align: center; margin-top: 20px;\">\n    <a href=\"http://localhost:5173/service/{{ $json.service.slug }}#reviews\" style=\"background-color: #27ae60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Đánh giá ngay</a>\n  </div>\n</div>",
+        "html": "=<div style=\"font-family: sans-serif; padding: 25px; border: 1px solid #27ae60; border-radius: 10px;\">\n  <h2 style=\"color: #27ae60;\">Chuyến đi của bạn thế nào?</h2>\n  <p>Chào {{ $json.contact_name }}, cảm ơn bạn đã lựa chọn <b>{{ $json.service.name }}</b> cho chuyến đi vừa qua.</p>\n  <p>Hãy dành chút thời gian chia sẻ cảm nhận của bạn để cộng đồng cùng biết nhé!</p>\n  <div style=\"text-align: center; margin-top: 20px;\">\n    <a href=\"https://socialtravelbooking.click/service/{{ $json.service.slug }}#reviews\" style=\"background-color: #27ae60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Đánh giá ngay</a>\n  </div>\n</div>",
         "options": {}
       },
       "name": "Send Email: Xin Đánh Giá",

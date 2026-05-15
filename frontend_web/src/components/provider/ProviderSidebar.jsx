@@ -21,6 +21,7 @@ const menuItems = [
     { icon: Calendar, label: 'Lịch đặt chỗ', path: API_ENDPOINTS.PROVIDER_BOOKINGS },
     { icon: Star, label: 'Đánh giá khách hàng', path: API_ENDPOINTS.PROVIDER_REVIEWS },
     { icon: Wallet, label: 'Ví tiền & Doanh thu', path: API_ENDPOINTS.PROVIDER_WALLET },
+    { icon: MessageSquare, label: 'Tin nhắn', path: API_ENDPOINTS.PROVIDER_MESSAGES, target: '_blank' },
     { icon: Settings, label: 'Cài đặt cửa hàng', path: API_ENDPOINTS.PROVIDER_SETTINGS },
 ];
 
@@ -53,6 +54,7 @@ const ProviderSidebar = () => {
                         <Link
                             key={item.label}
                             to={item.path}
+                            target={item.target}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
                                 ${isActive
                                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'

@@ -47,6 +47,15 @@ const bookingApi = {
      */
     applyCoupon: (code, amount) =>
         axiosClient.post('/coupons/apply', { code, order_amount: amount }),
+
+    /**
+     * Lấy chi tiết đơn hàng qua mã code
+     */
+    getBookingByCode: (code) => axiosClient.get(`/user/bookings/by-code/${code}`),
+
+    checkIn: (id) => axiosClient.post(`/user/bookings/${id}/check-in`),
+    undoCheckIn: (id) => axiosClient.post(`/user/bookings/${id}/undo-check-in`),
+    checkOut: (id) => axiosClient.post(`/user/bookings/${id}/check-out`),
 };
 
 export default bookingApi;

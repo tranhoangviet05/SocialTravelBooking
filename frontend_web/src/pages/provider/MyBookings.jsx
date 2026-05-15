@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import BookingCardSkeleton from '../../components/common/BookingCardSkeleton';
 import {
-    Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle
+    Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle, RotateCw, Search
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 
@@ -69,21 +70,29 @@ const MyBookings = () => {
     } = useProviderData();
 
     const [statusFilter, setStatusFilter] = useState('all');
-    const [updatingId, setUpdatingId] = useState(null);
+    const [backgroundTasks, setBackgroundTasks] = useState({});
     const [toast, setToast] = useState(null);
-    const [cancelModal, setCancelModal] = useState(null); // booking object
+    const [cancelModal, setCancelModal] = useState(null);
 
-    const loading = loadingStates.bookings && bookings.length === 0;
+    const loading = loadingStates.bookings;
 
     useEffect(() => { 
-        fetchBookings(); 
-    }, [fetchBookings]);
+        if (bookings.length > 0 && statusFilter === 'all') return;
+        fetchBookings(false, statusFilter); 
+    }, [fetchBookings, statusFilter, bookings.length]);
 
     const showToast = (message, type = 'success') => setToast({ message, type });
 
     const handleStatusUpdate = async (bookingId, newStatus, cancelReason = '') => {
-        if (updatingId) return;
-        setUpdatingId(bookingId);
+        const taskType = newStatus === 'cancelled' ? 'cancelling' : 'updating';
+        setBackgroundTasks(prev => ({ ...prev, [bookingId]: taskType }));
+
+        const originalBooking = bookings.find(b => b.id === bookingId);
+        // Cập nhật lạc quan
+        setBookings(prev => prev.map(b => 
+            b.id === bookingId ? { ...b, status: newStatus, isOptimistic: true } : b
+        ));
+
         try {
             const res = await providerApi.updateBookingStatus(bookingId, newStatus, cancelReason);
             if (res.success) {
@@ -95,14 +104,23 @@ const MyBookings = () => {
                 };
                 showToast(statusLabels[newStatus] || 'Cập nhật thành công!');
                 setBookings(prev => prev.map(b =>
-                    b.id === bookingId ? { ...b, status: newStatus } : b
+                    b.id === bookingId ? { ...res.data, isOptimistic: false } : b
                 ));
                 setCancelModal(null);
             }
         } catch (err) {
+            console.error('Update booking error:', err);
             showToast(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái', 'error');
+            // Rollback
+            setBookings(prev => prev.map(b => 
+                b.id === bookingId ? { ...originalBooking, isOptimistic: false } : b
+            ));
         } finally {
-            setUpdatingId(null);
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[bookingId];
+                return newTasks;
+            });
         }
     };
 
@@ -123,34 +141,46 @@ const MyBookings = () => {
     };
 
     const getActionButtons = (booking) => {
-        const isProcessing = updatingId === booking.id;
+        const isProcessing = backgroundTasks[booking.id];
         const btnClass = "px-4 py-2 rounded-xl text-[12px] font-bold transition-all disabled:opacity-50 flex items-center gap-1.5";
+        const hasCheckinRequest = booking.tourist_check_in_at && !booking.is_checked_in;
 
         switch (booking.status) {
             case 'pending':
                 return (
-                    <div className="flex gap-2">
-                        <button disabled={isProcessing}
-                            onClick={() => handleStatusUpdate(booking.id, 'confirmed')}
-                            className={`${btnClass} bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20`}>
-                            {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={13} />}
-                            Xác nhận
-                        </button>
-                        <button disabled={isProcessing}
-                            onClick={() => setCancelModal(booking)}
-                            className={`${btnClass} bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100`}>
-                            <XCircle size={13} /> Từ chối
-                        </button>
+                    <div className="flex flex-col items-end gap-1">
+                        <span className="text-[11px] font-bold text-amber-500 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100">
+                            Chờ khách thanh toán...
+                        </span>
+                        <p className="text-[10px] text-slate-400 italic">Hệ thống sẽ tự xác nhận khi có tiền</p>
                     </div>
                 );
             case 'confirmed':
                 return (
-                    <button disabled={isProcessing}
-                        onClick={() => handleStatusUpdate(booking.id, 'ongoing')}
-                        className={`${btnClass} bg-violet-500 text-white hover:bg-violet-600 shadow-lg shadow-violet-500/20`}>
-                        {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Play size={13} />}
-                        Bắt đầu
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        {hasCheckinRequest ? (
+                            <button disabled={isProcessing}
+                                onClick={() => handleStatusUpdate(booking.id, 'ongoing')}
+                                className={`${btnClass} bg-indigo-600 hover:bg-indigo-700 animate-pulse text-white shadow-lg shadow-indigo-600/20`}>
+                                {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Play size={13} />}
+                                Xác nhận Khách Check-in
+                            </button>
+                        ) : (
+                            <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-center">
+                                <p className="text-[11px] font-bold text-slate-400">Đang chờ khách hàng check-in...</p>
+                            </div>
+                        )}
+                        <button
+                            onClick={() => {
+                                const name = encodeURIComponent(booking.contact_name || booking.user?.display_name || '');
+                                const avatar = encodeURIComponent(booking.user?.avatar_url || '');
+                                window.open(`/provider/messages?userId=${booking.user_id}&name=${name}&avatar=${avatar}`, '_blank');
+                            }}
+                            className={`${btnClass} bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 justify-center`}>
+                            <User size={13} />
+                            Liên hệ khách
+                        </button>
+                    </div>
                 );
             case 'ongoing':
                 return (
@@ -168,9 +198,9 @@ const MyBookings = () => {
 
     const statusTabs = [
         { key: 'all', label: 'Tất cả', count: bookings.length },
-        { key: 'pending', label: 'Chờ duyệt' },
+        { key: 'checkin_requested', label: 'Yêu cầu Check-in' },
         { key: 'confirmed', label: 'Đã xác nhận' },
-        { key: 'ongoing', label: 'Đang diễn ra' },
+        { key: 'ongoing', label: 'Đang lưu trú' },
         { key: 'completed', label: 'Hoàn thành' },
         { key: 'cancelled', label: 'Đã hủy' },
     ];
@@ -182,16 +212,33 @@ const MyBookings = () => {
         } catch { return dateStr; }
     };
 
-    const filteredBookings = statusFilter === 'all' 
-        ? bookings 
-        : bookings.filter(b => b.status === statusFilter);
+    const filteredBookings = bookings;
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Lịch đặt chỗ</h2>
-                <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý và xác nhận tất cả đơn đặt chỗ từ khách hàng.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Lịch đặt chỗ</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý và xác nhận tất cả đơn đặt chỗ từ khách hàng.</p>
+                </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Tìm theo mã đơn, tên khách hàng..."
+                        className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-[22px] shadow-sm focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300 placeholder:font-medium"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => fetchBookings(true, statusFilter)}
+                        className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
+                        <RotateCw size={20} />
+                    </button>
+                </div>
             </div>
 
             {/* Status Filter Tabs */}
@@ -211,9 +258,8 @@ const MyBookings = () => {
 
             {/* Bookings List */}
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border">
-                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải đơn đặt chỗ...</p>
+                <div className="space-y-3">
+                    {[...Array(4)].map((_, i) => <BookingCardSkeleton key={i} />)}
                 </div>
             ) : filteredBookings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
@@ -225,59 +271,66 @@ const MyBookings = () => {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {filteredBookings.map(booking => (
-                        <div key={booking.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    {/* Code + Status */}
-                                    <div className="flex items-center gap-3 mb-3 flex-wrap">
-                                        <span className="text-xs font-mono font-black text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg">
-                                            #{booking.booking_code || booking.id}
-                                        </span>
-                                        {getStatusBadge(booking.status)}
+                    {filteredBookings.map(booking => {
+                        const taskType = backgroundTasks[booking.id];
+                        const isUpdating = taskType === 'updating' || booking.isOptimistic;
+                        const isCancelling = taskType === 'cancelling';
+
+                        return (
+                            <div key={booking.id} className={`bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all relative group ${isUpdating || isCancelling ? 'optimistic-updating' : ''}`}>
+                                {(isUpdating || isCancelling) && (
+                                    <div className="optimistic-adding-text text-[10px] font-bold uppercase">
+                                        {isCancelling ? 'Đang hủy đơn...' : 'Đang cập nhật...'}
+                                    </div>
+                                )}
+                                
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3 mb-3 flex-wrap">
+                                            <span className="text-xs font-mono font-black text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg">
+                                                #{booking.booking_code || booking.id}
+                                            </span>
+                                            {getStatusBadge(booking.status)}
+                                        </div>
+
+                                        <h3 className="text-sm font-black text-slate-900 mb-2">
+                                            {booking.service?.name || 'Dịch vụ'}
+                                        </h3>
+
+                                        <div className="flex items-center gap-5 text-xs text-slate-400 font-medium flex-wrap">
+                                            <span className="flex items-center gap-1.5">
+                                                <User size={13} />
+                                                {booking.contact_name || booking.user?.display_name || 'Khách hàng'}
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <CalendarCheck size={13} />
+                                                {formatDate(booking.check_in_date)}
+                                                {booking.check_out_date && ` → ${formatDate(booking.check_out_date)}`}
+                                            </span>
+                                            <span>
+                                                {booking.num_adults} người lớn
+                                                {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
+                                            </span>
+                                        </div>
+
+                                        {booking.cancel_reason && (
+                                            <p className="text-xs text-rose-400 mt-2 flex items-center gap-1 font-bold">
+                                                <XCircle size={11} /> Lý do hủy: {booking.cancel_reason}
+                                            </p>
+                                        )}
                                     </div>
 
-                                    {/* Service name */}
-                                    <h3 className="text-sm font-black text-slate-900 mb-2">
-                                        {booking.service?.name || 'Dịch vụ'}
-                                    </h3>
-
-                                    {/* Details */}
-                                    <div className="flex items-center gap-5 text-xs text-slate-400 font-medium flex-wrap">
-                                        <span className="flex items-center gap-1.5">
-                                            <User size={13} />
-                                            {booking.contact_name || booking.user?.display_name || 'Khách hàng'}
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <CalendarCheck size={13} />
-                                            {formatDate(booking.check_in_date)}
-                                            {booking.check_out_date && ` → ${formatDate(booking.check_out_date)}`}
-                                        </span>
-                                        <span>
-                                            {booking.num_adults} người lớn
-                                            {booking.num_children > 0 && ` · ${booking.num_children} trẻ em`}
-                                        </span>
-                                    </div>
-
-                                    {/* Cancel reason */}
-                                    {booking.cancel_reason && (
-                                        <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
-                                            <XCircle size={11} /> Lý do hủy: {booking.cancel_reason}
+                                    <div className="text-right flex-shrink-0">
+                                        <p className="text-xl font-black text-emerald-600 mb-1">
+                                            {Number(booking.total_amount || 0).toLocaleString('vi-VN')}₫
                                         </p>
-                                    )}
-                                </div>
-
-                                {/* Right: Price + Actions */}
-                                <div className="text-right flex-shrink-0">
-                                    <p className="text-xl font-black text-emerald-600 mb-1">
-                                        {Number(booking.total_amount || 0).toLocaleString('vi-VN')}₫
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-3">Tổng tiền</p>
-                                    {getActionButtons(booking)}
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-3">Tổng tiền</p>
+                                        {getActionButtons(booking)}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -285,7 +338,7 @@ const MyBookings = () => {
             {cancelModal && (
                 <CancelModal
                     bookingCode={cancelModal.booking_code || cancelModal.id}
-                    loading={updatingId === cancelModal.id}
+                    loading={backgroundTasks[cancelModal.id] === 'cancelling'}
                     onConfirm={(reason) => handleStatusUpdate(cancelModal.id, 'cancelled', reason)}
                     onCancel={() => setCancelModal(null)}
                 />

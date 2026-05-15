@@ -76,6 +76,8 @@ class PostController extends Controller
                 'media'       => 'nullable|array',
                 'media.*.url' => 'required|url',
                 'media.*.type' => 'nullable|string',
+                'media.*.width' => 'nullable|integer',
+                'media.*.height' => 'nullable|integer',
                 'tags'        => 'nullable|array',
                 'location_id' => 'nullable|integer|exists:locations,id',
                 'service_id'  => 'nullable|uuid|exists:services,id',
@@ -170,6 +172,61 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể tải bài viết của người dùng'
+            ], 500);
+        }
+    }
+    /**
+     * Tìm kiếm tổng hợp
+     */
+    public function searchAll(Request $request)
+    {
+        try {
+            $user = $request->attributes->get('userModel');
+            $q = $request->query('q');
+
+            if (!$q) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'posts' => [],
+                        'users' => [],
+                        'merged' => []
+                    ]
+                ]);
+            }
+
+            $results = $this->socialService->searchAll($user, $q);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $results
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi tìm kiếm tổng hợp'
+            ], 500);
+        }
+    }
+
+    /**
+     * Lấy 3 bài viết mới nhất cho trang chủ (Công khai)
+     */
+    public function latest(Request $request)
+    {
+        try {
+            $limit = $request->get('limit', 3);
+            $posts = $this->socialService->getLatestPosts($limit);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $posts
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('PostController@latest error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi lấy bài viết mới nhất'
             ], 500);
         }
     }

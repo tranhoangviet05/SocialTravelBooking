@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import locationApi from '../api/locationApi';
 import categoryApi from '../api/categoryApi';
@@ -45,6 +45,15 @@ export const AdminDataProvider = ({ children }) => {
     const [loadingStates, setLoadingStates] = useState({});
     const [loadedStates, setLoadedStates] = useState({});
 
+    // Refs for stable callbacks
+    const loadedStatesRef = useRef({});
+    const loadingStatesRef = useRef({});
+    const metaRef = useRef(meta);
+
+    useEffect(() => { loadedStatesRef.current = loadedStates; }, [loadedStates]);
+    useEffect(() => { loadingStatesRef.current = loadingStates; }, [loadingStates]);
+    useEffect(() => { metaRef.current = meta; }, [meta]);
+
     // Reset on logout
     useEffect(() => {
         if (!currentUser || currentUser.role !== 'admin') {
@@ -52,27 +61,46 @@ export const AdminDataProvider = ({ children }) => {
             setServices([]); setBookings([]); setReviews([]); setCoupons([]); setReports([]);
             setSettings(null); setAutomation([]);
             setLoadedStates({});
+            setLoadingStates({});
         }
     }, [currentUser]);
 
     const setOneLoading = (key, val) => setLoadingStates(prev => ({ ...prev, [key]: val }));
     const setOneLoaded = (key, val) => setLoadedStates(prev => ({ ...prev, [key]: val }));
 
+    const isParamsEmpty = (p) => {
+        if (!p) return true;
+        return !Object.values(p).some(v => v !== undefined && v !== null && v !== '' && v !== false);
+    };
+
+    const withMinDelay = async (promise, minDelay = 500) => {
+        const start = Date.now();
+        const result = await promise;
+        const elapsed = Date.now() - start;
+        if (elapsed < minDelay) await new Promise(r => setTimeout(r, minDelay - elapsed));
+        return result;
+    };
+
     const fetchStats = useCallback(async (force = false) => {
-        if (loadedStates.stats && !force) return;
+        if (loadingStatesRef.current.stats && !force) return;
+        if (loadedStatesRef.current.stats && !force) return;
         setOneLoading('stats', true);
         try {
-            const res = await adminApi.getDashboardStats();
+            const apiCall = adminApi.getDashboardStats();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) { setStats(res.data); setOneLoaded('stats', true); }
         } catch (e) { console.error('AdminData: stats', e); }
         finally { setOneLoading('stats', false); }
-    }, [loadedStates.stats]);
+    }, []);
 
     const fetchLocations = useCallback(async (force = false, page = 1, params = {}) => {
-        if (loadedStates.locations && !force && page === meta.locations.current_page && Object.keys(params).length === 0) return;
+        const isDefault = page === metaRef.current.locations.current_page && isParamsEmpty(params);
+        if (loadingStatesRef.current.locations && !force) return;
+        if (loadedStatesRef.current.locations && !force && isDefault) return;
         setOneLoading('locations', true);
         try {
-            const res = await adminApi.getAllLocations({ page, per_page: 8, ...params });
+            const apiCall = adminApi.getAllLocations({ page, per_page: 8, ...params });
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setLocations(res.data);
                 if (res.meta) setMeta(prev => ({ ...prev, locations: res.meta }));
@@ -80,13 +108,16 @@ export const AdminDataProvider = ({ children }) => {
             }
         } catch (e) { console.error('AdminData: locations', e); }
         finally { setOneLoading('locations', false); }
-    }, [loadedStates.locations, meta.locations.current_page]);
+    }, []);
 
     const fetchCategories = useCallback(async (force = false, page = 1, params = {}) => {
-        if (loadedStates.categories && !force && page === meta.categories.current_page && Object.keys(params).length === 0) return;
+        const isDefault = page === metaRef.current.categories.current_page && isParamsEmpty(params);
+        if (loadingStatesRef.current.categories && !force) return;
+        if (loadedStatesRef.current.categories && !force && isDefault) return;
         setOneLoading('categories', true);
         try {
-            const res = await adminApi.getAllCategories({ page, per_page: 8, ...params });
+            const apiCall = adminApi.getAllCategories({ page, per_page: 8, ...params });
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) {
                 setCategories(res.data);
                 if (res.meta) setMeta(prev => ({ ...prev, categories: res.meta }));
@@ -94,46 +125,56 @@ export const AdminDataProvider = ({ children }) => {
             }
         } catch (e) { console.error('AdminData: categories', e); }
         finally { setOneLoading('categories', false); }
-    }, [loadedStates.categories, meta.categories.current_page]);
+    }, []);
 
-    const fetchUsers = useCallback(async (force = false, page = 1) => {
-        if (loadedStates.users && !force && page === meta.users.current_page) return;
+    const fetchUsers = useCallback(async (force = false, page = 1, params = {}) => {
+        const isDefault = page === metaRef.current.users.current_page && isParamsEmpty(params);
+        if (loadingStatesRef.current.users && !force) return;
+        if (loadedStatesRef.current.users && !force && isDefault) return;
         setOneLoading('users', true);
         try {
-            const res = await adminApi.getAllUsers({ page });
-            if (res.success) { 
-                setUsers(res.data); 
+            const apiCall = adminApi.getAllUsers({ page, per_page: 15, ...params });
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
+            if (res.success) {
+                setUsers(res.data);
                 if (res.meta) setMeta(prev => ({ ...prev, users: res.meta }));
-                setOneLoaded('users', true); 
+                setOneLoaded('users', true);
             }
         } catch (e) { console.error('AdminData: users', e); }
         finally { setOneLoading('users', false); }
-    }, [loadedStates.users, meta.users.current_page]);
+    }, []);
 
-    const fetchProviders = useCallback(async (force = false, page = 1, extraParams = {}) => {
-        if (loadedStates.providers && !force && page === meta.providers.current_page && Object.keys(extraParams).length === 0) return;
+    const fetchProviders = useCallback(async (force = false, page = 1, params = {}) => {
+        const isDefault = page === metaRef.current.providers.current_page && isParamsEmpty(params);
+        if (loadingStatesRef.current.providers && !force) return;
+        if (loadedStatesRef.current.providers && !force && isDefault) return;
         setOneLoading('providers', true);
         try {
-            const res = await adminApi.getAllProviders({ page, ...extraParams });
-            if (res.success) { 
-                setProviders(res.data); 
+            const apiCall = adminApi.getAllProviders({ page, per_page: 15, ...params });
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
+            if (res.success) {
+                setProviders(res.data);
                 if (res.meta) setMeta(prev => ({ ...prev, providers: res.meta }));
-                setOneLoaded('providers', true); 
+                setOneLoaded('providers', true);
             }
         } catch (e) { console.error('AdminData: providers', e); }
         finally { setOneLoading('providers', false); }
-    }, [loadedStates.providers, meta.providers.current_page]);
+    }, []);
 
     const fetchServices = useCallback(async (force = false, params = {}) => {
         const page = params.page || 1;
-        const queryParams = { page, per_page: params.per_page || 15 };
-        if (params.search) queryParams.search = params.search;
-        if (params.type) queryParams.type = params.type;
-        if (params.status) queryParams.status = params.status;
-        if (loadedStates.services && !force && page === meta.services.current_page) return;
+        const filteredParams = { ...params };
+        delete filteredParams.page;
+        delete filteredParams.per_page;
+        
+        const isDefault = page === metaRef.current.services.current_page && isParamsEmpty(filteredParams);
+        if (loadingStatesRef.current.services && !force) return;
+        if (loadedStatesRef.current.services && !force && isDefault) return;
         setOneLoading('services', true);
         try {
-            const res = await adminApi.getAllServices(queryParams);
+            const queryParams = { page, per_page: params.per_page || 15, ...params };
+            const apiCall = adminApi.getAllServices(queryParams);
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) { 
                 setServices(res.data); 
                 if (res.meta) setMeta(prev => ({ ...prev, services: res.meta }));
@@ -141,75 +182,89 @@ export const AdminDataProvider = ({ children }) => {
             }
         } catch (e) { console.error('AdminData: services', e); }
         finally { setOneLoading('services', false); }
-    }, [loadedStates.services, meta.services.current_page]);
+    }, []);
 
-    const fetchBookings = useCallback(async (force = false, page = 1) => {
-        if (loadedStates.bookings && !force && page === meta.bookings.current_page) return;
+    const fetchBookings = useCallback(async (force = false, page = 1, params = {}) => {
+        const isDefault = page === metaRef.current.bookings.current_page && isParamsEmpty(params);
+        if (loadingStatesRef.current.bookings && !force) return;
+        if (loadedStatesRef.current.bookings && !force && isDefault) return;
         setOneLoading('bookings', true);
         try {
-            const res = await adminApi.getAllBookings({ page });
-            if (res.success) { 
-                setBookings(res.data); 
+            const apiCall = adminApi.getAllBookings({ page, per_page: 15, ...params });
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
+            if (res.success) {
+                setBookings(res.data);
                 if (res.meta) setMeta(prev => ({ ...prev, bookings: res.meta }));
-                setOneLoaded('bookings', true); 
+                setOneLoaded('bookings', true);
             }
         } catch (e) { console.error('AdminData: bookings', e); }
         finally { setOneLoading('bookings', false); }
-    }, [loadedStates.bookings, meta.bookings.current_page]);
+    }, []);
 
-    const fetchReviews = useCallback(async (force = false, page = 1) => {
-        if (loadedStates.reviews && !force && page === meta.reviews.current_page) return;
+    const fetchReviews = useCallback(async (force = false, page = 1, params = {}) => {
+        const isDefault = page === metaRef.current.reviews.current_page && isParamsEmpty(params);
+        if (loadingStatesRef.current.reviews && !force) return;
+        if (loadedStatesRef.current.reviews && !force && isDefault) return;
         setOneLoading('reviews', true);
         try {
-            const res = await adminApi.getAllReviews({ page });
-            if (res.success) { 
-                setReviews(res.data); 
+            const apiCall = adminApi.getAllReviews({ page, per_page: 15, ...params });
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
+            if (res.success) {
+                setReviews(res.data);
                 if (res.meta) setMeta(prev => ({ ...prev, reviews: res.meta }));
-                setOneLoaded('reviews', true); 
+                setOneLoaded('reviews', true);
             }
         } catch (e) { console.error('AdminData: reviews', e); }
         finally { setOneLoading('reviews', false); }
-    }, [loadedStates.reviews, meta.reviews.current_page]);
+    }, []);
 
     const fetchCoupons = useCallback(async (force = false) => {
-        if (loadedStates.coupons && !force) return;
+        if (loadingStatesRef.current.coupons && !force) return;
+        if (loadedStatesRef.current.coupons && !force) return;
         setOneLoading('coupons', true);
         try {
-            const res = await adminApi.getAllCoupons();
+            const apiCall = adminApi.getAllCoupons();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) { setCoupons(res.data); setOneLoaded('coupons', true); }
         } catch (e) { console.error('AdminData: coupons', e); }
         finally { setOneLoading('coupons', false); }
-    }, [loadedStates.coupons]);
+    }, []);
 
     const fetchReports = useCallback(async (force = false) => {
-        if (loadedStates.reports && !force) return;
+        if (loadingStatesRef.current.reports && !force) return;
+        if (loadedStatesRef.current.reports && !force) return;
         setOneLoading('reports', true);
         try {
-            const res = await adminApi.getAllReports();
+            const apiCall = adminApi.getAllReports();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) { setReports(res.data); setOneLoaded('reports', true); }
         } catch (e) { console.error('AdminData: reports', e); }
         finally { setOneLoading('reports', false); }
-    }, [loadedStates.reports]);
+    }, []);
 
     const fetchSettings = useCallback(async (force = false) => {
-        if (loadedStates.settings && !force) return;
+        if (loadingStatesRef.current.settings && !force) return;
+        if (loadedStatesRef.current.settings && !force) return;
         setOneLoading('settings', true);
         try {
-            const res = await adminApi.getSettings();
+            const apiCall = adminApi.getSettings();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) { setSettings(res.data); setOneLoaded('settings', true); }
         } catch (e) { console.error('AdminData: settings', e); }
         finally { setOneLoading('settings', false); }
-    }, [loadedStates.settings]);
+    }, []);
 
     const fetchAutomation = useCallback(async (force = false) => {
-        if (loadedStates.automation && !force) return;
+        if (loadingStatesRef.current.automation && !force) return;
+        if (loadedStatesRef.current.automation && !force) return;
         setOneLoading('automation', true);
         try {
-            const res = await adminApi.getAutomationWorkflows();
+            const apiCall = adminApi.getAutomationWorkflows();
+            const res = force ? await withMinDelay(apiCall) : await apiCall;
             if (res.success) { setAutomation(res.data); setOneLoaded('automation', true); }
         } catch (e) { console.error('AdminData: automation', e); }
         finally { setOneLoading('automation', false); }
-    }, [loadedStates.automation]);
+    }, []);
 
     const reloadAll = useCallback(async () => {
         // Only reload what is already loaded
@@ -238,14 +293,32 @@ export const AdminDataProvider = ({ children }) => {
     const updateCategory = (cat) => setCategories(prev => prev.map(c => c.id === cat.id ? cat : c));
     const removeCategory = (id) => setCategories(prev => prev.filter(c => c.id !== id));
 
+    const addService = (svc) => setServices(prev => [svc, ...prev]);
+    const updateService = (svc) => setServices(prev => prev.map(s => s.id === svc.id ? svc : s));
+    const removeService = (id) => setServices(prev => prev.filter(s => s.id !== id));
+
+    const addUser = (usr) => setUsers(prev => [usr, ...prev]);
+    const updateUser = (usr) => setUsers(prev => prev.map(u => u.id === usr.id ? usr : u));
+    const removeUser = (id) => setUsers(prev => prev.filter(u => u.id !== id));
+
     const addCoupon = (cpn) => setCoupons(prev => [cpn, ...prev]);
     const updateCoupon = (cpn) => setCoupons(prev => prev.map(c => c.id === cpn.id ? cpn : c));
     const removeCoupon = (id) => setCoupons(prev => prev.filter(c => c.id !== id));
 
+    const updateBooking = (bk) => setBookings(prev => prev.map(b => b.id === bk.id ? bk : b));
+    const removeBooking = (id) => setBookings(prev => prev.filter(b => b.id !== id));
+    const updateReview = (rv) => setReviews(prev => prev.map(r => r.id === rv.id ? rv : r));
+    const removeReview = (id) => setReviews(prev => prev.filter(r => r.id !== id));
+    const updateReport = (rep) => setReports(prev => prev.map(r => r.id === rep.id ? rep : r));
+    const removeReport = (id) => setReports(prev => prev.filter(r => r.id !== id));
+
     const value = {
-        users, providers, services, bookings, reviews, coupons, reports, settings, automation, stats, meta, locations, categories,
-        loadingStates,
-        // Specific flags for convenience
+        // Data
+        stats, locations, categories, users, providers, services, bookings, 
+        reviews, coupons, reports, settings, automation, meta,
+        
+        // Loading States
+        loadingStates, loadedStates,
         isLoadingUsers: loadingStates.users,
         isLoadingProviders: loadingStates.providers,
         isLoadingServices: loadingStates.services,
@@ -253,18 +326,24 @@ export const AdminDataProvider = ({ children }) => {
         isLoadingReviews: loadingStates.reviews,
         isLoadingLocations: loadingStates.locations,
         isLoadingCategories: loadingStates.categories,
-        
-        // Fetch functions
-        fetchUsers, fetchProviders, fetchServices, fetchBookings, fetchReviews, 
-        fetchLocations, fetchCategories, fetchStats, fetchCoupons, fetchSettings, fetchAutomation,
-        
-        // Update helpers (Client-side state sync)
-        setUsers, setProviders, setServices, setBookings, setReviews, setCoupons, setReports, setSettings, setAutomation, setMeta,
+
+        // Setters (for optimistic updates)
+        setStats, setLocations, setCategories, setUsers, setProviders, setServices, 
+        setBookings, setReviews, setCoupons, setReports, setSettings, setAutomation, setMeta,
+
+        // Fetch Functions
+        fetchStats, fetchLocations, fetchCategories, fetchUsers, fetchProviders, 
+        fetchServices, fetchBookings, fetchReviews, fetchCoupons, fetchReports, 
+        fetchSettings, fetchAutomation, reloadAll,
+
+        // CRUD Helpers
         addLocation, updateLocation, removeLocation,
         addCategory, updateCategory, removeCategory,
         addCoupon, updateCoupon, removeCoupon,
-        
-        reloadAll
+        addService, updateService, removeService,
+        addUser, updateUser, removeUser,
+        updateBooking, removeBooking, updateReview, removeReview,
+        updateReport, removeReport
     };
 
     return (

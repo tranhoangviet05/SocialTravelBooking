@@ -433,4 +433,16 @@ class SocialService
                                              ->orderByDesc('created_at')
                                              ->paginate($perPage);
     }
+
+    /**
+     * Lấy các bài viết công khai mới nhất (cho trang chủ)
+     */
+    public function getLatestPosts(int $limit = 3)
+    {
+        return \App\Models\Post::where('visibility', 'public')
+                               ->with(['author.socialProfile', 'media', 'tags', 'location', 'service.media'])
+                               ->orderByDesc('created_at')
+                               ->limit($limit)
+                               ->get();
+    }
 }

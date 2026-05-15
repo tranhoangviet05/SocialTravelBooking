@@ -7,6 +7,7 @@ import LocationModal from '../../components/admin/location/LocationModal';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAdminData } from '../../contexts/AdminDataContext';
 import adminApi from '../../api/adminApi';
+import TableSkeleton from '../../components/common/TableSkeleton';
 
 const Pagination = ({ meta, onPageChange }) => {
     if (!meta || meta.last_page <= 1) return null;
@@ -37,7 +38,10 @@ const Pagination = ({ meta, onPageChange }) => {
 };
 
 const LocationManagement = () => {
-    const { locations, loadingStates, fetchLocations, meta } = useAdminData();
+    const {
+        locations, setLocations, meta, fetchLocations, loadingStates,
+        addLocation, updateLocation, removeLocation
+    } = useAdminData();
     const locationsMeta = meta?.locations || { current_page: 1, last_page: 1, total: 0 };
     const loading = loadingStates.locations;
 
@@ -50,25 +54,20 @@ const LocationManagement = () => {
 
     const toast = useNotification();
 
-    const doFetch = useCallback((page = 1, search = '', popular = false) => {
-        fetchLocations(true, page, {
+    const doFetch = useCallback((page = 1, search = '', popular = false, force = false) => {
+        fetchLocations(force, page, {
             search: search || undefined,
             is_popular: popular ? '1' : undefined,
         });
     }, [fetchLocations]);
 
     useEffect(() => {
-        doFetch(1, '', false);
-        setCurrentPage(1);
-    }, []);
-
-    useEffect(() => {
         const timer = setTimeout(() => {
-            doFetch(1, searchTerm, isPopularActive);
+            doFetch(1, searchTerm, isPopularActive, false);
             setCurrentPage(1);
-        }, 400);
+        }, searchTerm ? 400 : 0);
         return () => clearTimeout(timer);
-    }, [searchTerm, isPopularActive]);
+    }, [searchTerm, isPopularActive, doFetch]);
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
@@ -78,20 +77,71 @@ const LocationManagement = () => {
     const handleAddClick = () => { setEditingLocation(null); setIsModalOpen(true); };
     const handleEditClick = (loc) => { setEditingLocation(loc); setIsModalOpen(true); };
 
-    const handleSave = async (data) => {
-        setIsSaving(true);
+    const [backgroundTasks, setBackgroundTasks] = useState({}); // { id: 'adding' | 'updating' }
+
+    const handleSave = async (data, selectedFile) => {
+        // Close modal immediately after validation (validation is inside Modal)
+        setIsModalOpen(false);
+        
+        const taskId = editingLocation ? editingLocation.id : `temp-${Date.now()}`;
+        setBackgroundTasks(prev => ({ ...prev, [taskId]: editingLocation ? 'updating' : 'adding' }));
+
+        // Nếu là thêm mới, tạo một bản ghi tạm thời
+        if (!editingLocation) {
+            const tempLoc = {
+                id: taskId,
+                name: data.name,
+                image_url: data.image_url || '',
+                country_code: data.country_code,
+                is_popular: data.is_popular,
+                isOptimistic: true
+            };
+            addLocation(tempLoc);
+        } else {
+            // Nếu là sửa, cập nhật flag isOptimistic
+            updateLocation({ ...editingLocation, ...data, isOptimistic: true });
+        }
+
         try {
-            if (editingLocation) {
-                const res = await adminApi.updateLocation(editingLocation.id, data);
-                if (res.success) { toast.success('Cập nhật địa điểm thành công!'); doFetch(currentPage, searchTerm, isPopularActive); }
-            } else {
-                const res = await adminApi.createLocation(data);
-                if (res.success) { toast.success('Thêm địa điểm mới thành công!'); doFetch(1, searchTerm, isPopularActive); setCurrentPage(1); }
+            let finalImageUrl = data.image_url;
+            // Xử lý upload ảnh ngầm nếu có
+            if (selectedFile) {
+                const { uploadImage } = await import('../../utils/cloudinary');
+                finalImageUrl = await uploadImage(selectedFile);
             }
-            setIsModalOpen(false);
+
+            const finalData = { ...data, image_url: finalImageUrl };
+            
+            if (editingLocation) {
+                const res = await adminApi.updateLocation(editingLocation.id, finalData);
+                if (res.success) {
+                    toast.success('Đã cập nhật xong!');
+                    updateLocation({ ...res.data, isOptimistic: false });
+                }
+            } else {
+                const res = await adminApi.createLocation(finalData);
+                if (res.success) {
+                    toast.success('Đã thêm địa điểm mới!');
+                    // Thay thế bản ghi tạm bằng bản ghi thật
+                    setLocations(prev => prev.map(l => l.id === taskId ? res.data : l));
+                }
+            }
         } catch (e) {
-            toast.error(e.response?.data?.message || 'Lỗi khi lưu dữ liệu.');
-        } finally { setIsSaving(false); }
+            console.error('Error saving location:', e);
+            toast.error('Lỗi khi lưu dữ liệu ngầm. Vui lòng thử lại.');
+            // Rollback nếu lỗi
+            if (editingLocation) {
+                updateLocation({ ...editingLocation, isOptimistic: false });
+            } else {
+                removeLocation(taskId);
+            }
+        } finally {
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[taskId];
+                return newTasks;
+            });
+        }
     };
 
     const handleDelete = async (id) => {
@@ -100,10 +150,9 @@ const LocationManagement = () => {
             const res = await adminApi.deleteLocation(id);
             if (res.success) {
                 toast.success('Xóa địa điểm thành công!');
+                removeLocation(id);
                 if (locations.length === 1 && currentPage > 1) {
                     handlePageChange(currentPage - 1);
-                } else {
-                    doFetch(currentPage, searchTerm, isPopularActive);
                 }
             }
         } catch (e) {
@@ -147,7 +196,7 @@ const LocationManagement = () => {
                     <Star size={16} className={isPopularActive ? 'fill-amber-500 text-amber-500' : ''} />
                     Phổ biến
                 </button>
-                <button onClick={() => doFetch(currentPage, searchTerm, isPopularActive)}
+                <button onClick={() => doFetch(currentPage, searchTerm, isPopularActive, true)}
                     className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
                     <RotateCw size={20} />
                 </button>
@@ -157,8 +206,8 @@ const LocationManagement = () => {
                 </button>
             </div>
 
-            {loading && locations.length === 0 ? (
-                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500" size={40} /></div>
+            {loading ? (
+                <TableSkeleton columns={5} rows={10} />
             ) : locations.length === 0 ? (
                 <div className="bg-white rounded-3xl border border-slate-100 p-20 flex flex-col items-center justify-center text-center shadow-sm">
                     <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
@@ -182,49 +231,63 @@ const LocationManagement = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {locations.map((loc) => (
-                                        <tr key={loc.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-400">#{loc.id}</span></td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-xl bg-slate-50 overflow-hidden shadow-sm border border-slate-100 flex items-center justify-center">
-                                                        {loc.image_url ? (
-                                                            <img src={loc.image_url} alt={loc.name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <MapPin size={18} className="text-slate-300" />
-                                                        )}
+                                    {locations.map((loc) => {
+                                        const isTemp = String(loc.id).startsWith('temp-');
+                                        const isUpdating = loc.isOptimistic && !isTemp;
+                                        const isAdding = loc.isOptimistic && isTemp;
+
+                                        return (
+                                            <tr key={loc.id} className={`hover:bg-slate-50/50 transition-colors group ${isUpdating ? 'optimistic-updating' : ''} ${isAdding ? 'optimistic-adding' : ''}`}>
+                                                <td className="px-6 py-4">
+                                                    {isAdding ? (
+                                                        <div className="optimistic-adding-text text-[10px] font-bold uppercase">Đang thêm...</div>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-slate-400">#{loc.id}</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 rounded-xl bg-slate-50 overflow-hidden shadow-sm border border-slate-100 flex items-center justify-center">
+                                                            {loc.image_url ? (
+                                                                <img src={loc.image_url} alt={loc.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <MapPin size={18} className="text-slate-300" />
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors uppercase text-xs">{loc.name}</p>
+                                                            <p className="text-[10px] font-mono text-slate-400 mt-0.5">/{loc.slug || 'generating...'}</p>
+                                                            {loc.parent && <p className="text-[10px] text-indigo-400 font-bold mt-1 uppercase flex items-center gap-1">
+                                                                <ChevronRight size={10} /> {loc.parent.name}
+                                                            </p>}
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors uppercase text-xs">{loc.name}</p>
-                                                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">/{loc.slug}</p>
-                                                        {loc.parent && <p className="text-[10px] text-indigo-400 font-bold mt-1 uppercase flex items-center gap-1">
-                                                            <ChevronRight size={10} /> {loc.parent.name}
-                                                        </p>}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-black px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 uppercase">
-                                                    {loc.country_code || 'VN'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {loc.is_popular ? <Star size={16} className="inline fill-amber-500 text-amber-500" /> : <span className="text-slate-300 text-sm">—</span>}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => handleEditClick(loc)}
-                                                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer">
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button onClick={() => handleDelete(loc.id)}
-                                                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-black px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 uppercase">
+                                                        {loc.country_code || 'VN'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    {loc.is_popular ? <Star size={16} className="inline fill-amber-500 text-amber-500" /> : <span className="text-slate-300 text-sm">—</span>}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {!loc.isOptimistic && (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button onClick={() => handleEditClick(loc)}
+                                                                className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer">
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button onClick={() => handleDelete(loc.id)}
+                                                                className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer">
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

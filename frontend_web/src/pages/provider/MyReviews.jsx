@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import ReviewCardSkeleton from '../../components/common/ReviewCardSkeleton';
 import {
-    Star, MessageSquare, Send, Loader2, Package, CheckCircle, AlertCircle, Filter
+    Star, MessageSquare, Send, Loader2, Package, CheckCircle, AlertCircle, Filter, RotateCw, Search
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 
@@ -29,37 +30,55 @@ const MyReviews = () => {
 
     const [replyingId, setReplyingId] = useState(null);
     const [replyText, setReplyText] = useState('');
-    const [sending, setSending] = useState(false);
+    const [backgroundTasks, setBackgroundTasks] = useState({});
     const [toast, setToast] = useState(null);
     const [ratingFilter, setRatingFilter] = useState(0); // 0 = all
 
-    const loading = loadingStates.reviews && reviews.length === 0;
+    const loading = loadingStates.reviews;
 
     useEffect(() => { 
+        if (reviews.length > 0 && ratingFilter === 0) return;
         fetchReviews(); 
-    }, [fetchReviews]);
+    }, [fetchReviews, reviews.length, ratingFilter]);
 
     const showToast = (message, type = 'success') => setToast({ message, type });
 
     const handleReply = async (reviewId) => {
-        if (!replyText.trim() || sending) return;
-        setSending(true);
+        if (!replyText.trim()) return;
+        
+        setBackgroundTasks(prev => ({ ...prev, [reviewId]: 'replying' }));
+        const originalReview = reviews.find(r => r.id === reviewId);
+        
+        // Optimistic UI
+        setReviews(prev => prev.map(r => 
+            r.id === reviewId ? { ...r, provider_reply: replyText.trim(), provider_reply_at: new Date().toISOString(), isOptimistic: true } : r
+        ));
+
+        const targetText = replyText.trim();
+        setReplyingId(null);
+        setReplyText('');
+
         try {
-            const res = await providerApi.replyReview(reviewId, replyText.trim());
+            const res = await providerApi.replyReview(reviewId, targetText);
             if (res.success) {
                 showToast('Đã gửi phản hồi thành công!');
                 setReviews(prev => prev.map(r =>
-                    r.id === reviewId
-                        ? { ...r, provider_reply: replyText.trim(), provider_reply_at: new Date().toISOString() }
-                        : r
+                    r.id === reviewId ? { ...res.data, isOptimistic: false } : r
                 ));
-                setReplyingId(null);
-                setReplyText('');
             }
         } catch (err) {
+            console.error('Reply review error:', err);
             showToast('Lỗi khi gửi phản hồi', 'error');
+            // Rollback
+            setReviews(prev => prev.map(r => 
+                r.id === reviewId ? { ...originalReview, isOptimistic: false } : r
+            ));
         } finally {
-            setSending(false);
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[reviewId];
+                return newTasks;
+            });
         }
     };
 
@@ -93,9 +112,28 @@ const MyReviews = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Đánh giá của khách hàng</h2>
-                <p className="text-gray-500 text-sm mt-1 font-medium">Xem và phản hồi các đánh giá từ khách hàng đã sử dụng dịch vụ.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Đánh giá của khách hàng</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Xem và phản hồi các đánh giá từ khách hàng đã sử dụng dịch vụ.</p>
+                </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Tìm nội dung đánh giá, tên khách hàng..."
+                        className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-[22px] shadow-sm focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300 placeholder:font-medium"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => fetchReviews(true)}
+                        className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
+                        <RotateCw size={20} />
+                    </button>
+                </div>
             </div>
 
             {/* Summary Stats */}
@@ -147,9 +185,8 @@ const MyReviews = () => {
 
             {/* Reviews List */}
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border">
-                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                    <p className="text-slate-400 font-bold">Đang tải đánh giá...</p>
+                <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => <ReviewCardSkeleton key={i} />)}
                 </div>
             ) : filteredReviews.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
@@ -161,83 +198,84 @@ const MyReviews = () => {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {filteredReviews.map(review => (
-                        <div key={review.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                            {/* Header */}
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
-                                        {(review.user?.display_name || 'K')[0].toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-black text-slate-900">{review.user?.display_name || 'Khách hàng'}</p>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            {renderStars(review.rating)}
-                                            <span className="text-[10px] text-slate-400 font-bold">{formatDate(review.created_at)}</span>
+                    {filteredReviews.map(review => {
+                        const taskType = backgroundTasks[review.id];
+                        const isUpdating = taskType === 'replying' || review.isOptimistic;
+
+                        return (
+                            <div key={review.id} className={`bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all relative group ${isUpdating ? 'optimistic-updating' : ''}`}>
+                                {isUpdating && <div className="optimistic-adding-text text-[10px] font-bold uppercase">Đang gửi phản hồi...</div>}
+                                
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0 shadow-sm">
+                                            {(review.user?.display_name || 'K')[0].toUpperCase()}
                                         </div>
-                                    </div>
-                                </div>
-                                {/* Service badge */}
-                                <span className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1.5 flex-shrink-0">
-                                    <Package size={11} /> {review.service?.name || 'Dịch vụ'}
-                                </span>
-                            </div>
-
-                            {/* Review Content */}
-                            <div className="ml-[56px]">
-                                <p className="text-sm text-slate-600 leading-relaxed mb-4">
-                                    {review.content || <span className="text-slate-300 italic">(Không có nội dung)</span>}
-                                </p>
-
-                                {/* Provider Reply */}
-                                {review.provider_reply ? (
-                                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 bg-emerald-600 rounded-lg flex items-center justify-center">
-                                                <MessageSquare size={12} className="text-white" />
+                                        <div>
+                                            <p className="text-sm font-black text-slate-900">{review.user?.display_name || 'Khách hàng'}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                {renderStars(review.rating)}
+                                                <span className="text-[10px] text-slate-400 font-bold">{formatDate(review.created_at)}</span>
                                             </div>
-                                            <span className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Phản hồi của bạn</span>
-                                            <span className="text-[10px] text-emerald-400 font-medium ml-auto">{formatDate(review.provider_reply_at)}</span>
-                                        </div>
-                                        <p className="text-sm text-emerald-800 leading-relaxed">{review.provider_reply}</p>
-                                    </div>
-                                ) : replyingId === review.id ? (
-                                    <div className="space-y-3">
-                                        <textarea
-                                            value={replyText}
-                                            onChange={e => setReplyText(e.target.value)}
-                                            placeholder="Nhập phản hồi của bạn cho khách hàng..."
-                                            rows={3}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none transition-all"
-                                            autoFocus
-                                            onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleReply(review.id)}
-                                        />
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => { setReplyingId(null); setReplyText(''); }}
-                                                className="px-4 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">
-                                                Hủy
-                                            </button>
-                                            <button disabled={sending || !replyText.trim()}
-                                                onClick={() => handleReply(review.id)}
-                                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center gap-2">
-                                                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                                                Gửi phản hồi
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 self-center">Ctrl+Enter để gửi</span>
                                         </div>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={() => { setReplyingId(review.id); setReplyText(''); }}
-                                        className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-emerald-600 transition-colors group">
-                                        <MessageSquare size={13} className="group-hover:scale-110 transition-transform" />
-                                        Phản hồi đánh giá này
-                                    </button>
-                                )}
+                                    <span className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1.5 flex-shrink-0">
+                                        <Package size={11} /> {review.service?.name || 'Dịch vụ'}
+                                    </span>
+                                </div>
+
+                                <div className="ml-[56px] space-y-4">
+                                    <p className="text-sm text-slate-600 leading-relaxed italic bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
+                                        {review.content || <span className="text-slate-300 italic">(Không có nội dung)</span>}
+                                    </p>
+
+                                    {/* Provider Reply */}
+                                    {review.provider_reply ? (
+                                        <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/50 relative overflow-hidden group/reply">
+                                            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <CheckCircle size={11} /> Phản hồi của bạn
+                                                </span>
+                                                <span className="text-[10px] text-emerald-400 font-bold">{formatDate(review.provider_reply_at)}</span>
+                                            </div>
+                                            <p className="text-sm text-slate-700 font-bold">{review.provider_reply}</p>
+                                        </div>
+                                    ) : replyingId === review.id ? (
+                                        <div className="space-y-3 animate-[slideInUp_0.2s_ease-out]">
+                                            <textarea
+                                                value={replyText}
+                                                onChange={e => setReplyText(e.target.value)}
+                                                placeholder="Nhập phản hồi của bạn cho khách hàng..."
+                                                rows={3}
+                                                className="w-full px-4 py-3 bg-white border-2 border-indigo-50 rounded-2xl text-sm font-bold text-slate-700 focus:border-indigo-400 outline-none min-h-[100px] transition-all shadow-sm"
+                                                autoFocus
+                                                onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleReply(review.id)}
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <button
+                                                    onClick={() => { setReplyingId(null); setReplyText(''); }}
+                                                    className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">
+                                                    Hủy
+                                                </button>
+                                                <button disabled={!replyText.trim()}
+                                                    onClick={() => handleReply(review.id)}
+                                                    className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+                                                    <Send size={12} /> Gửi phản hồi
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setReplyingId(review.id); setReplyText(''); }}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-tight px-4 py-2 bg-indigo-50 rounded-xl border border-indigo-100 transition-all hover:bg-indigo-100">
+                                            <MessageSquare size={13} /> Viết phản hồi
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 

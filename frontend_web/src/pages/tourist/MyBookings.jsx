@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import bookingApi from '../../api/bookingApi';
-import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, X, User, Users, Phone, Tag, BedDouble } from 'lucide-react';
+import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut } from 'lucide-react';
 
 
 const MyBookings = () => {
@@ -10,7 +10,6 @@ const MyBookings = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
-    const [selectedBooking, setSelectedBooking] = useState(null);
 
     const fetchBookings = async () => {
         setLoading(true);
@@ -32,33 +31,71 @@ const MyBookings = () => {
 
     const handleCancel = async (id) => {
         if (!window.confirm('Bạn có chắc chắn muốn hủy đơn đặt chỗ này không?')) return;
-        
+
         try {
             const res = await bookingApi.cancelBooking(id);
             if (res.success) {
                 alert('Đã hủy đơn đặt chỗ thành công.');
-                fetchBookings(); 
+                fetchBookings();
             }
         } catch (err) {
             alert(err.response?.data?.message || 'Có lỗi xảy ra khi hủy đơn.');
         }
     };
 
-    const handleDetail = (booking) => {
-        setSelectedBooking(booking);
+    const handleDetail = (code) => {
+        window.open(`/booking-detail/${code}`, '_blank');
+    };
+
+    const handleCheckIn = async (id) => {
+        try {
+            const res = await bookingApi.checkIn(id);
+            if (res.success) {
+                alert('Yêu cầu Check-in thành công! Vui lòng chờ nhà cung cấp xác nhận.');
+                fetchBookings();
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Có lỗi xảy ra khi Check-in.');
+        }
+    };
+
+    const handleUndoCheckIn = async (id) => {
+        if (!window.confirm('Bạn có chắc chắn muốn hoàn tác yêu cầu Check-in?')) return;
+        try {
+            const res = await bookingApi.undoCheckIn(id);
+            if (res.success) {
+                alert('Đã hoàn tác yêu cầu Check-in.');
+                fetchBookings();
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Có lỗi xảy ra khi hoàn tác.');
+        }
+    };
+
+    const handleCheckOut = async (id) => {
+        if (!window.confirm('Bạn có chắc chắn muốn Check-out?')) return;
+        try {
+            const res = await bookingApi.checkOut(id);
+            if (res.success) {
+                alert('Check-out thành công!');
+                fetchBookings();
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Có lỗi xảy ra khi Check-out.');
+        }
     };
 
     const tabs = [
         { id: 'all', label: 'Tất cả' },
         { id: 'pending', label: 'Chờ xử lý' },
         { id: 'confirmed', label: 'Đã xác nhận' },
-        { id: 'ongoing', label: 'Đang diễn ra' },
+        { id: 'ongoing', label: 'Đang lưu trú' },
         { id: 'completed', label: 'Hoàn thành' },
         { id: 'cancelled', label: 'Đã hủy' }
     ];
 
-    const filteredBookings = activeTab === 'all' 
-        ? bookings 
+    const filteredBookings = activeTab === 'all'
+        ? bookings
         : bookings.filter(booking => booking.status === activeTab);
 
     const formatCurrency = (amount) => {
@@ -152,14 +189,14 @@ const MyBookings = () => {
                     </div>
                     <Button variant="primary" size="sm" onClick={() => navigate('/search')}>Đặt chuyến đi mới</Button>
                 </div>
-                
+
                 {/* Status Tabs Navigation */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-hidden">
                     <div className="border-b border-slate-100 bg-slate-50/50">
                         <nav className="flex overflow-x-auto scrollbar-hide" aria-label="Status tabs">
                             {tabs.map((tab) => {
-                                const count = tab.id === 'all' 
-                                    ? bookings.length 
+                                const count = tab.id === 'all'
+                                    ? bookings.length
                                     : bookings.filter(b => b.status === tab.id).length;
                                 const isActive = activeTab === tab.id;
                                 return (
@@ -168,8 +205,8 @@ const MyBookings = () => {
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`
                                             relative px-6 py-4 text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2
-                                            ${isActive 
-                                                ? 'text-sky-600 bg-white border-b-2 border-sky-600' 
+                                            ${isActive
+                                                ? 'text-sky-600 bg-white border-b-2 border-sky-600'
                                                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50 border-b-2 border-transparent'}
                                         `}
                                         aria-current={isActive ? 'page' : undefined}
@@ -194,8 +231,8 @@ const MyBookings = () => {
                                 <div className="flex flex-col md:flex-row gap-6">
                                     {/* Service Image */}
                                     <div className="w-full md:w-32 h-24 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                                        <img 
-                                            src={booking.service?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=300'} 
+                                        <img
+                                            src={booking.service?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=300'}
                                             alt={booking.service?.name}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
@@ -208,7 +245,7 @@ const MyBookings = () => {
                                             {getStatusBadge(booking.status)}
                                             {getPaymentStatusBadge(booking.payment_status)}
                                         </div>
-                                        <h3 className="text-lg font-black text-slate-800 mb-1 group-hover:text-sky-600 transition-colors cursor-pointer" onClick={() => handleDetail(booking)}>
+                                        <h3 className="text-lg font-black text-slate-800 mb-1 group-hover:text-sky-600 transition-colors cursor-pointer" onClick={() => handleDetail(booking.booking_code)}>
                                             {booking.service?.name}
                                         </h3>
                                         <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 font-bold">
@@ -224,8 +261,8 @@ const MyBookings = () => {
                                                 {booking.service?.type}
                                             </div>
                                             {booking.room_type && (
-                                                <div className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase tracking-widest text-[9px]">
-                                                    🛏️ {booking.room_type.name}
+                                                <div className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase tracking-widest text-[9px] flex items-center gap-1">
+                                                    <BedDouble size={12} /> {booking.room_type.name}
                                                 </div>
                                             )}
                                         </div>
@@ -233,9 +270,24 @@ const MyBookings = () => {
 
                                     {/* Actions */}
                                     <div className="flex flex-row md:flex-col justify-end gap-2 shrink-0">
-                                        <Button variant="outline" size="sm" onClick={() => handleDetail(booking)} className="gap-1 px-4">
+                                        <Button variant="outline" size="sm" onClick={() => handleDetail(booking.booking_code)} className="gap-1 px-4">
                                             Chi tiết <ExternalLink size={14} />
                                         </Button>
+                                        {booking.provider && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    const name = encodeURIComponent(booking.provider?.business_name || '');
+                                                    const avatar = encodeURIComponent(booking.provider?.avatar_url || '');
+                                                    window.open(`/messages?userId=${booking.provider.user_id}&name=${name}&avatar=${avatar}`, '_blank');
+                                                }}
+                                                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 flex items-center gap-1"
+                                            >
+                                                Liên hệ
+                                                <MessageSquare size={14} />
+                                            </Button>
+                                        )}
                                         {booking.status === 'pending' && (
                                             <>
                                                 {booking.payment_status === 'pending' && (
@@ -248,11 +300,32 @@ const MyBookings = () => {
                                                 </Button>
                                             </>
                                         )}
+
+                                        {booking.status === 'confirmed' && booking.payment_status === 'paid' && (booking.service?.type === 'hotel' || booking.service?.type === 'homestay') && (
+                                            <>
+                                                {!booking.tourist_check_in_at && (
+                                                    <Button variant="primary" size="sm" onClick={(e) => { e.stopPropagation(); handleCheckIn(booking.id); }} className="gap-1 flex items-center">
+                                                        Check-in <MapPin size={14} />
+                                                    </Button>
+                                                )}
+                                                {booking.tourist_check_in_at && !booking.is_checked_in && (
+                                                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleUndoCheckIn(booking.id); }} className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 flex items-center">
+                                                        Hoàn tác Check-in <Undo2 size={14} />
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {(booking.status === 'ongoing' || booking.is_checked_in) && !booking.checked_out_at && (booking.service?.type === 'hotel' || booking.service?.type === 'homestay') && (
+                                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleCheckOut(booking.id); }} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 gap-1 flex items-center">
+                                                Check-out <LogOut size={14} />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         ))}
-                        
+
                         {filteredBookings.length === 0 && (
                             <div className="py-20 text-center flex flex-col items-center gap-3">
                                 <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center">
@@ -268,120 +341,6 @@ const MyBookings = () => {
                 </div>
             </div>
 
-            {/* Modal Chi tiết đơn hàng */}
-            {selectedBooking && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                        {/* Modal Header */}
-                        <div className="relative h-32 overflow-hidden">
-                            <img 
-                                src={selectedBooking.service?.image || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=600'} 
-                                className="w-full h-full object-cover"
-                                alt="Service"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
-                            <button 
-                                onClick={() => setSelectedBooking(null)}
-                                className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                            <div className="absolute bottom-4 left-6">
-                                <span className="font-mono text-xs font-bold text-white/70 tracking-widest uppercase">Mã đặt chỗ</span>
-                                <h2 className="text-xl font-black text-white tracking-widest">#{selectedBooking.booking_code}</h2>
-                            </div>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="p-6">
-                            <div className="grid grid-cols-2 gap-6 mb-8">
-                                <div className="space-y-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><User size={18} /></div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Khách hàng</p>
-                                            <p className="text-sm font-bold text-slate-800">{selectedBooking.contact_name}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><Calendar size={18} /></div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày đi</p>
-                                            <p className="text-sm font-bold text-slate-800">{formatDate(selectedBooking.check_in_date)}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><Users size={18} /></div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Số lượng</p>
-                                            <p className="text-sm font-bold text-slate-800">{selectedBooking.num_adults} Người, {selectedBooking.num_children} Trẻ em</p>
-                                        </div>
-                                    </div>
-                                    {selectedBooking.room_type && (
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><BedDouble size={18} /></div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại phòng</p>
-                                                <p className="text-sm font-bold text-purple-600">{selectedBooking.room_type.name}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                                    {selectedBooking.payment_status === 'paid' ? (
-                                        <>
-                                            <div className="bg-white p-2 rounded-xl shadow-sm mb-2">
-                                                <img 
-                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`Mã: ${selectedBooking.booking_code} | Khách: ${selectedBooking.contact_name}`)}`} 
-                                                    alt="QR Code"
-                                                    className="w-24 h-24"
-                                                />
-                                            </div>
-                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Quét để xác thực</p>
-                                        </>
-                                    ) : (
-                                        <div className="text-center p-2">
-                                            <div className="w-16 h-16 mx-auto mb-2 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
-                                                <AlertCircle size={32} />
-                                            </div>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-tight text-slate-400">Vui lòng thanh toán<br/>để nhận mã QR</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-50 rounded-2xl p-5 mb-6">
-                                <div className="flex justify-between items-center mb-3">
-                                    <span className="text-xs font-bold text-slate-500">Dịch vụ</span>
-                                    <span className="text-sm font-black text-slate-800">{selectedBooking.service?.name}</span>
-                                </div>
-                                <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                                    <span className="text-sky-600 font-bold">Tổng thanh toán</span>
-                                    <span className="text-lg font-black text-sky-600">{formatCurrency(selectedBooking.total_amount)}</span>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button 
-                                    variant="outline" 
-                                    className="w-full font-bold py-3"
-                                    onClick={() => navigate(`/service/${selectedBooking.service?.slug}`)}
-                                >
-                                    Xem dịch vụ
-                                </Button>
-                                <Button 
-                                    variant="primary" 
-                                    className="w-full font-bold py-3"
-                                    onClick={() => setSelectedBooking(null)}
-                                >
-                                    Đóng
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

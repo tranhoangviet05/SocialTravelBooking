@@ -3,14 +3,15 @@ import { useProviderData } from '../../contexts/ProviderDataContext';
 import { 
     Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, 
     TrendingUp, Calendar, History, Loader2, DollarSign,
-    ArrowRightLeft, BadgeCheck
+    ArrowRightLeft, BadgeCheck, RotateCw
 } from 'lucide-react';
+import WalletSkeleton from '../../components/common/WalletSkeleton';
 const MyWallet = () => {
     const { 
         wallet, walletReport: report, fetchWallet, fetchWalletReport, loadingStates 
     } = useProviderData();
 
-    const loading = (loadingStates.wallet && !wallet) || (loadingStates.walletReport && report.length === 0);
+    const loading = loadingStates.wallet || loadingStates.walletReport;
 
     useEffect(() => {
         fetchWallet();
@@ -41,12 +42,7 @@ const MyWallet = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-40">
-                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                <p className="text-slate-400 font-bold">Đang tải dữ liệu tài chính...</p>
-            </div>
-        );
+        return <WalletSkeleton />;
     }
 
     const walletObj = wallet?.wallet || { balance: 0, locked_balance: 0 };
@@ -55,9 +51,15 @@ const MyWallet = () => {
         <>
             <div className="space-y-6 max-w-6xl mx-auto">
                 {/* Header */}
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Ví tiền & Doanh thu</h2>
-                    <p className="text-gray-500 text-sm mt-1 font-medium">Theo dõi thu nhập và quản lý dòng tiền của bạn.</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Ví tiền & Doanh thu</h2>
+                        <p className="text-gray-500 text-sm mt-1 font-medium">Theo dõi thu nhập và quản lý dòng tiền của bạn.</p>
+                    </div>
+                    <button onClick={() => { fetchWallet(true); fetchWalletReport(true); }}
+                        className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer">
+                        <RotateCw size={20} />
+                    </button>
                 </div>
 
                 {/* Main Stats Cards */}

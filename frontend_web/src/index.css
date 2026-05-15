@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @theme {
   --font-sans: "Quicksand", system-ui, sans-serif;
@@ -43,4 +43,54 @@ input:disabled {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
+}
+/* Optimistic UI Styles */
+.optimistic-updating {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.optimistic-updating::after {
+  content: "Ðang c?p nh?t...";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #4f46e5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: inherit;
+  backdrop-filter: blur(2px);
+  z-index: 10;
+}
+
+.optimistic-adding {
+  animation: pulse-border 1.5s infinite;
+  position: relative;
+  opacity: 0.6;
+  border: 2px dashed #4f46e5 !important;
+}
+
+@keyframes pulse-border {
+  0% { border-color: #e2e8f0; }
+  50% { border-color: #4f46e5; }
+  100% { border-color: #e2e8f0; }
+}
+
+.optimistic-adding-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #4f46e5;
+  background: rgba(255, 255, 255, 0.4);
+  z-index: 10;
+  border-radius: inherit;
 }

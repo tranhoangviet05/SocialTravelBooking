@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import locationApi from '../../../api/locationApi';
 import { Loader2, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DestinationCardSkeleton } from '../../common/HomeSkeletons';
 
 const TrendingDestinations = () => {
     const navigate = useNavigate();
@@ -47,8 +48,21 @@ const TrendingDestinations = () => {
 
     if (loading) {
         return (
-            <section className="py-8 bg-white min-h-[420px] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
+            <section className="py-16 bg-white overflow-hidden">
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="flex items-end justify-between mb-10">
+                        <div className="space-y-4">
+                            <div className="w-12 h-1 bg-sky-100 rounded-full"></div>
+                            <div className="h-10 w-64 bg-slate-100 rounded-lg animate-pulse"></div>
+                            <div className="h-4 w-48 bg-slate-100 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[...Array(4)].map((_, i) => (
+                            <DestinationCardSkeleton key={i} />
+                        ))}
+                    </div>
+                </div>
             </section>
         );
     }
@@ -58,12 +72,13 @@ const TrendingDestinations = () => {
     }
 
     return (
-        <section className="py-8 bg-white overflow-hidden">
+        <section className="py-16 bg-white overflow-hidden">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex items-end justify-between mb-10">
                     <div>
-                        <p className="text-sky-500 font-bold text-m uppercase tracking-widest mb-2">Khám phá</p>
-                        <h2 className="text-3xl font-black text-slate-900">Điểm đến thịnh hành</h2>
+                        <div className="w-12 h-1 bg-sky-500 rounded-full mb-4"></div>
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Điểm đến thịnh hành</h2>
+                        <p className="text-slate-400 font-semibold text-sm uppercase tracking-wider">Khám phá những vùng đất hứa hẹn</p>
                     </div>
                     <div className="flex gap-2">
                         <button

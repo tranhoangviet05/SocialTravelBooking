@@ -9,6 +9,7 @@ import CategoryModal from '../../components/admin/category/CategoryModal';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAdminData } from '../../contexts/AdminDataContext';
 import adminApi from '../../api/adminApi';
+import TableSkeleton from '../../components/common/TableSkeleton';
 
 const ICON_MAP = {
     Hotel, Map, Utensils, Car, Camera, Sunset, 
@@ -44,7 +45,10 @@ const Pagination = ({ meta, onPageChange }) => {
 };
 
 const CategoryManagement = () => {
-    const { categories, loadingStates, fetchCategories, meta } = useAdminData();
+    const {
+        categories, setCategories, meta, fetchCategories, loadingStates,
+        addCategory, updateCategory, removeCategory
+    } = useAdminData();
     const categoriesMeta = meta?.categories || { current_page: 1, last_page: 1, total: 0 };
     const loading = loadingStates.categories;
 
@@ -56,45 +60,76 @@ const CategoryManagement = () => {
 
     const toast = useNotification();
 
-    const doFetch = useCallback((page = 1, search = '') => {
-        fetchCategories(true, page, { search: search || undefined });
+    const doFetch = useCallback((page = 1, search = '', force = false) => {
+        fetchCategories(force, page, { search: search || undefined });
     }, [fetchCategories]);
 
     useEffect(() => {
-        doFetch(1, '');
-        setCurrentPage(1);
-    }, []);
-
-    useEffect(() => {
         const timer = setTimeout(() => {
-            doFetch(1, searchTerm);
+            doFetch(1, searchTerm, false);
             setCurrentPage(1);
-        }, 400);
+        }, searchTerm ? 400 : 0);
         return () => clearTimeout(timer);
     }, [searchTerm, doFetch]);
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
-        doFetch(page, searchTerm);
+        doFetch(page, searchTerm, false);
     };
 
     const handleAddClick = () => { setEditingCategory(null); setIsModalOpen(true); };
     const handleEditClick = (cat) => { setEditingCategory(cat); setIsModalOpen(true); };
 
+    const [backgroundTasks, setBackgroundTasks] = useState({});
+
     const handleSave = async (data) => {
-        setIsSaving(true);
+        setIsModalOpen(false);
+        const taskId = editingCategory ? editingCategory.id : `temp-${Date.now()}`;
+        setBackgroundTasks(prev => ({ ...prev, [taskId]: editingCategory ? 'updating' : 'adding' }));
+
+        if (!editingCategory) {
+            const tempCat = {
+                id: taskId,
+                name: data.name,
+                icon: data.icon,
+                isOptimistic: true
+            };
+            addCategory(tempCat);
+        } else {
+            updateCategory({ ...editingCategory, ...data, isOptimistic: true });
+        }
+
         try {
+            const finalData = { ...data };
+            
             if (editingCategory) {
-                const res = await adminApi.updateCategory(editingCategory.id, data);
-                if (res.success) { toast.success('Cập nhật danh mục thành công!'); doFetch(currentPage, searchTerm); }
+                const res = await adminApi.updateCategory(editingCategory.id, finalData);
+                if (res.success) {
+                    toast.success('Cập nhật danh mục xong!');
+                    updateCategory({ ...res.data, isOptimistic: false });
+                }
             } else {
-                const res = await adminApi.createCategory(data);
-                if (res.success) { toast.success('Thêm danh mục mới thành công!'); doFetch(1, searchTerm); setCurrentPage(1); }
+                const res = await adminApi.createCategory(finalData);
+                if (res.success) {
+                    toast.success('Thêm danh mục xong!');
+                    setCategories(prev => prev.map(c => c.id === taskId ? res.data : c));
+                }
             }
-            setIsModalOpen(false);
         } catch (e) {
-            toast.error(e.response?.data?.message || 'Lỗi khi lưu dữ liệu.');
-        } finally { setIsSaving(false); }
+            console.error('Error saving category:', e);
+            toast.error('Lỗi khi lưu dữ liệu ngầm. Vui lòng thử lại.');
+            if (editingCategory) {
+                updateCategory({ ...editingCategory, isOptimistic: false });
+            } else {
+                removeCategory(taskId);
+            }
+        } finally {
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[taskId];
+                return newTasks;
+            });
+        }
     };
 
     const handleDelete = async (id) => {
@@ -103,10 +138,9 @@ const CategoryManagement = () => {
             const res = await adminApi.deleteCategory(id);
             if (res.success) {
                 toast.success('Xóa danh mục thành công!');
+                removeCategory(id);
                 if (categories.length === 1 && currentPage > 1) {
                     handlePageChange(currentPage - 1);
-                } else {
-                    doFetch(currentPage, searchTerm);
                 }
             }
         } catch (e) {
@@ -142,7 +176,7 @@ const CategoryManagement = () => {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => doFetch(currentPage, searchTerm)}
+                    <button onClick={() => doFetch(currentPage, searchTerm, true)}
                         className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-[22px] shadow-sm transition-all active:scale-95 cursor-pointer">
                         <RotateCw size={20} />
                     </button>
@@ -153,8 +187,8 @@ const CategoryManagement = () => {
                 </div>
             </div>
 
-            {loading && categories.length === 0 ? (
-                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500" size={40} /></div>
+            {loading ? (
+                <TableSkeleton columns={4} rows={8} />
             ) : categories.length === 0 ? (
                 <div className="bg-white rounded-3xl border border-slate-100 p-20 flex flex-col items-center justify-center text-center shadow-sm">
                     <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
@@ -177,43 +211,53 @@ const CategoryManagement = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {categories.map((cat) => (
-                                        <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-400">#{cat.id}</span></td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
-                                                        {(() => {
-                                                            const IconComp = ICON_MAP[cat.icon] || Tag;
-                                                            return <IconComp size={18} />;
-                                                        })()}
+                                    {categories.map((cat) => {
+                                        const isTemp = String(cat.id).startsWith('temp-');
+                                        const isUpdating = cat.isOptimistic && !isTemp;
+                                        const isAdding = cat.isOptimistic && isTemp;
+
+                                        return (
+                                            <tr key={cat.id} className={`hover:bg-slate-50/50 transition-colors group ${isUpdating ? 'optimistic-updating' : ''} ${isAdding ? 'optimistic-adding' : ''}`}>
+                                                <td className="px-6 py-4">
+                                                    {isAdding ? (
+                                                        <div className="optimistic-adding-text text-[10px] font-bold uppercase">Đang thêm...</div>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-slate-400">#{cat.id}</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shadow-sm border border-indigo-100/50">
+                                                            {(() => {
+                                                                const IconComponent = ICON_MAP[cat.icon] || Tag;
+                                                                return <IconComponent size={20} />;
+                                                            })()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors uppercase text-xs">{cat.name}</p>
+                                                        </div>
                                                     </div>
-                                                    <p className="font-bold text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors uppercase text-xs tracking-wider">{cat.name}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded-md text-slate-600">{cat.slug}</span>
-                                                    <a href={`/categories/${cat.slug}`} target="_blank" rel="noopener noreferrer"
-                                                        className="text-slate-300 hover:text-indigo-500 transition-colors">
-                                                        <ExternalLink size={12} />
-                                                    </a>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => handleEditClick(cat)}
-                                                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer">
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button onClick={() => handleDelete(cat.id)}
-                                                        className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-md">/{cat.slug || 'generating...'}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {!cat.isOptimistic && (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button onClick={() => handleEditClick(cat)}
+                                                                className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer">
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button onClick={() => handleDelete(cat.id)}
+                                                                className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer">
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

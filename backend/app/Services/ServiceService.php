@@ -57,7 +57,10 @@ class ServiceService
     {
         return Service::where('slug', $slug)
             ->where('status', 'active')
-            ->with(['media', 'schedules', 'provider', 'location', 'reviews.user', 'roomTypes'])
+            ->with(['media', 'schedules', 'provider', 'location', 'reviews.user', 'roomTypes', 'availabilities' => function($q) {
+                $q->where('available_date', '>=', now()->toDateString())
+                  ->where('is_blocked', false);
+            }])
             ->first();
     }
 

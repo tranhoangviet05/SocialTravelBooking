@@ -61,21 +61,8 @@ const LocationModal = ({ isOpen, onClose, onSave, location, locations, isLoading
         e.preventDefault();
         if (!validate()) return;
 
-        let finalImageUrl = formData.image_url;
-
-        if (selectedFile) {
-            setIsUploading(true);
-            try {
-                finalImageUrl = await uploadImage(selectedFile);
-            } catch (error) {
-                setErrors({ image: 'Lỗi khi tải ảnh lên Cloudinary' });
-                setIsUploading(false);
-                return;
-            }
-            setIsUploading(false);
-        }
-
-        onSave({ ...formData, image_url: finalImageUrl });
+        // Truyền cả dữ liệu form và file ảnh về cho cha xử lý ngầm
+        onSave(formData, selectedFile);
     };
 
     return (

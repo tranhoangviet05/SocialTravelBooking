@@ -1,6 +1,7 @@
 import React from 'react';
+import Skeleton from '../common/Skeleton';
 
-const AdminTable = ({ headers, children, title, description, actions }) => {
+const AdminTable = ({ headers, children, title, description, actions, loading, rowCount = 5 }) => {
     return (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
             {(title || description || actions) && (
@@ -27,7 +28,19 @@ const AdminTable = ({ headers, children, title, description, actions }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {children}
+                        {loading ? (
+                            [...Array(rowCount)].map((_, i) => (
+                                <tr key={i}>
+                                    {headers.map((_, j) => (
+                                        <td key={j} className="px-8 py-4">
+                                            <Skeleton height="1.25rem" width={j === 0 ? "140px" : "100px"} />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        ) : (
+                            children
+                        )}
                     </tbody>
                 </table>
             </div>

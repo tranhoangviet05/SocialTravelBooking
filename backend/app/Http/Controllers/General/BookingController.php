@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class BookingController extends Controller
 {
@@ -25,7 +26,7 @@ class BookingController extends Controller
         $request->validate([
             'service_id'   => 'required|uuid|exists:services,id',
             'check_in_date' => 'required|date|after_or_equal:today',
-            'check_out_date' => 'nullable|date|after:check_in_date',
+            'check_out_date' => 'nullable|date|after_or_equal:check_in_date',
             'num_adults'  => 'required|integer|min:1|max:50',
             'num_children' => 'nullable|integer|min:0|max:20',
             'contact_name'  => 'required|string|max:255',
@@ -33,7 +34,7 @@ class BookingController extends Controller
             'contact_phone' => 'required|string|max:20',
             'special_requests' => 'nullable|string|max:1000',
             'coupon_code'  => 'nullable|string|max:50',
-            'payment_method' => 'required|in:wallet,momo,vnpay,banking,sepay',
+            'payment_method' => 'required|in:momo,vnpay,banking,sepay',
             'room_type_id' => 'nullable|uuid|exists:hotel_room_types,id',
         ]);
 
@@ -92,6 +93,54 @@ class BookingController extends Controller
 
             // Tạo booking
             $booking = DB::transaction(function () use ($request, $service, $adultCount, $childCount, $subtotal, $discountAmount, $totalAmount, $appliedCoupon, $basePrice) {
+                
+                // --- PHÂN TÁCH LOGIC QUẢN LÝ KHO/SLOT ---
+                
+                if (in_array($service->type, ['hotel', 'homestay'])) {
+                    // 1. LOGIC CHO CHỖ Ở: Trừ trực tiếp vào inventory của HotelRoomType
+                    if (!$request->room_type_id) {
+                        throw new \Exception("Vui lòng chọn loại phòng.");
+                    }
+
+                    $roomType = \App\Models\HotelRoomType::lockForUpdate()->find($request->room_type_id);
+                    
+                    if (!$roomType || $roomType->inventory <= 0) {
+                        throw new \Exception("Xin lỗi, loại phòng này đã hết chỗ.");
+                    }
+
+                    // Trừ 1 vào inventory (mỗi booking chỗ ở tính là 1 phòng)
+                    $roomType->decrement('inventory');
+                    
+                } else {
+                    // 2. LOGIC CHO TOUR/KHÁC: Dùng bảng service_availability quản lý theo ngày
+                    $checkIn = Carbon::parse($request->check_in_date);
+                    $date = $checkIn->toDateString();
+                    
+                    $requiredSlots = $adultCount + $childCount;
+
+                    $availability = \App\Models\ServiceAvailability::lockForUpdate()->firstOrCreate(
+                        [
+                            'service_id' => $service->id,
+                            'available_date' => $date
+                        ],
+                        [
+                            'total_slots' => $service->max_guests ?? 10,
+                            'booked_slots' => 0,
+                            'is_blocked' => false
+                        ]
+                    );
+
+                    if ($availability->is_blocked) {
+                        throw new \Exception("Dịch vụ đã bị chặn vào ngày " . $date);
+                    }
+
+                    if (($availability->booked_slots + $requiredSlots) > $availability->total_slots) {
+                        throw new \Exception("Xin lỗi, tour đã hết chỗ vào ngày " . $date);
+                    }
+
+                    $availability->increment('booked_slots', $requiredSlots);
+                }
+
                 $booking = Booking::create([
                     'booking_code' => 'BK-' . strtoupper(Str::random(6)) . '-' . date('ymd'),
                     'user_id' => $request->user->id,
@@ -185,7 +234,7 @@ class BookingController extends Controller
     {
         $userId = $request->user->id;
 
-        $bookings = Booking::with(['service.media', 'roomType'])
+        $bookings = Booking::with(['service.media', 'roomType', 'provider.user'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -216,6 +265,16 @@ class BookingController extends Controller
                     'payment_method' => $bk->payment_method,
                     'payment_status' => $bk->payment_status,
                     'status' => $bk->status,
+                    'tourist_check_in_at' => $bk->tourist_check_in_at,
+                    'is_checked_in' => (bool)$bk->is_checked_in,
+                    'checked_in_at' => $bk->checked_in_at,
+                    'checked_out_at' => $bk->checked_out_at,
+                    'provider' => $bk->provider ? [
+                        'id' => $bk->provider->id,
+                        'business_name' => $bk->provider->business_name,
+                        'avatar_url' => $bk->provider->user?->avatar_url,
+                        'user_id' => $bk->provider->user_id
+                    ] : null,
                     'created_at' => $bk->created_at?->toISOString(),
                 ];
             });
@@ -233,7 +292,7 @@ class BookingController extends Controller
     public function cancel(Request $request, $id)
     {
         $userId = $request->user->id;
-        $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
+        $booking = Booking::with('service')->where('id', $id)->where('user_id', $userId)->firstOrFail();
 
         if ($booking->status !== 'pending') {
             return response()->json([
@@ -242,15 +301,152 @@ class BookingController extends Controller
             ], 400);
         }
 
-        $booking->update([
-            'status' => 'cancelled',
-            'cancelled_at' => now(),
-            'cancel_reason' => 'Người dùng yêu cầu hủy'
-        ]);
+        try {
+            DB::transaction(function () use ($booking, $request) {
+                // 1. Hoàn trả lại slots/inventory
+                if (in_array($booking->service->type, ['hotel', 'homestay'])) {
+                    if ($booking->room_type_id) {
+                        $roomType = \App\Models\HotelRoomType::find($booking->room_type_id);
+                        if ($roomType) {
+                            $roomType->increment('inventory');
+                        }
+                    }
+                } else {
+                    $date = $booking->check_in_date->toDateString();
+                    $requiredSlots = $booking->num_adults + $booking->num_children;
+                    
+                    $availability = \App\Models\ServiceAvailability::where('service_id', $booking->service_id)
+                        ->where('available_date', $date)
+                        ->first();
+                    
+                    if ($availability) {
+                        $availability->decrement('booked_slots', $requiredSlots);
+                    }
+                }
+
+                // 2. Cập nhật trạng thái booking
+                $booking->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => now(),
+                    'cancel_reason' => $request->cancel_reason ?? 'Người dùng yêu cầu hủy'
+                ]);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã hủy đơn đặt chỗ thành công và hoàn trả chỗ trống.'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi hủy đơn: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Lấy chi tiết một đơn đặt chỗ
+     * GET /api/user/bookings/{id}
+     */
+    public function show(Request $request, $id)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::with(['service.media', 'roomType', 'provider'])
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->firstOrFail();
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã hủy đơn đặt chỗ thành công.'
+            'data' => $booking
+        ]);
+    }
+
+    /**
+     * Check-in (Tourist nhấn nút yêu cầu)
+     * POST /api/user/bookings/{id}/check-in
+     */
+    public function checkIn(Request $request, $id, \App\Services\ChatService $chatService)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
+
+        if ($booking->tourist_check_in_at) {
+            return response()->json(['success' => false, 'message' => 'Bạn đã gửi yêu cầu check-in rồi.'], 400);
+        }
+
+        $booking->update([
+            'tourist_check_in_at' => now(),
+            // Chúng ta chưa cập nhật status chính thức sang 'ongoing' cho đến khi provider xác nhận
+        ]);
+
+        $chatService->sendCheckInRequestMessage($booking);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã gửi yêu cầu check-in! Vui lòng chờ nhà cung cấp xác nhận.',
+            'data' => $booking
+        ]);
+    }
+
+    /**
+     * Hoàn tác Check-in (Tourist nhấn nút hủy yêu cầu nếu nhầm)
+     * POST /api/user/bookings/{id}/undo-check-in
+     */
+    public function undoCheckIn(Request $request, $id, \App\Services\ChatService $chatService)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
+
+        if ($booking->is_checked_in) {
+            return response()->json(['success' => false, 'message' => 'Nhà cung cấp đã xác nhận, không thể hoàn tác.'], 400);
+        }
+
+        if (!$booking->tourist_check_in_at) {
+            return response()->json(['success' => false, 'message' => 'Bạn chưa thực hiện check-in.'], 400);
+        }
+
+        $booking->update([
+            'tourist_check_in_at' => null,
+        ]);
+
+        $chatService->sendUndoCheckInMessage($booking);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hoàn tác yêu cầu check-in.',
+            'data' => $booking
+        ]);
+    }
+
+    /**
+     * Check-out (Tourist)
+     * POST /api/user/bookings/{id}/check-out
+     */
+    public function checkOut(Request $request, $id, \App\Services\ChatService $chatService)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
+
+        if (!$booking->is_checked_in) {
+            return response()->json(['success' => false, 'message' => 'Bạn chưa được xác nhận check-in, không thể check-out.'], 400);
+        }
+
+        if ($booking->checked_out_at) {
+            return response()->json(['success' => false, 'message' => 'Bạn đã check-out rồi.'], 400);
+        }
+
+        $booking->update([
+            'checked_out_at' => now(),
+            'status' => 'completed' // Chuyển sang trạng thái hoàn thành
+        ]);
+
+        $chatService->sendCheckOutMessage($booking);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Check-out thành công! Hy vọng bạn hài lòng với dịch vụ.',
+            'data' => $booking
         ]);
     }
 
@@ -275,6 +471,30 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'data' => $bookings
+        ]);
+    }
+
+    /**
+     * Lấy thông tin chi tiết đơn hàng qua mã code (Dành cho link trong chat)
+     */
+    public function getByCode(Request $request, $code)
+    {
+        $userId = $request->user->id;
+        $booking = Booking::with(['service.media', 'service.location', 'provider.user', 'roomType'])
+            ->where('booking_code', $code)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn đặt chỗ này.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $booking
         ]);
     }
 }

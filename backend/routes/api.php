@@ -34,16 +34,16 @@ Route::get('/ping', fn() => response()->json([
 ]
 ));
 
-// Route công khai để tải ảnh trực tiếp (Hỗ trợ mọi đường dẫn trong storage/app/public)
+// Route công khai để tải ảnh trực tiếp (Hỗ trợ mọi đường dẫn & Ảnh mặc định)
 Route::get('/images/{path}', function ($path) {
     $fullPath = storage_path('app/public/' . $path);
-    if (!file_exists($fullPath)) {
-        // Thử tìm trong images/ nếu path chưa có images/
-        $altPath = storage_path('app/public/images/' . $path);
-        if (file_exists($altPath)) return response()->file($altPath);
-        abort(404);
-    }
-    return response()->file($fullPath);
+    if (file_exists($fullPath)) return response()->file($fullPath);
+
+    $altPath = storage_path('app/public/images/' . $path);
+    if (file_exists($altPath)) return response()->file($altPath);
+
+    // Nếu không tìm thấy, trả về một ảnh mặc định để không bị lỗi 404
+    return response()->file(public_path('images/default-tour.jpg'));
 })->where('path', '.*');
 
 // Địa điểm & Danh mục (Public)

@@ -365,9 +365,6 @@ Route::get('/n8n/services', function () {
             'message' => 'Lỗi khi tạo mã giảm giá: ' . $e->getMessage()
         ], 500);
     }
-    });
-
-}); // Kết thúc nhóm auth:sanctum
 
 // ===========================================================
 // N8N AUTOMATION ROUTES (Công khai cho n8n)

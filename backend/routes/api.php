@@ -285,8 +285,13 @@ Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
     
     $hotels = $query->limit(3)->get()->map(function($h) {
         $h->media->map(function($m) {
-            $path = str_replace('public/', '', $m->getRawOriginal('url'));
-            $m->image_url = url('/api/images/' . $path);
+            $originalUrl = $m->getRawOriginal('url');
+            if (str_starts_with($originalUrl, 'http')) {
+                $m->image_url = $originalUrl;
+            } else {
+                $path = str_replace('public/', '', $originalUrl);
+                $m->image_url = url('/api/images/' . $path);
+            }
             return $m;
         });
         return $h;
@@ -303,8 +308,13 @@ Route::get('/n8n/services', function () {
         ->get()
         ->map(function($s) {
             $s->media->map(function($m) {
-                $path = str_replace('public/', '', $m->getRawOriginal('url'));
-                $m->image_url = url('/api/images/' . $path);
+                $originalUrl = $m->getRawOriginal('url');
+                if (str_starts_with($originalUrl, 'http')) {
+                    $m->image_url = $originalUrl;
+                } else {
+                    $path = str_replace('public/', '', $originalUrl);
+                    $m->image_url = url('/api/images/' . $path);
+                }
                 return $m;
             });
             return $s;

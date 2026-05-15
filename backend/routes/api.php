@@ -133,11 +133,12 @@ Route::middleware('firebase.auth')->group(function () {
     // ===========================================================
     // TOURIST ROUTES (Khách du lịch - Cần User Model)
     // ===========================================================
-    Route::middleware('role:tourist,provider,admin')->group(function () {
-        Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
         Route::get('/bookings/{id}', [\App\Http\Controllers\General\BookingController::class, 'show']);
-        Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
-        Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
+
+        Route::middleware('role:tourist,provider,admin')->group(function () {
+            Route::post('/bookings', [\App\Http\Controllers\General\BookingController::class, 'store']);
+            Route::get('/user/bookings', [\App\Http\Controllers\General\BookingController::class, 'myBookings']);
+            Route::post('/user/bookings/{id}/cancel', [\App\Http\Controllers\General\BookingController::class, 'cancel']);
         Route::post('/reviews', [\App\Http\Controllers\General\ReviewController::class, 'store']);
         Route::post('/services/{id}/feedbacks', [ServiceFeedbackController::class, 'store']);
 

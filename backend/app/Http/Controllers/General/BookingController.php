@@ -144,17 +144,37 @@ class BookingController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $userId = $request->user->id;
+        try {
+            // Lấy User từ Request (Firebase Auth đã gán vào)
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Bạn chưa đăng nhập.'], 401);
+            }
 
-        $booking = Booking::with(['service.provider', 'service.media', 'service.roomTypes'])
-            ->where('id', $id)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+            $booking = Booking::with(['service.provider', 'service.media', 'service.roomTypes'])
+                ->where('id', $id)
+                ->first();
 
-        return response()->json([
-            'success' => true,
-            'data' => $booking
-        ]);
+            if (!$booking) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn hàng này trên hệ thống.'], 404);
+            }
+
+            // Kiểm tra quyền sở hữu
+            if ($booking->user_id !== $user->id) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền xem đơn hàng này.'], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $booking
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

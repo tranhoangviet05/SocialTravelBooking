@@ -280,13 +280,36 @@ Route::get('/n8n/user-history/{id}', function ($id) {
 
 Route::get('/n8n/hotels', function (\Illuminate\Http\Request $request) {
     $locId = $request->query('location_id');
-    $query = \App\Models\Service::where('type', 'hotel');
+    $query = \App\Models\Service::with(['location', 'media'])->where('type', 'hotel')->where('status', 'active');
     if ($locId) $query->where('location_id', $locId);
-    return response()->json(['success' => true, 'data' => $query->get()]);
+    
+    $hotels = $query->limit(3)->get()->map(function($h) {
+        $h->media->map(function($m) {
+            $path = str_replace('public/', '', $m->getRawOriginal('url'));
+            $m->image_url = url('/api/images/' . $path);
+            return $m;
+        });
+        return $h;
+    });
+    return response()->json(['success' => true, 'data' => $hotels]);
 });
 
 Route::get('/n8n/services', function () {
-    return response()->json(['success' => true, 'data' => \App\Models\Service::all()]);
+    $services = \App\Models\Service::with(['location', 'media'])
+        ->where('type', 'tour')
+        ->where('status', 'active')
+        ->orderBy('created_at', 'desc')
+        ->limit(3)
+        ->get()
+        ->map(function($s) {
+            $s->media->map(function($m) {
+                $path = str_replace('public/', '', $m->getRawOriginal('url'));
+                $m->image_url = url('/api/images/' . $path);
+                return $m;
+            });
+            return $s;
+        });
+    return response()->json(['success' => true, 'data' => $services]);
 });
 
 Route::post('/n8n/users/{id}/mark-emailed', function ($id) {

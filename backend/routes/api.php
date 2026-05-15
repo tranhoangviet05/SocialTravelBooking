@@ -34,14 +34,17 @@ Route::get('/ping', fn() => response()->json([
 ]
 ));
 
-// Route công khai để tải ảnh trực tiếp không bị 403 (Không cần Firebase Auth)
-Route::get('/images/{filename}', function ($filename) {
-    $path = storage_path('app/public/images/' . $filename);
-    if (!file_exists($path)) {
+// Route công khai để tải ảnh trực tiếp (Hỗ trợ mọi đường dẫn trong storage/app/public)
+Route::get('/images/{path}', function ($path) {
+    $fullPath = storage_path('app/public/' . $path);
+    if (!file_exists($fullPath)) {
+        // Thử tìm trong images/ nếu path chưa có images/
+        $altPath = storage_path('app/public/images/' . $path);
+        if (file_exists($altPath)) return response()->file($altPath);
         abort(404);
     }
-    return response()->file($path);
-});
+    return response()->file($fullPath);
+})->where('path', '.*');
 
 // Địa điểm & Danh mục (Public)
 Route::get('/locations', [LocationController::class, 'index']);
@@ -299,10 +302,9 @@ Route::post('/n8n/users/{id}/mark-emailed', function ($id) {
 Route::post('/n8n/coupons', function (\Illuminate\Http\Request $request) {
     $coupon = \App\Models\Coupon::create([
         'code' => 'STB' . strtoupper(\Illuminate\Support\Str::random(6)),
-        'discount_type' => 'percentage',
+        'type' => 'percent', // Khớp với ENUM 'percent' hoặc 'fixed'
         'discount_value' => 20,
-        'is_active' => true,
-        'expires_at' => now()->addDays(30)
+        'valid_until' => now()->addDays(30)
     ]);
     return response()->json(['success' => true, 'data' => $coupon]);
 });
@@ -365,4 +367,12 @@ Route::middleware('firebase.auth')->get('/admin/automation-logs', function () {
         'success' => true,
         'data' => \App\Models\AutomationLog::orderBy('created_at', 'desc')->get()
     ]);
+});
+
+// === BOOKING DEEP-LINKING (Public for email recovery) ===
+Route::get('/bookings/{id}', function ($id) {
+    $booking = \App\Models\Booking::with(['service.provider', 'service.media', 'service.roomTypes'])
+        ->where('id', $id)
+        ->firstOrFail();
+    return response()->json(['success' => true, 'data' => $booking]);
 });

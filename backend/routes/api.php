@@ -409,65 +409,66 @@ Route::get('/n8n/services', function () {
     }
     });
 
-    // N8n lưu Log hoạt động
-    Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
-        $validated = $request->validate([
-            'user_id' => 'nullable|uuid',
-            'email' => 'required|email',
-            'display_name' => 'required|string',
-            'campaign_type' => 'required|string',
-            'service_name' => 'nullable|string',
-            'status' => 'nullable|string',
-            'metadata' => 'nullable|array'
-        ]);
+}); // Kết thúc nhóm auth:sanctum
 
-        $log = \App\Models\AutomationLog::create($validated);
+// ===========================================================
+// N8N AUTOMATION ROUTES (Công khai hoặc dùng Secret Key)
+// ===========================================================
+Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
+    $validated = $request->validate([
+        'user_id' => 'nullable|uuid',
+        'email' => 'required|email',
+        'display_name' => 'required|string',
+        'campaign_type' => 'required|string',
+        'service_name' => 'nullable|string',
+        'status' => 'nullable|string',
+        'metadata' => 'nullable|array'
+    ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => $log
-        ], 201);
-    });
+    $log = \App\Models\AutomationLog::create($validated);
 
-    // 1. Lấy đơn hàng Bỏ dở (Chờ thanh toán > 2 tiếng)
-    Route::get('/n8n/bookings/abandoned', function () {
-        $twoHoursAgo = now()->subHours(2);
-        $bookings = \App\Models\Booking::with(['user', 'service'])
-            ->where('payment_status', 'pending')
-            ->where('created_at', '<=', $twoHoursAgo)
-            ->whereNull('last_reminded_at')
-            ->get();
-        return response()->json(['success' => true, 'data' => $bookings]);
-    });
+    return response()->json([
+        'success' => true,
+        'data' => $log
+    ], 201);
+});
 
-    // 2. Đánh dấu đã nhắc nhở đơn bỏ dở
-    Route::post('/n8n/bookings/{id}/mark-reminded', function ($id) {
-        $booking = \App\Models\Booking::findOrFail($id);
-        $booking->update(['last_reminded_at' => now()]);
-        return response()->json(['success' => true]);
-    });
+Route::get('/n8n/bookings/abandoned', function () {
+    $twoHoursAgo = now()->subHours(2);
+    $bookings = \App\Models\Booking::with(['user', 'service'])
+        ->where('payment_status', 'pending')
+        ->where('created_at', '<=', $twoHoursAgo)
+        ->whereNull('last_reminded_at')
+        ->get();
+    return response()->json(['success' => true, 'data' => $bookings]);
+});
 
-    // 3. Lấy đơn hàng đã Hoàn tất (Để xin đánh giá)
-    Route::get('/n8n/bookings/completed', function () {
-        $bookings = \App\Models\Booking::with(['user', 'service'])
-            ->where('status', 'completed')
-            ->whereNull('review_requested_at')
-            ->get();
-        return response()->json(['success' => true, 'data' => $bookings]);
-    });
+Route::post('/n8n/bookings/{id}/mark-reminded', function ($id) {
+    $booking = \App\Models\Booking::findOrFail($id);
+    $booking->update(['last_reminded_at' => now()]);
+    return response()->json(['success' => true]);
+});
 
-    // 4. Đánh dấu đã gửi yêu cầu đánh giá
-    Route::post('/n8n/bookings/{id}/mark-review-requested', function ($id) {
-        $booking = \App\Models\Booking::findOrFail($id);
-        $booking->update(['review_requested_at' => now()]);
-        return response()->json(['success' => true]);
-    });
+Route::get('/n8n/bookings/completed', function () {
+    $bookings = \App\Models\Booking::with(['user', 'service'])
+        ->where('status', 'completed')
+        ->whereNull('review_requested_at')
+        ->get();
+    return response()->json(['success' => true, 'data' => $bookings]);
+});
 
-    // Admin lấy danh sách Log (Sắp xếp mới nhất lên đầu)
-    Route::get('/admin/automation-logs', function () {
-        return response()->json([
-            'success' => true,
-            'data' => \App\Models\AutomationLog::orderBy('created_at', 'desc')->get()
-        ]);
-    });
+Route::post('/n8n/bookings/{id}/mark-review-requested', function ($id) {
+    $booking = \App\Models\Booking::findOrFail($id);
+    $booking->update(['review_requested_at' => now()]);
+    return response()->json(['success' => true]);
+});
+
+Route::post('/social/post', [\App\Http\Controllers\Social\SocialController::class, 'createPost']);
+
+// Admin lấy danh sách Log (Giữ lại trong auth để bảo mật)
+Route::middleware('auth:sanctum')->get('/admin/automation-logs', function () {
+    return response()->json([
+        'success' => true,
+        'data' => \App\Models\AutomationLog::orderBy('created_at', 'desc')->get()
+    ]);
 });

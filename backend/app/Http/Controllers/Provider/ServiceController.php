@@ -18,7 +18,7 @@ class ServiceController extends Controller
      */
     private function getProvider(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         if (!$user) return null;
         
         return ProviderProfile::where('user_id', $user->id)->first();
@@ -85,7 +85,7 @@ class ServiceController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'images' => 'nullable|array',
-            'images.*' => 'url'
+            'images.*' => 'nullable|string|max:1000'
         ]);
 
         try {
@@ -186,8 +186,6 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền sửa dịch vụ này.'], 403);
         }
 
-        // XÓA CHẶN STATUS ACTIVE: Cho phép sửa nhưng sẽ đưa về chờ duyệt
-        
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'type' => 'sometimes|string',
@@ -203,7 +201,7 @@ class ServiceController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'images' => 'nullable|array',
-            'images.*' => 'url'
+            'images.*' => 'nullable|string|max:1000'
         ]);
 
         // Khi sửa, đẩy về trạng thái chờ duyệt lại
@@ -246,10 +244,52 @@ class ServiceController extends Controller
                 'message' => 'Lỗi khi cập nhật dịch vụ: ' . $e->getMessage()
             ], 500);
         }
+        // Tách images ra trước, không được update trực tiếp lên bảng services
+        $images = $validated['images'] ?? null;
+        unset($validated['images']);
+
+        // Đưa về chờ duyệt lại
+        $validated['status'] = 'pending_review';
+        $service->update($validated);
+
+        // Nếu FE gửi danh sách images mới → đồng bộ service_media
+        if ($images !== null) {
+            // Lọc bỏ chuỗi rỗng
+            $images = array_values(array_filter($images, fn($url) => !empty($url)));
+
+            // Lấy ảnh cũ để so sánh
+            $oldUrls = $service->media()->pluck('url')->toArray();
+
+            // Tìm ảnh bị loại bỏ (có trong cũ nhưng không còn trong mới)
+            $removedUrls = array_diff($oldUrls, $images);
+
+            // Xóa file vật lý khỏi ổ đĩa (chỉ xóa ảnh local, bỏ qua Cloudinary)
+            foreach ($removedUrls as $url) {
+                $this->deleteLocalImage($url);
+            }
+
+            // Xóa media cũ rồi tạo lại
+            $service->media()->delete();
+            foreach ($images as $index => $url) {
+                ServiceMedia::create([
+                    'service_id' => $service->id,
+                    'url'        => $url,
+                    'is_cover'   => ($index === 0),
+                    'sort_order' => $index,
+                    'type'       => 'image',
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
+            'data'    => $service->load('media')
+        ]);
     }
 
     /**
-     * Xóa dịch vụ (Soft delete)
+     * Xóa dịch vụ (Soft delete) + dọn ảnh vật lý
      */
     public function destroy(Request $request, $id)
     {
@@ -260,12 +300,35 @@ class ServiceController extends Controller
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa dịch vụ này.'], 403);
         }
 
+        // Xóa toàn bộ ảnh vật lý trước khi soft delete
+        foreach ($service->media()->pluck('url') as $url) {
+            $this->deleteLocalImage($url);
+        }
+
         $service->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Đã xóa dịch vụ thành công.'
         ]);
+    }
+
+    /**
+     * Helper: Xóa file ảnh local khỏi ổ đĩa
+     * Chỉ xóa ảnh lưu trong public/images/... (bỏ qua Cloudinary/external URL)
+     */
+    private function deleteLocalImage(string $url): void
+    {
+        // Chỉ xử lý path nội bộ, bỏ qua link ngoài (http/https)
+        if (str_starts_with($url, 'http')) return;
+
+        // Chuyển /images/... → đường dẫn vật lý
+        $relativePath = ltrim($url, '/');
+        $physicalPath = public_path($relativePath);
+
+        if (file_exists($physicalPath)) {
+            @unlink($physicalPath);
+        }
     }
 
     // =============================================

@@ -12,7 +12,7 @@ class BookingController extends Controller
 
     private function getProvider(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         return ProviderProfile::where('user_id', $user->id)->first();
     }
 

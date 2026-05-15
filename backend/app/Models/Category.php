@@ -13,6 +13,15 @@ class Category extends Model
 
     public $timestamps = true;
 
+    // --- ACCESSORS ---
+
+    public function getIconUrlAttribute($value)
+    {
+        if (!$value) return null;
+        if (str_starts_with($value, 'http')) return $value;
+        return url($value);
+    }
+
     // --- QUAN HỆ ---
 
     public function services()

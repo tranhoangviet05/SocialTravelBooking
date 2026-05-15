@@ -16,6 +16,24 @@ class Location extends Model
      */
     public $timestamps = true; 
 
+    // --- ACCESSORS ---
+    
+    /**
+     * Tự động gắn domain vào image_url nếu là ảnh local
+     */
+    protected function getImageUrlAttribute($value)
+    {
+        if (!$value) return null;
+        
+        // Nếu là link Cloudinary hoặc link tuyệt đối thì giữ nguyên
+        if (str_starts_with($value, 'http')) {
+            return $value;
+        }
+        
+        // Nếu là ảnh local (bắt đầu bằng /images/) thì gắn APP_URL vào
+        return url($value);
+    }
+
     // --- QUAN HỆ ---
 
     public function parent()

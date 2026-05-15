@@ -1060,6 +1060,9 @@ const MyServices = () => {
         try {
             // 4. Xử lý upload ảnh ngầm
             let imageUrls = previewUrls.filter(url => url.startsWith('http'));
+            // Giữ lại các ảnh cũ (cả local path /images/... lẫn Cloudinary https://...)
+            let imageUrls = previewUrls.filter(url => url && !url.startsWith('blob:'));
+
             if (selectedFiles.length > 0) {
                 const uploadedUrls = await Promise.all(selectedFiles.map(file => uploadImage(file)));
                 imageUrls = [...imageUrls, ...uploadedUrls];

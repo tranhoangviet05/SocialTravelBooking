@@ -13,6 +13,10 @@ import {
     RotateCw,
     Search,
     Play
+    History,
+    Mail,
+    User as UserIcon,
+    Calendar
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
@@ -24,6 +28,12 @@ const AutomationManagement = () => {
     const { automation, loadingStates, fetchAutomation, setAutomation } = useAdminData();
     const [searchTerm, setSearchTerm] = useState('');
     const [backgroundTasks, setBackgroundTasks] = useState({});
+    const [workflows, setWorkflows] = useState([]);
+    const [automationLogs, setAutomationLogs] = useState([]);
+    const [connection, setConnection] = useState({ status: 'offline', url: '', version: '' });
+    const [loading, setLoading] = useState(true);
+    const [logsLoading, setLogsLoading] = useState(true);
+    const [togglingId, setTogglingId] = useState(null);
     const toast = useNotification();
     
     const workflows = automation?.workflows || [];
@@ -34,6 +44,39 @@ const AutomationManagement = () => {
         if (automation && automation.workflows?.length > 0) return;
         fetchAutomation();
     }, [fetchAutomation, automation]);
+        fetchWorkflows();
+        fetchLogs();
+    }, []);
+
+    const fetchLogs = async () => {
+        setLogsLoading(true);
+        try {
+            const response = await adminApi.getAutomationLogs();
+            if (response.success) {
+                setAutomationLogs(response.data);
+            }
+        } catch (error) {
+            console.error('Fetch logs error:', error);
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
+    const fetchWorkflows = async () => {
+        setLoading(true);
+        try {
+            const response = await adminApi.getAutomationWorkflows();
+            if (response.success) {
+                setWorkflows(response.data);
+                setConnection(response.connection);
+            }
+        } catch (error) {
+            console.error('Fetch workflows error:', error);
+            toast?.error?.('Không thể kết nối với hệ thống n8n');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const toggleStatus = async (id) => {
         setBackgroundTasks(prev => ({ ...prev, [id]: 'toggling' }));
@@ -222,6 +265,101 @@ const AutomationManagement = () => {
                         </div>
                         <div className={`w-16 h-16 rounded-[1.8rem] flex items-center justify-center transition-all group-hover:scale-110 ${stat.bg} ${stat.color}`}>
                             <stat.icon size={28} />
+                {/* Automation Logs Table */}
+                <div className="grid grid-cols-1 gap-6">
+                    <AdminTable
+                        headers={['Khách hàng', 'Chiến dịch', 'Dịch vụ gợi ý', 'Thời gian', 'Trạng thái']}
+                        title="Nhật ký hoạt động (n8n Logs)"
+                        description="Lịch sử chi tiết các email Marketing đã được n8n gửi thành công cho khách hàng."
+                    >
+                        {logsLoading ? (
+                            <tr>
+                                <td colSpan="5" className="px-8 py-20 text-center">
+                                    <Loader2 className="w-8 h-8 text-sky-500 animate-spin mx-auto mb-2" />
+                                    <p className="text-slate-400 font-bold">Đang tải nhật ký...</p>
+                                </td>
+                            </tr>
+                        ) : automationLogs.length === 0 ? (
+                            <tr>
+                                <td colSpan="5" className="px-8 py-20 text-center">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-gray-200 text-gray-300">
+                                        <History size={32} />
+                                    </div>
+                                    <p className="text-slate-400 font-bold italic">Chưa có lịch sử hoạt động nào được ghi lại.</p>
+                                </td>
+                            </tr>
+                        ) : (
+                            automationLogs.map((log) => (
+                                <tr key={log.id} className="group hover:bg-gray-50/50 transition-all border-b border-gray-50 last:border-0">
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-sky-50 rounded-full flex items-center justify-center text-sky-500 border border-sky-100 shadow-sm">
+                                                <UserIcon size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-black text-slate-900 tracking-tight uppercase">{log.display_name}</p>
+                                                <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-bold mt-1">
+                                                    <Mail size={12} className="text-gray-300" />
+                                                    {log.email}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-xs font-black">
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className={`px-2.5 py-1 rounded-lg w-fit text-[10px] uppercase tracking-wider ${
+                                                log.campaign_type === 'hotel_recommendation' 
+                                                ? 'bg-purple-50 text-purple-600 border border-purple-100'
+                                                : log.campaign_type === 'tour_recommendation'
+                                                ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                                                : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                            }`}>
+                                                {log.campaign_type.replace(/_/g, ' ')}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="text-xs font-black text-slate-600 bg-slate-50 px-3 py-2 rounded-xl border border-gray-100 w-fit italic">
+                                            {log.service_name || 'Không có thông tin'}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-2 text-xs font-black text-slate-400 tabular-nums">
+                                            <Calendar size={14} className="text-slate-300" />
+                                            {new Date(log.created_at).toLocaleString('vi-VN')}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border w-fit ${
+                                            log.status === 'success'
+                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                            : 'bg-rose-50 text-rose-600 border-rose-100'
+                                        }`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${log.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">{log.status}</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </AdminTable>
+                </div>
+
+                {/* Performance Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {[
+                        { label: 'Tổng số lần Trigger', value: '12,854', icon: Activity, color: 'text-sky-500', bg: 'bg-sky-50' },
+                        { label: 'Tiết kiệm thời gian', value: '450 giờ', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50' },
+                        { label: 'Tỷ lệ chuyển đổi', value: '+12.5%', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' }
+                    ].map((stat, i) => (
+                        <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group hover:shadow-xl transition-all hover:translate-y-[-4px]">
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{stat.label}</p>
+                                <p className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{stat.value}</p>
+                            </div>
+                            <div className={`w-16 h-16 rounded-[1.8rem] flex items-center justify-center transition-all group-hover:scale-110 ${stat.bg} ${stat.color}`}>
+                                <stat.icon size={28} />
+                            </div>
                         </div>
                     </div>
                 ))}

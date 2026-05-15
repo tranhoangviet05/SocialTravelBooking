@@ -76,6 +76,16 @@ class LocationService
             $dataLocation['description'] = '';
         }
 
+        // Nếu có gửi lên image_url mới và nó khác với cái cũ -> Xóa ảnh cũ đi
+        if (isset($dataLocation['image_url']) && $dataLocation['image_url'] !== $location->image_url) {
+            if ($location->image_url && str_starts_with($location->image_url, '/images/')) {
+                $oldPath = public_path(ltrim($location->image_url, '/'));
+                if (file_exists($oldPath) && is_file($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+        }
+
         $location->update($dataLocation);
         return $location;
     }
@@ -90,6 +100,14 @@ class LocationService
 
         if (Service::where('location_id', $id)->exists()) {
             throw new \Exception('Không thể xóa địa điểm đang có dịch vụ du lịch.');
+        }
+
+        // Xóa luôn ảnh vật lý trong folder public
+        if ($location->image_url && str_starts_with($location->image_url, '/images/')) {
+            $oldPath = public_path(ltrim($location->image_url, '/'));
+            if (file_exists($oldPath) && is_file($oldPath)) {
+                @unlink($oldPath);
+            }
         }
 
         return $location->delete();

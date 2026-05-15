@@ -7,14 +7,16 @@ const Pusher = PusherModule.Pusher || PusherModule;
 
 window.Pusher = Pusher;
 
+const isProd = window.location.protocol === 'https:';
+
 const echo = new Echo({
     broadcaster: 'reverb',
     Pusher: Pusher,
     key: import.meta.env.VITE_REVERB_APP_KEY || 'stb_app_key',
-    wsHost: import.meta.env.VITE_REVERB_HOST || 'localhost',
-    wsPort: import.meta.env.VITE_REVERB_PORT || 8080,
-    wssPort: import.meta.env.VITE_REVERB_PORT || 8080,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME || 'http') === 'https',
+    wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
+    wsPort: import.meta.env.VITE_REVERB_PORT || (isProd ? 443 : 8080),
+    wssPort: import.meta.env.VITE_REVERB_PORT || (isProd ? 443 : 8080),
+    forceTLS: isProd,
     enabledTransports: ['ws', 'wss'],
     authorizer: (channel, options) => ({
         authorize: (socketId, callback) => {

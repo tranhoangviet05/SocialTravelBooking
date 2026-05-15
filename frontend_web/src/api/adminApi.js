@@ -65,6 +65,7 @@ const adminApi = {
     // Tự động hóa n8n
     getAutomationWorkflows: () => axios.get('/admin/automation/workflows'),
     toggleAutomationWorkflow: (id) => axios.patch(`/admin/automation/workflows/${id}/toggle`),
+    getAutomationLogs: () => axios.get('/admin/automation-logs'),
 };
 
 export default adminApi;

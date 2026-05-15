@@ -1,0 +1,32 @@
+socialtravelbooking.click {
+    # Backend API
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # Images
+    handle /images/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # WebSocket (Reverb Realtime)
+    handle /app/* {
+        reverse_proxy reverb:8080 {
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # n8n Automation (Truy cập qua /n8n)
+    handle /n8n/* {
+        reverse_proxy n8n:5678
+    }
+    
+    # Frontend (Mặc định)
+    handle {
+        reverse_proxy frontend:80
+    }
+}

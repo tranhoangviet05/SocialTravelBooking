@@ -14,7 +14,7 @@ class WalletController extends Controller
 {
     private function getProvider(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         return ProviderProfile::where('user_id', $user->id)->first();
     }
 
@@ -23,7 +23,7 @@ class WalletController extends Controller
      */
     public function index(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         $provider = $this->getProvider($request);
         
         if (!$provider) {
@@ -63,7 +63,7 @@ class WalletController extends Controller
      */
     public function report(Request $request)
     {
-        $user = $request->input('user');
+        $user = $request->user();
         $wallet = Wallet::where('user_id', $user->id)->first();
 
         if (!$wallet) return response()->json(['success' => true, 'data' => []]);

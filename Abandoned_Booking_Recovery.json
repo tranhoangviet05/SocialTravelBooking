@@ -1,0 +1,130 @@
+{
+  "name": "Abandoned Booking Recovery",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        300
+      ],
+      "id": "184065e9-d3e7-4952-b883-7c3905f88411"
+    },
+    {
+      "parameters": {
+        "url": "https://socialtravelbooking.click/api/n8n/users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 1|mNdpqCEqhxMNqKXZosjONpHVjnA0jtcRL1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP: Lấy Đơn Hàng Bỏ Dở",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        520,
+        300
+      ],
+      "id": "673f3244-a902-4753-9a4c-535316314811"
+    },
+    {
+      "parameters": {
+        "fromEmail": "dangthanhvu0103@gmail.com",
+        "toEmail": "={{ $json.contact_email }}",
+        "subject": "Hoàn tất chuyến đi của bạn ngay thôi! ✈️",
+        "html": "=<div style=\"font-family: sans-serif; padding: 25px; border: 1px solid #ddd; border-radius: 10px;\">\n  <h2>Chào {{ $json.contact_name }},</h2>\n  <p>Bạn đã bỏ lỡ một trải nghiệm tuyệt vời tại <b>{{ $json.service.name }}</b>.</p>\n  <p>Chúng tôi vẫn đang giữ chỗ cho bạn, hãy hoàn tất thanh toán ngay để không bỏ lỡ nhé!</p>\n  <div style=\"text-align: center; margin-top: 20px;\">\n    <a href=\"https://socialtravelbooking.click/checkout/{{ $json.id }}\" style=\"background-color: #e67e22; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;\">Tiếp tục đặt chỗ</a>\n  </div>\n</div>",
+        "options": {}
+      },
+      "name": "Send Email: Nhắc Nhở",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        740,
+        300
+      ],
+      "id": "93933c3a-8672-4633-8758-545417316811"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://socialtravelbooking.click/api/n8n/bookings/{{ $json.id }}/mark-abandoned-emailed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 1|mNdpqCEqhxMNqKXZosjONpHVjnA0jtcRL1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP: Đánh Dấu Đã Nhắc",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        960,
+        300
+      ],
+      "id": "c1c11d33-4632-4848-8989-121213316811"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Lấy Đơn Hàng Bỏ Dở",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Lấy Đơn Hàng Bỏ Dở": {
+      "main": [
+        [
+          {
+            "node": "Send Email: Nhắc Nhở",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email: Nhắc Nhở": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Đánh Dấu Đã Nhắc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "84123fb77f7e6a9f9951cf3a5ace9dc97726cc2c3849f0a36d07ce70182ed16b"
+  }
+}

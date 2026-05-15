@@ -55,7 +55,7 @@ const SearchPage = () => {
         const fetchServices = async () => {
             setLoading(true);
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/services');
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services`);
                 if (response.data.success) {
                     setServices(response.data.data);
                 }
@@ -385,7 +385,23 @@ const SearchPage = () => {
                 </div>
 
                 {/* Service Grid */}
-                {filteredServices.length > 0 ? (
+                {loading ? (
+                    <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5' : 'flex flex-col gap-4'}>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                            <div key={n} className={`bg-white rounded-2xl border border-slate-100 overflow-hidden animate-pulse ${viewMode === 'list' ? 'flex gap-4 p-3 h-32' : 'h-80'}`}>
+                                <div className={viewMode === 'list' ? 'w-32 h-full bg-slate-200 rounded-xl' : 'h-48 bg-slate-200'} />
+                                <div className="p-4 space-y-3 flex-1">
+                                    <div className="h-4 bg-slate-200 rounded w-3/4" />
+                                    <div className="h-3 bg-slate-100 rounded w-1/2" />
+                                    <div className="flex justify-between items-center pt-4">
+                                        <div className="h-5 bg-slate-200 rounded w-1/4" />
+                                        <div className="h-8 bg-slate-200 rounded w-1/4" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : filteredServices.length > 0 ? (
                     <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5' : 'flex flex-col gap-4'}>
                         {filteredServices.map((service) => (
                             <ServiceCard

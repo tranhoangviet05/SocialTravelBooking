@@ -1,0 +1,34 @@
+name: Deploy Social Travel Booking
+
+on:
+  push:
+    branches: [ master ] # Tự động chạy khi bạn push code vào branch master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: 103.142.27.85
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            # Chuyển vào thư mục dự án
+            cd /root/SocialTravelBooking
+            
+            # Cập nhật code mới nhất từ GitHub
+            git pull origin main
+            
+            # Build và khởi động lại các container (không làm gián đoạn dịch vụ quá lâu)
+            docker compose up -d --build
+            
+            # Chạy migration để cập nhật database
+            docker exec stb_backend php artisan migrate --force
+            
+            # Dọn dẹp cache để nhận cấu hình mới
+            docker exec stb_backend php artisan optimize:clear
+            
+            echo "🚀 Triển khai thành công!"

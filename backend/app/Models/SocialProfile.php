@@ -23,6 +23,13 @@ class SocialProfile extends Model
         ];
     }
 
+    public function getCoverPhotoUrlAttribute($value)
+    {
+        if (!$value) return null;
+        if (str_starts_with($value, 'http')) return $value;
+        return url($value);
+    }
+
     // --- Relationships ---
 
     public function user()

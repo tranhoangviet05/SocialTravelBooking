@@ -144,27 +144,92 @@ class SocialController extends Controller
         }
     }
 
+
+    /**
+     * Cập nhật thông tin hồ sơ cá nhân
+     */
+    public function updateProfile(\Illuminate\Http\Request $request)
+    {
+        try {
+            $user = $request->attributes->get('userModel');
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Người dùng không tồn tại'], 404);
+            }
+
+            $validatedData = $request->validate([
+                'display_name' => 'sometimes|string|max:255',
+                'username'     => 'sometimes|string|max:50', // Username giờ nằm ở social_profiles
+                'phone'        => 'sometimes|string|max:20',
+                'avatar_url'   => 'sometimes|string|max:500',
+            ]);
+
+            // 1. Cập nhật bảng users (display_name, phone, avatar_url)
+            $userUpdate = [];
+            if (isset($validatedData['display_name'])) $userUpdate['display_name'] = $validatedData['display_name'];
+            if (isset($validatedData['phone'])) $userUpdate['phone'] = $validatedData['phone'];
+            if (isset($validatedData['avatar_url'])) $userUpdate['avatar_url'] = $validatedData['avatar_url'];
+            
+            if (!empty($userUpdate)) {
+                $user->update($userUpdate);
+            }
+
+            // 2. Cập nhật bảng social_profiles (username)
+            if (isset($validatedData['username'])) {
+                // Kiểm tra unique thủ công hoặc qua validator cho bảng social_profiles
+                $existing = \App\Models\SocialProfile::where('username', $validatedData['username'])
+                            ->where('user_id', '!=', $user->id)
+                            ->exists();
+                if ($existing) {
+                    return response()->json(['success' => false, 'message' => 'Tên đăng nhập đã tồn tại.'], 422);
+                }
+
+                if ($user->socialProfile) {
+                    $user->socialProfile->update(['username' => $validatedData['username']]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật hồ sơ thành công',
+                'data'    => $user->load('socialProfile')
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('UpdateProfile Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi cập nhật hồ sơ: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Đăng bài tự động (Dành cho n8n)
      * POST /api/social/post
      */
     public function createPost(\Illuminate\Http\Request $request)
     {
-        // Trong thực tế, bạn sẽ lưu bài đăng vào DB hoặc gọi API Facebook/Instagram
-        // Ở đây chúng ta giả lập thành công để n8n không báo lỗi
+        // 1. Tìm Admin đầu tiên trong hệ thống
+        $admin = \App\Models\User::where('role', 'admin')->first();
         
-        $content = $request->input('content', 'Bài đăng tự động từ n8n');
+        if (!$admin) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy tài khoản Admin'], 404);
+        }
+
+        // 2. Lấy nội dung từ n8n
+        $content = $request->input('content', 'Bài đăng tự động từ Social Travel Booking');
         
-        Log::info('N8N Auto Post: ' . $content);
+        // 3. Tạo bài đăng thật vào Database
+        $post = \App\Models\Post::create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'user_id' => $admin->id,
+            'content' => $content,
+            'visibility' => 'public',
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Bài viết đã được đăng tự động thành công!',
-            'data' => [
-                'post_id' => bin2hex(random_bytes(8)),
-                'content' => $content,
-                'created_at' => now()->toDateTimeString()
-            ]
+            'message' => 'Admin đã đăng bài tự động thành công!',
+            'data' => $post
         ]);
     }
 }

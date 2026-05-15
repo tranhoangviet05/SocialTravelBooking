@@ -466,11 +466,23 @@ const ServiceDetail = () => {
     const [selectedRoomType, setSelectedRoomType] = useState(null);
 
     useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setActiveTab('overview');
+        // Kiểm tra hash để chuyển tab tự động (ví dụ: #reviews)
+        const hash = window.location.hash;
+        if (hash === '#reviews') {
+            setActiveTab('reviews');
+            // Cuộn xuống phần nội dung tab
+            setTimeout(() => {
+                const element = document.getElementById('service-tabs-content');
+                if (element) element.scrollIntoView({ behavior: 'smooth' });
+            }, 500);
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setActiveTab('overview');
+        }
+
         const fetchDetail = async () => {
             try {
-                const response = await axios.get(`http://localhost:8000/api/general/get/services/detail/${slug}`);
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services/detail/${slug}`);
                 if (response.data.success) {
                     const data = response.data.data;
                     setServiceData(data);
@@ -787,7 +799,7 @@ const ServiceDetail = () => {
                             </div>
                         </div>
                         {/* Tabs */}
-                        <div className="flex gap-6 border-b border-slate-200 mb-8 bg-white rounded-t-2xl px-2">
+                        <div id="service-tabs-content" className="flex gap-6 border-b border-slate-200 mb-8 bg-white rounded-t-2xl px-2">
                             <Tab id="overview" label="Tổng quan" active={activeTab} onClick={setActiveTab} />
                             {isTour && <Tab id="itinerary" label={`Lịch trình (${schedules.length} ngày)`} active={activeTab} onClick={setActiveTab} />}
                             {(isTour || amenities.length > 0 || includes.length > 0 || excludes.length > 0) && (

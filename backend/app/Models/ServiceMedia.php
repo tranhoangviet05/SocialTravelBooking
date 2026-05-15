@@ -14,6 +14,15 @@ class ServiceMedia extends Model
 
     public $timestamps = false; // Phù hợp với schema SQL chỉ có created_at
 
+    // --- ACCESSORS ---
+
+    public function getUrlAttribute($value)
+    {
+        if (!$value) return null;
+        if (str_starts_with($value, 'http')) return $value;
+        return url($value);
+    }
+
     // --- QUAN HỆ ---
 
     public function service()

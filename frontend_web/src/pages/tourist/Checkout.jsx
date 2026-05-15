@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
     Loader2, CheckCircle2, QrCode, Wallet, ChevronRight,
     Clock, AlertCircle, RefreshCw, Copy, Check, Shield,
@@ -260,11 +260,13 @@ const InfoRow = ({ label, value, highlight, copyable }) => {
 const Checkout = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { bookingId } = useParams();
     const { currentUser } = useAuth();
+    const [loadingBooking, setLoadingBooking] = useState(!!bookingId);
 
-    // Service data từ ServiceDetail navigate state
-    const service = location.state?.service;
-    const bookingInfo = location.state?.bookingInfo;
+    // Dữ liệu từ navigate state (nếu có)
+    const [service, setService] = useState(location.state?.service);
+    const [bookingInfo, setBookingInfo] = useState(location.state?.bookingInfo);
 
     // Form state
     const [form, setForm] = useState({
@@ -276,11 +278,91 @@ const Checkout = () => {
         contactName: currentUser?.displayName || currentUser?.display_name || '',
         contactEmail: currentUser?.email || '',
         contactPhone: currentUser?.phone || '',
+        checkInDate: '',
+        checkOutDate: '',
+        numAdults: 1,
+        numChildren: 0,
+        contactName: '',
+        contactEmail: '',
+        contactPhone: '',
         specialRequests: '',
         couponCode: '',
-        room_type_id: bookingInfo?.room_type_id || null,
-        selectedRoomType: bookingInfo?.selectedRoomType || null,
+        room_type_id: null,
+        selectedRoomType: null,
     });
+
+    const [booking, setBooking] = useState(null);
+    const [error, setError] = useState(null);
+
+    // 1. Nếu vào bằng link Email (có bookingId), lấy data từ Server
+    useEffect(() => {
+        if (!bookingId) return;
+
+        const fetchBooking = async () => {
+            setLoadingBooking(true);
+            setError(null);
+            try {
+                const res = await bookingApi.getBookingById(bookingId);
+                if (res.success && res.data) {
+                    const b = res.data;
+                    setService(b.service);
+                    setBooking(b); // Lưu booking có sẵn để thanh toán
+                    
+                    setForm({
+                        checkInDate: b.check_in_date ? b.check_in_date.split('T')[0] : '',
+                        checkOutDate: b.check_out_date ? b.check_out_date.split('T')[0] : '',
+                        numAdults: b.num_adults || 1,
+                        numChildren: b.num_children || 0,
+                        contactName: b.contact_name || '',
+                        contactEmail: b.contact_email || '',
+                        contactPhone: b.contact_phone || '',
+                        specialRequests: b.special_requests || '',
+                        couponCode: b.coupon_code || '',
+                        room_type_id: b.room_type_id || null,
+                        selectedRoomType: b.service?.room_types?.find(r => r.id === b.room_type_id) || null,
+                    });
+                    
+                    // Nếu đơn đã có booking sẵn, nhảy thẳng sang bước thanh toán 
+                    setStep(2); 
+                } else {
+                    setError(res.message || "Không tìm thấy dữ liệu đơn hàng.");
+                }
+            } catch (err) {
+                console.error("Error fetching booking:", err);
+                setError(err.response?.data?.message || "Lỗi kết nối đến máy chủ (404).");
+            } finally {
+                setLoadingBooking(false);
+            }
+        };
+
+        fetchBooking();
+    }, [bookingId]);
+
+    // 2. Nếu vào từ trang Detail (có bookingInfo qua state)
+    useEffect(() => {
+        if (!bookingId && bookingInfo) {
+            setForm(f => ({
+                ...f,
+                checkInDate: bookingInfo.date || '',
+                numAdults: bookingInfo.adults || 1,
+                numChildren: bookingInfo.children || 0,
+                room_type_id: bookingInfo.room_type_id || null,
+                selectedRoomType: bookingInfo.selectedRoomType || null,
+            }));
+        }
+    }, [bookingId, bookingInfo]);
+    
+    // Đồng bộ thông tin từ Profile nếu form đang trống (Lần đầu load)
+    useEffect(() => {
+        if (currentUser) {
+            setForm(f => ({
+                ...f,
+                contactName: f.contactName || currentUser.displayName || currentUser.display_name || '',
+                contactEmail: f.contactEmail || currentUser.email || '',
+                contactPhone: f.contactPhone || currentUser.phone || '',
+            }));
+        }
+    }, [currentUser]);
 
     const [paymentMethod, setPaymentMethod] = useState('sepay');
     const [couponInput, setCouponInput] = useState('');
@@ -348,15 +430,65 @@ const Checkout = () => {
             .catch(() => setWalletBalance(0));
     }, [service]);
 
-    if (!service) {
+    if (loadingBooking) {
         return (
-            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-center p-8">
-                <AlertCircle size={48} className="text-slate-300" />
-                <p className="text-xl font-black text-slate-500">Không có dịch vụ để thanh toán</p>
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+                <div className="w-full max-w-md space-y-8 animate-pulse">
+                    <div className="h-8 bg-slate-200 rounded-xl w-3/4 mx-auto" />
+                    <div className="h-4 bg-slate-100 rounded-lg w-1/2 mx-auto" />
+                    <div className="space-y-4">
+                        <div className="h-32 bg-white rounded-3xl border border-slate-100" />
+                        <div className="h-64 bg-white rounded-3xl border border-slate-100" />
+                    </div>
+                </div>
+                <div className="mt-8 flex items-center gap-3 text-slate-400 font-bold text-sm">
+                    <Loader2 className="animate-spin" /> Đang tải thông tin đơn hàng...
+                </div>
+            </div>
+        );
+    }
+
+    if (!service && !bookingId) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 text-center p-8 bg-white rounded-3xl m-4 border border-slate-100 shadow-sm">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
+                    <AlertCircle size={48} />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-black text-slate-800 mb-2">Không tìm thấy dịch vụ</h2>
+                    <p className="text-slate-400 max-w-xs mx-auto">Vui lòng chọn dịch vụ từ trang chủ hoặc tìm kiếm để tiến hành đặt chỗ.</p>
+                </div>
                 <button onClick={() => navigate('/search')}
-                    className="px-6 py-3 bg-sky-500 text-white rounded-xl font-bold hover:bg-sky-600 transition-colors">
-                    Tìm dịch vụ
+                    className="px-8 py-4 bg-sky-500 text-white rounded-2xl font-black shadow-lg shadow-sky-100 hover:bg-sky-600 transition-all hover:scale-105 active:scale-95">
+                    Khám phá dịch vụ ngay
                 </button>
+            </div>
+        );
+    }
+
+    if (!service && bookingId) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 text-center p-8 bg-white rounded-3xl m-4 border border-rose-100 shadow-sm">
+                <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-200">
+                    <X size={48} />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-black text-slate-800 mb-2">Không tìm thấy đơn hàng</h2>
+                    <p className="text-slate-400 max-w-xs mx-auto mb-4">Mã đơn: #{bookingId.substring(0,8)}...</p>
+                    <div className="bg-rose-50 text-rose-600 text-xs p-3 rounded-xl font-mono mb-6">
+                        Lỗi: {error || "Server trả về 404 (Không tìm thấy route hoặc đơn hàng)"}
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={() => navigate('/my-bookings')}
+                        className="px-6 py-4 bg-slate-800 text-white rounded-2xl font-black shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all hover:scale-105 active:scale-95">
+                        Quay lại đơn hàng
+                    </button>
+                    <button onClick={() => window.location.reload()}
+                        className="px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black hover:bg-slate-50 transition-all">
+                        Thử lại
+                    </button>
+                </div>
             </div>
         );
     }

@@ -14,7 +14,7 @@ const PopularActivities = () => {
     useEffect(() => {
         const fetchTours = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/services');
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/general/get/services`);
                 if (response.data.success) {
                     // Lọc lấy các dịch vụ là Tour
                     const filtered = response.data.data.filter(s => s.type === 'tour');
@@ -63,6 +63,17 @@ const PopularActivities = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[...Array(4)].map((_, i) => (
                             <ServiceCardVerticalSkeleton key={i} />
+            <section className="py-16 bg-slate-50/50 overflow-hidden">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="h-8 bg-slate-100 rounded w-1/4 mb-10 animate-pulse" />
+                    <div className="flex gap-4 mb-8">
+                        {[1, 2, 3, 4, 5].map(n => (
+                            <div key={n} className="w-24 h-10 bg-white rounded-xl border border-slate-100 animate-pulse" />
+                        ))}
+                    </div>
+                    <div className="flex gap-6">
+                        {[1, 2, 3, 4].map(n => (
+                            <div key={n} className="w-1/4 h-80 bg-white rounded-2xl border border-slate-100 animate-pulse" />
                         ))}
                     </div>
                 </div>

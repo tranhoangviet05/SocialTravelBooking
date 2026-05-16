@@ -42,6 +42,19 @@ const PostDetailModal = ({ postId, postData, isOpen, onClose }) => {
         }
     }, [isOpen, postId]);
 
+    // Theo dõi hành vi: View Post Detail
+    useEffect(() => {
+        if (isOpen && post && currentUser) {
+            trackAction('view_post', {
+                post_id: post.id,
+                location_id: post.location?.id || post.location_id,
+                service_type: post.service?.type || 'tour',
+                tags: post.tags?.map(t => t.id) || post.hashtags?.map(h => h.id) || [],
+                dwell_time: 0
+            });
+        }
+    }, [isOpen, post?.id, currentUser?.id, trackAction]);
+
     // Gợi ý Dịch vụ
     useEffect(() => {
         const timer = setTimeout(async () => {

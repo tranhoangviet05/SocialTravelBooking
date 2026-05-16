@@ -138,35 +138,47 @@ class BehaviorDatabaseController extends Controller
      */
     public function processBulkRecommendations()
     {
-        // 1. Lấy tất cả các bản ghi đang chờ xử lý
-        $pendingBehaviors = DB::table('user_behaviors')
+        // 1. Tìm tất cả user có hành vi mới (is_pending = true)
+        $pendingUsers = DB::table('user_behaviors')
             ->where('is_pending', true)
-            ->whereNotNull('location_id')
-            ->get();
+            ->distinct()
+            ->pluck('user_id');
 
-        if ($pendingBehaviors->isEmpty()) {
+        if ($pendingUsers->isEmpty()) {
             return response()->json(['success' => true, 'message' => 'No pending behaviors']);
         }
 
         $processedCount = 0;
 
-        foreach ($pendingBehaviors as $behavior) {
-            $userId = $behavior->user_id;
-            $locationId = $behavior->location_id;
-            $serviceType = $behavior->service_type;
+        foreach ($pendingUsers as $userId) {
+            // 2. Với mỗi user, tìm địa điểm họ quan tâm nhất (score cao nhất)
+            $bestInterest = DB::table('user_behaviors')
+                ->where('user_id', $userId)
+                ->whereNotNull('location_id')
+                ->orderBy('score', 'desc')
+                ->first();
 
-            \Log::info("Processing recommendation for user: $userId at location: $locationId (Type: $serviceType)");
+            if (!$bestInterest) {
+                // Đánh dấu đã xem để không lặp lại
+                DB::table('user_behaviors')->where('user_id', $userId)->update(['is_pending' => false]);
+                continue;
+            }
 
-            // 2. Xác định loại hình cần gợi ý (Bán chéo)
+            $locationId = $bestInterest->location_id;
+            $serviceType = $bestInterest->service_type;
+
+            \Log::info("Processing best interest for user: $userId at location: $locationId (Type: $serviceType)");
+
+            // 3. Xác định loại hình cần gợi ý (Bán chéo)
             if ($serviceType === 'tour') {
-                $targetTypes = ['hotel', 'homestay'];
+                $targetTypes = ['hotel', 'homestay', 'resort', 'villa'];
                 $targetLabel = 'Accommodations';
             } else {
                 $targetTypes = ['tour'];
                 $targetLabel = 'Tours';
             }
 
-            // 3. Tìm top 4 dịch vụ gợi ý (sử dụng Model Service để lấy kèm Media/Ảnh)
+            // 4. Tìm top 4 dịch vụ gợi ý tại địa điểm đó
             $recommendations = \App\Models\Service::query()
                 ->where('location_id', $locationId)
                 ->whereIn('type', $targetTypes)
@@ -178,31 +190,24 @@ class BehaviorDatabaseController extends Controller
                 ->limit(4)
                 ->get();
 
-            if ($recommendations->isNotEmpty()) {
-                // 4. Lưu gợi ý theo User và Location
-                DB::table('user_recommendations')->updateOrInsert(
-                    [
-                        'user_id' => $userId,
-                        'location_id' => $locationId
-                    ],
-                    [
-                        'suggested_services' => json_encode($recommendations),
-                        'updated_at' => now()
-                    ]
-                );
-                $processedCount++;
-                \Log::info("Saved " . $recommendations->count() . " recommendations for user: $userId at location: $locationId");
-            } else {
-                \Log::warning("No $targetLabel found for location $locationId");
-            }
+            // 5. Lưu hoặc cập nhật gợi ý
+            DB::table('user_recommendations')->updateOrInsert(
+                ['user_id' => $userId], // Một user chỉ có 1 bộ gợi ý tốt nhất hiện tại
+                [
+                    'location_id' => $locationId,
+                    'suggested_services' => json_encode($recommendations),
+                    'updated_at' => now()
+                ]
+            );
 
-            // 5. Đánh dấu đã xử lý bản ghi này
-            DB::table('user_behaviors')->where('id', $behavior->id)->update(['is_pending' => false]);
+            // 6. Đánh dấu tất cả hành vi của user này là đã xử lý
+            DB::table('user_behaviors')->where('user_id', $userId)->update(['is_pending' => false]);
+            $processedCount++;
         }
 
         return response()->json([
             'success' => true, 
-            'processed_records' => $processedCount
+            'processed_users' => $processedCount
         ]);
     }
 

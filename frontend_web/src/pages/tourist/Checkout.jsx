@@ -402,9 +402,9 @@ const Checkout = () => {
         const checkOut = new Date(form.checkOutDate || form.checkInDate);
         let nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
         if (nights < 1) nights = 1;
-        
-        subtotal = basePrice * nights * form.numRooms;
-        priceDetails = `${nights} đêm × ${form.numRooms} phòng × ${fmt(Math.floor(basePrice))}`;
+        const numRooms = form.numRooms || 1; // fallback tránh NaN
+        subtotal = basePrice * nights * numRooms;
+        priceDetails = `${nights} đêm × ${numRooms} phòng × ${fmt(Math.floor(basePrice))}`;
     } else if (service?.type === 'tour') {
         // Tính theo vé
         subtotal = basePrice * form.numAdults;
@@ -419,7 +419,12 @@ const Checkout = () => {
 
     subtotal = Math.floor(subtotal);
 
-    const totalAmount  = Math.max(0, subtotal - discountAmount);
+    // Khi load từ email/MyBookings (có booking từ server), dùng total_amount trực tiếp
+    // tránh NaN do numRooms hoặc selectedRoomType không có đủ data
+    const displayTotal = (booking?.total_amount != null && booking.total_amount > 0)
+        ? booking.total_amount
+        : Math.max(0, subtotal - discountAmount);
+    const totalAmount = displayTotal;
 
     // Lấy số dư ví
     useEffect(() => {

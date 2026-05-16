@@ -14,6 +14,45 @@ import { ArrowUpCircle, Gift } from 'lucide-react';
 /* ─── Helpers ─────────────────────────────────────────────────── */
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n ?? 0) + 'đ';
 
+/* ─── Sub-Components (Defined first to avoid initialization errors) ─── */
+
+const FormField = ({ label, icon, value, onChange, placeholder, type = "text", error, readOnly }) => (
+    <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+            {icon} {label}
+        </label>
+        <input
+            type={type}
+            value={value}
+            onChange={e => onChange?.(e.target.value)}
+            placeholder={placeholder}
+            readOnly={readOnly}
+            className={`w-full border rounded-xl px-3 py-2.5 text-sm transition-all outline-none
+                ${readOnly ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-white text-slate-800 border-slate-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-50'}
+                ${error ? 'border-rose-400 bg-rose-50' : ''}`}
+        />
+        {error && <span className="text-[10px] font-bold text-rose-500 ml-1">{error}</span>}
+    </div>
+);
+
+const InfoRow = ({ label, value, highlight, copyable }) => {
+    const [copied, setCopied] = useState(false);
+    return (
+        <div className="flex items-center justify-between p-3.5">
+            <span className="text-xs font-bold text-slate-500">{label}</span>
+            <div className="flex items-center gap-1.5">
+                <span className={`text-sm font-black ${highlight ? 'text-red-600 text-base' : 'text-slate-800'}`}>{value}</span>
+                {copyable && (
+                    <button onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+                        className={`p-1 rounded-lg transition-all ${copied ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}>
+                        {copied ? <Check size={12} /> : <Copy size={12} />}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
 /* ─── Step Indicator ────────────────────────────────────────────── */
 const StepBar = ({ step }) => {
     const steps = ['Thông tin', 'Thanh toán', 'Hoàn tất'];
@@ -240,23 +279,7 @@ const SepayQRPanel = ({ paymentData, onPollingSuccess, bookingId }) => {
     );
 };
 
-const InfoRow = ({ label, value, highlight, copyable }) => {
-    const [copied, setCopied] = useState(false);
-    return (
-        <div className="flex items-center justify-between p-3.5">
-            <span className="text-xs font-bold text-slate-500">{label}</span>
-            <div className="flex items-center gap-1.5">
-                <span className={`text-sm font-black ${highlight ? 'text-red-600 text-base' : 'text-slate-800'}`}>{value}</span>
-                {copyable && (
-                    <button onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                        className={`p-1 rounded-lg transition-all ${copied ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}>
-                        {copied ? <Check size={12} /> : <Copy size={12} />}
-                    </button>
-                )}
-            </div>
-        </div>
-    );
-};
+// InfoRow and FormField moved to top
 
 /* ─── Main Checkout Page ─────────────────────────────────────────── */
 const Checkout = () => {
@@ -372,9 +395,11 @@ const Checkout = () => {
         if (!bookingId && bookingInfo) {
             setForm(f => ({
                 ...f,
-                checkInDate: bookingInfo.date || '',
+                checkInDate: bookingInfo.startDate || bookingInfo.date || '',
+                checkOutDate: bookingInfo.endDate || '',
                 numAdults: bookingInfo.adults || 1,
                 numChildren: bookingInfo.children || 0,
+                numRooms: bookingInfo.rooms || 1,
                 room_type_id: bookingInfo.room_type_id || null,
                 selectedRoomType: bookingInfo.selectedRoomType || null,
             }));

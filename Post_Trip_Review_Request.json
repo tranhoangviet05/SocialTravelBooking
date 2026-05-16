@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "url": "https://socialtravelbooking.click/api/n8n/completed-bookings",
+        "url": "https://socialtravelbooking.click/api/n8n/bookings/completed",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -46,6 +46,20 @@
     },
     {
       "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "name": "Split Out: Từng Đơn Hoàn Tất",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        740,
+        500
+      ],
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+    },
+    {
+      "parameters": {
         "fromEmail": "dangthanhvu0103@gmail.com",
         "toEmail": "={{ $json.contact_email }}",
         "subject": "Chia sẻ trải nghiệm tại {{ $json.service.name }} của bạn! ✨",
@@ -56,7 +70,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        740,
+        960,
         500
       ],
       "id": "14144d4b-9783-5744-9869-656528427922"
@@ -64,7 +78,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://socialtravelbooking.click/api/n8n/bookings/{{ $json.id }}/mark-review-requested",
+        "url": "=https://socialtravelbooking.click/api/n8n/bookings/{{ $node[\"Split Out: Từng Đơn Hoàn Tất\"].json.id }}/mark-review-requested",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -80,7 +94,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        960,
+        1180,
         500
       ],
       "id": "d2d22e44-5743-5959-9090-232324427922"
@@ -99,6 +113,17 @@
       ]
     },
     "HTTP: Lấy Đơn Hoàn Tất": {
+      "main": [
+        [
+          {
+            "node": "Split Out: Từng Đơn Hoàn Tất",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out: Từng Đơn Hoàn Tất": {
       "main": [
         [
           {

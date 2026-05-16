@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "url": "https://socialtravelbooking.click/api/n8n/users",
+        "url": "https://socialtravelbooking.click/api/n8n/bookings/abandoned",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -46,6 +46,20 @@
     },
     {
       "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "name": "Split Out: Từng Đơn Hàng",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        740,
+        300
+      ],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "parameters": {
         "fromEmail": "dangthanhvu0103@gmail.com",
         "toEmail": "={{ $json.contact_email }}",
         "subject": "Hoàn tất chuyến đi của bạn ngay thôi! ✈️",
@@ -56,7 +70,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        740,
+        960,
         300
       ],
       "id": "93933c3a-8672-4633-8758-545417316811"
@@ -64,7 +78,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://socialtravelbooking.click/api/n8n/bookings/{{ $json.id }}/mark-abandoned-emailed",
+        "url": "=https://socialtravelbooking.click/api/n8n/bookings/{{ $node[\"Split Out: Từng Đơn Hàng\"].json.id }}/mark-abandoned-emailed",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -80,7 +94,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        960,
+        1180,
         300
       ],
       "id": "c1c11d33-4632-4848-8989-121213316811"
@@ -99,6 +113,17 @@
       ]
     },
     "HTTP: Lấy Đơn Hàng Bỏ Dở": {
+      "main": [
+        [
+          {
+            "node": "Split Out: Từng Đơn Hàng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out: Từng Đơn Hàng": {
       "main": [
         [
           {

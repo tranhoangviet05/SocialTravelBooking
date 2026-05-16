@@ -580,12 +580,12 @@ Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
     $log = \App\Models\AutomationLog::create($validated);
     return response()->json(['success' => true, 'data' => $log], 201);
 });
-
+//subMinutes(1) ,  subSeconds()
 Route::get('/n8n/bookings/abandoned', function () {
-    $twoHoursAgo = now()->subHours(2);
+    $threshold = now()->subHours(2); // 2 giờ cho production
     $bookings = \App\Models\Booking::with(['user', 'service'])
         ->where('payment_status', 'pending')
-        ->where('created_at', '<=', $twoHoursAgo)
+        ->where('created_at', '<=', $threshold)
         ->whereNull('last_reminded_at')
         ->get();
     return response()->json(['success' => true, 'data' => $bookings]);

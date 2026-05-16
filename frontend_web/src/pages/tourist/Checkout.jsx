@@ -313,6 +313,7 @@ const Checkout = () => {
                         checkOutDate: b.check_out_date ? b.check_out_date.split('T')[0] : '',
                         numAdults: b.num_adults || 1,
                         numChildren: b.num_children || 0,
+                        numRooms: 1, // Mặc định 1 phòng khi load từ email link
                         contactName: b.contact_name || '',
                         contactEmail: b.contact_email || '',
                         contactPhone: b.contact_phone || '',

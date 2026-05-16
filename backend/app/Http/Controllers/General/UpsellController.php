@@ -12,12 +12,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class UpsellController extends Controller
 {
     /**
      * Tự động kiểm tra và gửi mail mời nâng cấp nếu đủ điều kiện
-     * Được gọi từ PaymentController sau khi thanh toán thành công
      */
     public static function checkAndNotifyUpsell(Booking $booking)
     {
@@ -25,20 +27,18 @@ class UpsellController extends Controller
             if (!$booking->relationLoaded('service')) {
                 $booking->load('service');
             }
-            
-            // Chỉ áp dụng cho Hotel/Homestay có room_type_id
+
             if (!$booking->service || !in_array($booking->service->type, ['hotel', 'homestay']) || !$booking->room_type_id) {
                 return;
             }
 
             $upsell = ServiceUpsell::where('trigger_service_id', $booking->service_id)
                 ->where('trigger_room_type_id', $booking->room_type_id)
-                ->where('trigger_quantity', '<=', 1) // Thường 1 phòng cũng có thể upsell nếu quy tắc cho phép
+                ->where('trigger_quantity', '<=', 1)
                 ->where('is_active', true)
                 ->with(['targetRoomType'])
                 ->first();
 
-            // Nếu không khớp chính xác room_type, thử luật chung cho toàn service
             if (!$upsell) {
                 $upsell = ServiceUpsell::where('trigger_service_id', $booking->service_id)
                     ->whereNull('trigger_room_type_id')
@@ -48,341 +48,238 @@ class UpsellController extends Controller
             }
 
             if ($upsell && $upsell->target_room_type_id !== $booking->room_type_id) {
+                // 1. Gửi Email mời nâng cấp
                 Mail::to($booking->contact_email)->send(new UpsellInvitationMail($booking, $upsell));
                 Log::info("Sent Upsell invitation email for Booking: " . $booking->booking_code);
+
+                // 2. Trigger n8n Workflow (nếu có cấu hình)
+                $n8nWebhook = env('N8N_UPSELL_WEBHOOK_URL');
+                if ($n8nWebhook) {
+                    Http::post($n8nWebhook, [
+                        'booking_id' => $booking->id,
+                        'booking_code' => $booking->booking_code,
+                        'customer_name' => $booking->contact_name,
+                        'old_room' => optional($booking->roomType)->name ?? 'Standard',
+                        'new_room' => optional($upsell->targetRoomType)->name ?? 'Premium',
+                        'has_upsell' => true
+                    ]);
+                }
             }
         } catch (\Exception $e) {
-            Log::error("Failed to send upsell email: " . $e->getMessage());
+            Log::error("Failed to process upsell trigger: " . $e->getMessage());
         }
     }
+
     /**
-     * Lấy danh sách upsell của nhà cung cấp hiện tại
-     * GET /api/provider/upsells
+     * Quản lý danh sách Upsell cho Provider
      */
-    public function getProviderUpsells(Request $request)
+    public function index(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
 
-        // Lấy provider_id từ ProviderProfile nếu cần
-        $providerId = $user->id;
-
-        $upsells = ServiceUpsell::where('provider_id', $providerId)
-            ->with([
-                'triggerService:id,name,type,base_price',
-                'targetService:id,name,type,base_price',
-                'perkService:id,name,type,base_price',
-                'triggerRoomType:id,service_id,name,base_price,capacity_adults',
-                'targetRoomType:id,service_id,name,base_price,capacity_adults',
-            ])
-            ->orderBy('created_at', 'desc')
+        $upsells = ServiceUpsell::where('provider_id', $user->id)
+            ->with(['triggerService', 'targetService', 'perkService', 'triggerRoomType', 'targetRoomType'])
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'data'    => $upsells,
-        ]);
+        return response()->json(['success' => true, 'data' => $upsells]);
     }
 
-    /**
-     * Tạo mới một chiến dịch Upsell
-     * POST /api/provider/upsells
-     */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'trigger_service_id'    => 'required|uuid|exists:services,id',
-            'trigger_room_type_id'  => 'nullable|exists:hotel_room_types,id',
-            'trigger_quantity'      => 'required|integer|min:1',
-            'target_service_id'     => 'required|uuid|exists:services,id',
-            'target_room_type_id'   => 'nullable|exists:hotel_room_types,id',
-            'perk_service_id'       => 'nullable|uuid|exists:services,id',
-            'perk_discount_percent' => 'nullable|integer|min:0|max:100',
-            'description'           => 'nullable|string|max:500',
-            'is_active'             => 'boolean',
-        ]);
-
-        // Gán provider_id từ user đang đăng nhập
-        $validated['provider_id'] = $request->user()->id;
-
-        // Mặc định perk_discount_percent = 100 nếu có perk nhưng không nhập %
-        if (!empty($validated['perk_service_id']) && !isset($validated['perk_discount_percent'])) {
-            $validated['perk_discount_percent'] = 100;
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        // Kiểm tra logic: trigger_room_type phải thuộc trigger_service
-        if (!empty($validated['trigger_room_type_id'])) {
-            $rt = \App\Models\HotelRoomType::find($validated['trigger_room_type_id']);
-            if (!$rt || $rt->service_id !== $validated['trigger_service_id']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Loại phòng kích hoạt không thuộc dịch vụ đã chọn.'
-                ], 422);
-            }
-        }
-
-        // Kiểm tra logic: target_room_type phải thuộc target_service (cùng khách sạn)
-        if (!empty($validated['target_room_type_id'])) {
-            $rt = \App\Models\HotelRoomType::find($validated['target_room_type_id']);
-            if (!$rt || $rt->service_id !== $validated['target_service_id']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Loại phòng nâng cấp không thuộc dịch vụ đã chọn.'
-                ], 422);
-            }
-
-            // Kiểm tra: không được chọn cùng loại phòng
-            if ($validated['trigger_room_type_id'] === $validated['target_room_type_id']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Loại phòng kích hoạt và loại phòng nâng cấp phải khác nhau.'
-                ], 422);
-            }
-        }
-
-        $upsell = ServiceUpsell::create($validated);
-
-        // Load relationships để trả về
-        $upsell->load([
-            'triggerService:id,name,type',
-            'targetService:id,name,type',
-            'perkService:id,name,type,base_price',
-            'triggerRoomType:id,service_id,name,base_price',
-            'targetRoomType:id,service_id,name,base_price',
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data'    => $upsell,
-        ], 201);
+        $upsell = ServiceUpsell::updateOrCreate(
+            [
+                'provider_id' => $user->id,
+                'trigger_service_id' => $request->trigger_service_id,
+                'trigger_room_type_id' => $request->trigger_room_type_id,
+            ],
+            $request->all()
+        );
+        return response()->json(['success' => true, 'data' => $upsell]);
     }
 
-    /**
-     * Xóa một chiến dịch Upsell
-     * DELETE /api/provider/upsells/{id}
-     */
-    public function destroy(Request $request, $id)
+    public function destroy($id)
     {
-        $upsell = ServiceUpsell::where('id', $id)
-            ->where('provider_id', $request->user()->id)
-            ->firstOrFail();
-
-        $upsell->delete();
-
-        return response()->json(['success' => true, 'message' => 'Đã xóa chiến dịch.']);
+        ServiceUpsell::destroy($id);
+        return response()->json(['success' => true]);
     }
 
     /**
-     * Dành cho n8n: Lấy toàn bộ quy tắc active
-     * GET /api/n8n/upsells/internal-list
-     */
-    public function getInternalUpsells()
-    {
-        return response()->json([
-            'success' => true,
-            'data'    => ServiceUpsell::where('is_active', true)
-                ->with([
-                    'triggerService:id,name,type',
-                    'targetService:id,name,type,base_price',
-                    'perkService:id,name,type,base_price',
-                    'triggerRoomType:id,service_id,name,base_price',
-                    'targetRoomType:id,service_id,name,base_price',
-                ])
-                ->get()
-        ]);
-    }
-
-    /**
-     * Kiểm tra upsell phù hợp khi khách đang checkout
-     * POST /api/upsells/check
+     * Kiểm tra Upsell khả dụng cho giỏ hàng
      */
     public function checkAvailableUpsells(Request $request)
     {
-        $request->validate([
-            'items'                => 'required|array',
-            'items.*.service_id'   => 'required|uuid',
-            'items.*.room_type_id' => 'nullable|string',
-            'items.*.quantity'     => 'required|integer|min:1',
-        ]);
-
+        $items = $request->input('items', []);
         $availableUpsells = [];
 
-        foreach ($request->items as $item) {
-            $serviceId  = $item['service_id'];
-            $roomTypeId = $item['room_type_id'] ?? null;
-            $quantity   = $item['quantity'];
-
-            $query = ServiceUpsell::where('trigger_service_id', $serviceId)
-                ->where('trigger_quantity', '<=', $quantity)
-                ->where('is_active', true);
-
-            // Nếu có room_type_id, ưu tiên lọc chính xác; fallback ra null (áp dụng toàn dịch vụ)
-            if ($roomTypeId) {
-                $exact = (clone $query)->where('trigger_room_type_id', $roomTypeId)->first();
-                $upsell = $exact ?? $query->whereNull('trigger_room_type_id')->first();
-            } else {
-                $upsell = $query->whereNull('trigger_room_type_id')->first();
-            }
-
-            if ($upsell) {
-                $upsell->load([
-                    'targetService:id,name,type,base_price',
-                    'targetRoomType:id,service_id,name,base_price,capacity_adults',
-                    'perkService:id,name,type,base_price',
-                ]);
-                $availableUpsells[] = $upsell;
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'data'    => $availableUpsells,
-        ]);
-    }
-
-    /**
-     * Xem trước thông tin nâng cấp cho một đơn hàng
-     * GET /api/user/bookings/{id}/upsell-preview
-     */
-    public function getUpgradePreview(Request $request, $id)
-    {
-        $userId = $request->user->id;
-        $booking = Booking::with(['service', 'roomType'])
-            ->where('id', $id)
-            ->where('user_id', $userId)
-            ->firstOrFail();
-
-        // Tìm quy tắc upsell áp dụng
-        $upsell = ServiceUpsell::where('trigger_service_id', $booking->service_id)
-            ->where(function($q) use ($booking) {
-                $q->where('trigger_room_type_id', $booking->room_type_id)
-                  ->orWhereNull('trigger_room_type_id');
-            })
-            ->where('is_active', true)
-            ->with([
-                'targetRoomType',
-                'perkService:id,name,type,base_price',
-                'targetService:id,name,type,base_price'
-            ])
-            ->orderByRaw('trigger_room_type_id IS NULL ASC') // Ưu tiên exact match
-            ->first();
-
-        if (!$upsell) {
-            return response()->json(['success' => false, 'message' => 'Đơn hàng này không có chương trình nâng cấp phù hợp.'], 404);
-        }
-
-        // Tính toán chênh lệch
-        $oldPrice = (float) $booking->total_amount;
-        
-        // Giả định nâng cấp lên 1 phòng target (vì upsell thường là dồn nhiều phòng nhỏ thành 1 phòng lớn)
-        $newBasePrice = (float) $upsell->targetRoomType->base_price;
-        
-        // Tính số đêm từ booking cũ
-        $nights = 1;
-        if ($booking->check_in_date && $booking->check_out_date) {
-            $nights = $booking->check_in_date->diffInDays($booking->check_out_date);
-            if ($nights < 1) $nights = 1;
-        }
-        
-        $newRoomTotal = $newBasePrice * $nights;
-        
-        // Perk discount
-        $perkData = null;
-        if ($upsell->perkService) {
-            $perkPrice = (float) $upsell->perkService->base_price;
-            $discount = (int) $upsell->perk_discount_percent;
-            $finalPerkPrice = $perkPrice * (1 - $discount/100);
-            $perkData = [
-                'service' => $upsell->perkService,
-                'original_price' => $perkPrice,
-                'final_price' => $finalPerkPrice,
-                'savings' => $perkPrice - $finalPerkPrice
-            ];
-            $newTotal = $newRoomTotal + $finalPerkPrice;
-        } else {
-            $newTotal = $newRoomTotal;
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'booking' => $booking,
-                'upsell' => $upsell,
-                'comparison' => [
-                    'old_total' => $oldPrice,
-                    'new_total' => $newTotal,
-                    'difference' => $newTotal - $oldPrice,
-                ],
-                'perk' => $perkData
-            ]
-        ]);
-    }
-
-    /**
-     * Thực hiện nâng cấp đơn hàng
-     * POST /api/user/bookings/{id}/upgrade
-     */
-    public function upgradeBooking(Request $request, $id)
-    {
-        $userId = $request->user->id;
-        $oldBooking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
-        
-        if ($oldBooking->status === 'cancelled' || $oldBooking->status === 'completed') {
-            return response()->json(['success' => false, 'message' => 'Đơn hàng không ở trạng thái hợp lệ để nâng cấp.'], 400);
-        }
-
-        return DB::transaction(function() use ($oldBooking, $request) {
-            // 1. Tìm lại upsell để lấy giá mới nhất
-            $upsell = ServiceUpsell::where('trigger_service_id', $oldBooking->service_id)
-                ->where(function($q) use ($oldBooking) {
-                    $q->where('trigger_room_type_id', $oldBooking->room_type_id)
-                      ->orWhereNull('trigger_room_type_id');
+        foreach ($items as $item) {
+            $upsell = ServiceUpsell::where('trigger_service_id', $item['service_id'])
+                ->where(function($q) use ($item) {
+                    if (isset($item['room_type_id'])) {
+                        $q->where('trigger_room_type_id', $item['room_type_id'])->orWhereNull('trigger_room_type_id');
+                    } else {
+                        $q->whereNull('trigger_room_type_id');
+                    }
                 })
                 ->where('is_active', true)
                 ->first();
 
-            if (!$upsell) throw new \Exception("Quy tắc nâng cấp không còn hiệu lực.");
+            if ($upsell) {
+                $upsell->load(['targetRoomType', 'targetService:id,name', 'perkService:id,name']);
+                $availableUpsells[] = $upsell;
+            }
+        }
+        return response()->json(['success' => true, 'data' => $availableUpsells]);
+    }
 
-            // 2. Tạo đơn hàng mới (Dòng này đáp ứng "xoá đơn cũ hiển thị đơn mới")
-            $newBooking = $oldBooking->replicate();
-            $newBooking->booking_code = 'UP-' . strtoupper(\Illuminate\Support\Str::random(6)) . '-' . date('ymd');
-            $newBooking->room_type_id = $upsell->target_room_type_id;
-            
-            // Tính lại tiền
-            $nights = $oldBooking->check_in_date->diffInDays($oldBooking->check_out_date) ?: 1;
-            $newRoomAmount = $upsell->targetRoomType->base_price * $nights;
-            
-            $perkAmount = 0;
-            if ($upsell->perk_service_id) {
-                $perkAmount = $upsell->perkService->base_price * (1 - $upsell->perk_discount_percent/100);
-                // Bạn có thể lưu thông tin perk vào một bảng booking_items nếu hệ thống có, 
-                // ở đây ta tạm cộng vào total_amount và ghi vào special_requests
-                $newBooking->special_requests .= "\n[Upsell Perk: " . $upsell->perkService->name . "]";
+    /**
+     * Preview thông tin nâng cấp (Cho User)
+     */
+    public function getUpgradePreview(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
             }
 
-            $newBooking->total_amount = $newRoomAmount + $perkAmount;
-            $newBooking->status = $oldBooking->status;
-            $newBooking->payment_status = 'paid'; // Giả định thanh toán chênh lệch thành công hoặc xử lý sau
-            $newBooking->save();
+            $booking = Booking::with(['service', 'roomType'])->where('id', $id)->where('user_id', $user->id)->first();
 
-            // 3. Hủy đơn hàng cũ
-            $oldBooking->update([
-                'status' => 'cancelled',
-                'description' => $oldBooking->description . " (Đã nâng cấp lên đơn " . $newBooking->booking_code . ")"
-            ]);
+            if (!$booking) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn hàng.'], 404);
+            }
 
-            // Trả lại inventory cho phòng cũ
-            $oldRT = HotelRoomType::find($oldBooking->room_type_id);
-            if ($oldRT) $oldRT->increment('inventory');
+            $upsell = ServiceUpsell::where('trigger_service_id', $booking->service_id)
+                ->where(function($q) use ($booking) {
+                    $q->where('trigger_room_type_id', $booking->room_type_id)->orWhereNull('trigger_room_type_id');
+                })
+                ->where('is_active', true)
+                ->with(['targetRoomType', 'perkService', 'targetService'])
+                ->orderByRaw('trigger_room_type_id IS NULL ASC')
+                ->first();
 
-            // Trừ inventory cho phòng mới
-            $newRT = HotelRoomType::find($newBooking->room_type_id);
-            if ($newRT) $newRT->decrement('inventory');
+            if (!$upsell) {
+                return response()->json(['success' => false, 'message' => 'Không có nâng cấp phù hợp.'], 404);
+            }
+
+            $oldPrice = (float)$booking->total_amount;
+            $newBasePrice = (float)($upsell->targetRoomType?->base_price ?? $booking->service?->base_price ?? 0);
+            
+            $nights = 1;
+            if ($booking->check_in_date && $booking->check_out_date) {
+                $nights = Carbon::parse($booking->check_in_date)->diffInDays(Carbon::parse($booking->check_out_date)) ?: 1;
+            }
+            
+            $newRoomTotal = $newBasePrice * $nights;
+            $perkData = null;
+            if ($upsell->perkService) {
+                $perkPrice = (float)$upsell->perkService->base_price;
+                $discount = (int)$upsell->perk_discount_percent;
+                $finalPerkPrice = $perkPrice * (1 - $discount/100);
+                $perkData = [
+                    'service' => $upsell->perkService,
+                    'original_price' => $perkPrice,
+                    'final_price' => $finalPerkPrice,
+                    'savings' => $perkPrice - $finalPerkPrice
+                ];
+                $newTotal = $newRoomTotal + $finalPerkPrice;
+            } else {
+                $newTotal = $newRoomTotal;
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Nâng cấp thành công! Đơn hàng mới của bạn là ' . $newBooking->booking_code,
-                'data' => $newBooking
+                'data' => [
+                    'booking' => $booking,
+                    'upsell' => $upsell,
+                    'comparison' => [
+                        'old_total' => $oldPrice,
+                        'new_total' => $newTotal,
+                        'difference' => max(0, $newTotal - $oldPrice),
+                    ],
+                    'perk' => $perkData
+                ]
             ]);
-        });
+        } catch (\Exception $e) {
+            Log::error("Preview Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Lỗi: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Thực hiện Upgrade Booking
+     */
+    public function upgradeBooking(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập.'], 401);
+            }
+
+            $oldBooking = Booking::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+            
+            if (!in_array($oldBooking->status, ['confirmed', 'paid'])) {
+                return response()->json(['success' => false, 'message' => 'Trạng thái đơn hàng không hợp lệ.'], 400);
+            }
+
+            return DB::transaction(function() use ($oldBooking) {
+                $upsell = ServiceUpsell::where('trigger_service_id', $oldBooking->service_id)
+                    ->where(function($q) use ($oldBooking) {
+                        $q->where('trigger_room_type_id', $oldBooking->room_type_id)->orWhereNull('trigger_room_type_id');
+                    })
+                    ->where('is_active', true)
+                    ->with(['targetRoomType', 'perkService'])
+                    ->first();
+
+                if (!$upsell) {
+                    throw new \Exception("Ưu đãi không còn khả dụng.");
+                }
+
+                $newBooking = $oldBooking->replicate();
+                $newBooking->booking_code = 'UP-' . strtoupper(Str::random(6)) . '-' . date('ymd');
+                $newBooking->room_type_id = $upsell->target_room_type_id;
+                
+                $nights = 1;
+                if ($oldBooking->check_in_date && $oldBooking->check_out_date) {
+                    $nights = Carbon::parse($oldBooking->check_in_date)->diffInDays(Carbon::parse($oldBooking->check_out_date)) ?: 1;
+                }
+
+                $newRoomAmount = ($upsell->targetRoomType?->base_price ?? $oldBooking->service?->base_price) * $nights;
+                $perkAmount = 0;
+                if ($upsell->perk_service_id && $upsell->perkService) {
+                    $perkAmount = $upsell->perkService->base_price * (1 - $upsell->perk_discount_percent/100);
+                    $newBooking->special_requests .= "\n[Upgraded Perk: " . $upsell->perkService->name . "]";
+                }
+
+                $newBooking->total_amount = $newRoomAmount + $perkAmount;
+                $newBooking->payment_status = 'paid';
+                $newBooking->save();
+
+                $oldBooking->update([
+                    'status' => 'cancelled',
+                    'description' => $oldBooking->description . " (Upgraded to " . $newBooking->booking_code . ")"
+                ]);
+
+                if ($oldBooking->room_type_id) {
+                    HotelRoomType::find($oldBooking->room_type_id)?->increment('inventory');
+                }
+                if ($newBooking->room_type_id) {
+                    HotelRoomType::find($newBooking->room_type_id)?->decrement('inventory');
+                }
+
+                return response()->json(['success' => true, 'data' => $newBooking]);
+            });
+        } catch (\Exception $e) {
+            Log::error("Upgrade Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }

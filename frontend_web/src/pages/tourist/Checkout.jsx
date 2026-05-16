@@ -303,17 +303,23 @@ const Checkout = () => {
         contactName: currentUser?.displayName || currentUser?.display_name || '',
         contactEmail: currentUser?.email || '',
         contactPhone: currentUser?.phone || '',
-        contactEmail: '',
-        contactPhone: '',
         specialRequests: '',
         couponCode: '',
-        room_type_id: null,
-        selectedRoomType: null,
+        room_type_id: bookingInfo?.room_type_id || null,
+        selectedRoomType: bookingInfo?.selectedRoomType || null,
     });
 
     const [booking, setBooking] = useState(null);
     const [errors, setErrors] = useState({});
     const [activeUpsell, setActiveUpsell] = useState(null);
+    const [step, setStep] = useState(1); // 1=form, 2=payment, 3=done
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [paymentData, setPaymentData] = useState(null);
+    const [walletBalance, setWalletBalance] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('sepay');
+    const [couponInput, setCouponInput] = useState('');
+    const [couponApplied, setCouponApplied] = useState(null);
+    const [discountAmount, setDiscountAmount] = useState(0);
 
     // Kiểm tra Upsell khi thông tin phòng/dịch vụ thay đổi
     useEffect(() => {
@@ -418,11 +424,6 @@ const Checkout = () => {
         }
     }, [currentUser]);
 
-    const [paymentMethod, setPaymentMethod] = useState('sepay');
-    const [couponInput, setCouponInput] = useState('');
-    const [couponApplied, setCouponApplied] = useState(null);
-    const [discountAmount, setDiscountAmount] = useState(0);
-
     // Auto-calculate check-out for Tours
     useEffect(() => {
         if (service?.type === 'tour' && form.checkInDate && service.duration_days) {
@@ -437,12 +438,6 @@ const Checkout = () => {
         }
     }, [form.checkInDate, service]);
 
-    const [step, setStep] = useState(1); // 1=form, 2=payment, 3=done
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [paymentData, setPaymentData] = useState(null);
-    const [walletBalance, setWalletBalance] = useState(null);
-
-    // Tính giá
     const selectedRoomType = form.selectedRoomType;
     const basePrice    = selectedRoomType ? selectedRoomType.base_price : (service?.base_price ?? 0);
     

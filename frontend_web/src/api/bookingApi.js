@@ -10,7 +10,6 @@ const bookingApi = {
      */
     createBooking: (data) => axiosClient.post('/bookings', data),
     getBookingById: (id) => axiosClient.get(`/user/booking-details/${id}`),
-    checkUpsells: (items) => axiosClient.post('/upsells/check', { items }),
 
     /**
      * Khởi tạo thanh toán
@@ -58,19 +57,13 @@ const bookingApi = {
     undoCheckIn: (id) => axiosClient.post(`/user/bookings/${id}/undo-check-in`),
     checkOut: (id) => axiosClient.post(`/user/bookings/${id}/check-out`),
 
-    /**
-     * Kiểm tra các gói Upsell khả dụng
-     */
+    /** Kiểm tra các gói Upsell khả dụng */
     checkUpsells: (items) => axiosClient.post('/upsells/check', { items }),
 
-    /**
-     * Lấy chi tiết gói Upsell cụ thể
-     */
+    /** Lấy chi tiết gói Upsell cụ thể */
     getUpsellPackage: (id) => axiosClient.get(`/upsells/package/${id}`),
 
-    /**
-     * Quy trình Upsell sau khi đặt chỗ
-     */
+    /** Quy trình Upsell sau khi đặt chỗ */
     getUpsellPreview: (id) => axiosClient.get(`/user/bookings/${id}/upsell-preview`),
     upgradeBooking: (id) => axiosClient.post(`/user/bookings/${id}/upgrade`),
 };

@@ -974,24 +974,5 @@ const Checkout = () => {
     );
 };
 
-/* ─── FormField Component ────────────────────────────────────────── */
-const FormField = ({ label, icon, value, onChange, error, placeholder, type = 'text', min, readOnly = false }) => (
-    <div>
-        <label className="flex items-center gap-1 text-xs font-bold text-slate-500 mb-1.5">
-            {icon && <span className="text-slate-400">{icon}</span>}
-            {label}
-        </label>
-        <input
-            type={type} value={value} min={min}
-            onChange={e => !readOnly && onChange(e.target.value)}
-            placeholder={placeholder}
-            readOnly={readOnly}
-            className={`w-full border rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition-all
-                ${readOnly ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 
-                  error ? 'border-rose-400 bg-rose-50 focus:border-rose-500' : 'border-slate-200 focus:border-sky-400 bg-white'}`}
-        />
-        {error && <p className="text-xs text-rose-500 mt-1 font-medium">{error}</p>}
-    </div>
-);
 
 export default Checkout;

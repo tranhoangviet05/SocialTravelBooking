@@ -59,6 +59,16 @@ const bookingApi = {
     checkOut: (id) => axiosClient.post(`/user/bookings/${id}/check-out`),
 
     /**
+     * Kiểm tra các gói Upsell khả dụng
+     */
+    checkUpsells: (items) => axiosClient.post('/upsells/check', { items }),
+
+    /**
+     * Lấy chi tiết gói Upsell cụ thể
+     */
+    getUpsellPackage: (id) => axiosClient.get(`/upsells/package/${id}`),
+
+    /**
      * Quy trình Upsell sau khi đặt chỗ
      */
     getUpsellPreview: (id) => axiosClient.get(`/user/bookings/${id}/upsell-preview`),

@@ -280,11 +280,6 @@ const Checkout = () => {
         contactName: currentUser?.displayName || currentUser?.display_name || '',
         contactEmail: currentUser?.email || '',
         contactPhone: currentUser?.phone || '',
-        checkInDate: '',
-        checkOutDate: '',
-        numAdults: 1,
-        numChildren: 0,
-        contactName: '',
         contactEmail: '',
         contactPhone: '',
         specialRequests: '',
@@ -359,11 +354,11 @@ const Checkout = () => {
                     // Nếu đơn đã có booking sẵn, nhảy thẳng sang bước thanh toán 
                     setStep(2); 
                 } else {
-                    setError(res.message || "Không tìm thấy dữ liệu đơn hàng.");
+                    setErrors({ general: res.message || "Không tìm thấy dữ liệu đơn hàng." });
                 }
             } catch (err) {
                 console.error("Error fetching booking:", err);
-                setError(err.response?.data?.message || "Lỗi kết nối đến máy chủ (404).");
+                setErrors({ general: err.response?.data?.message || "Lỗi kết nối đến máy chủ (404)." });
             } finally {
                 setLoadingBooking(false);
             }
@@ -513,7 +508,7 @@ const Checkout = () => {
                     <h2 className="text-2xl font-black text-slate-800 mb-2">Không tìm thấy đơn hàng</h2>
                     <p className="text-slate-400 max-w-xs mx-auto mb-4">Mã đơn: #{bookingId.substring(0,8)}...</p>
                     <div className="bg-rose-50 text-rose-600 text-xs p-3 rounded-xl font-mono mb-6">
-                        Lỗi: {error || "Server trả về 404 (Không tìm thấy route hoặc đơn hàng)"}
+                        Lỗi: {errors.general || "Server trả về 404 (Không tìm thấy route hoặc đơn hàng)"}
                     </div>
                 </div>
                 <div className="flex gap-3">

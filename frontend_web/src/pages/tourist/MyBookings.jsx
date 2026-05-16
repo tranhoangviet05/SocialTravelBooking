@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import bookingApi from '../../api/bookingApi';
-import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut } from 'lucide-react';
+import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut, Sparkles } from 'lucide-react';
 
 
 const MyBookings = () => {
@@ -299,6 +299,17 @@ const MyBookings = () => {
                                                     Hủy đơn
                                                 </Button>
                                             </>
+                                        )}
+
+                                        {booking.status === 'confirmed' && (booking.service?.type === 'hotel' || booking.service?.type === 'homestay') && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => navigate(`/my-bookings/${booking.id}/upgrade`)}
+                                                className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-300 gap-1 flex items-center font-black animate-pulse"
+                                            >
+                                                Nâng cấp dịch vụ <Sparkles size={14} />
+                                            </Button>
                                         )}
 
                                         {booking.status === 'confirmed' && booking.payment_status === 'paid' && (booking.service?.type === 'hotel' || booking.service?.type === 'homestay') && (

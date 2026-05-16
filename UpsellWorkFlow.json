@@ -1,0 +1,123 @@
+{
+  "name": "Intelligent Upsell Lifecycle (Test Mode)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking-confirmed-trigger",
+        "options": {}
+      },
+      "name": "Webhook: Booking Confirmed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://socialtravelbooking.click/api/internal/booking-upsell-data/{{$json.body.booking_id}}",
+        "options": {}
+      },
+      "name": "HTTP: Fetch Booking & Rules",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.has_upsell}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Check: Is Eligible?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "name": "Wait 1 Minute",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://socialtravelbooking.click/api/internal/check-upgrade-status/{{$json.booking_id}}",
+        "options": {}
+      },
+      "name": "HTTP: Verify Upgrade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        950,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Booking Confirmed": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Fetch Booking & Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Fetch Booking & Rules": {
+      "main": [
+        [
+          {
+            "node": "Check: Is Eligible?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check: Is Eligible?": {
+      "main": [
+        [
+          {
+            "node": "Wait 1 Minute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1 Minute": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Verify Upgrade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

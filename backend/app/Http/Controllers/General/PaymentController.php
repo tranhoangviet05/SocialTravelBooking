@@ -149,16 +149,11 @@ class PaymentController extends Controller
             $booking->status         = 'confirmed';
             $booking->save();
 
-            // Gửi tin nhắn tự động xác nhận qua Chat
-            try {
-                $chatService = app(\App\Services\ChatService::class);
-                $chatService->sendBookingConfirmedMessage($booking);
-            } catch (\Exception $e) {
-                Log::error("Error sending automated chat message: " . $e->getMessage());
-            }
-
             // Ghi log transaction vào wallet của provider (escrow)
             Log::info("Booking {$booking->booking_code} confirmed via SePay");
+
+            // --- TỰ ĐỘNG KIỂM TRA & GỬI MAIL UPSELL ---
+            \App\Http\Controllers\General\UpsellController::checkAndNotifyUpsell($booking);
         });
 
         return response()->json(['success' => true, 'message' => 'Xác nhận thanh toán thành công']);

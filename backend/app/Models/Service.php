@@ -103,4 +103,9 @@ class Service extends Model
     {
         return $this->hasMany(HotelRoomType::class);
     }
+
+    public function upsells()
+    {
+        return $this->hasMany(ServiceUpsell::class, 'trigger_service_id');
+    }
 }

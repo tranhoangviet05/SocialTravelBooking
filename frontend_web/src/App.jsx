@@ -25,6 +25,7 @@ import SuccessPage from './pages/tourist/Success';
 import CartPage from './pages/tourist/Cart';
 import WishlistPage from './pages/tourist/Wishlist';
 import Onboarding from './pages/tourist/Onboarding';
+import UpsellUpgradePage from './pages/tourist/UpsellUpgradePage';
 import Messages from './pages/common/Messages'; // Use common Messages
 import SocialRoute from './components/common/SocialRoute';
 // --- Admin Pages ---
@@ -84,6 +85,7 @@ function App() {
                     <Route path="/checkout/:bookingId" element={<CheckoutPage />} />
                     <Route path="/success" element={<SuccessPage />} />
                     <Route path="/onboarding" element={<Onboarding />} />
+                    <Route path="/my-bookings/:bookingId/upgrade" element={<UpsellUpgradePage />} />
                   </Route>
                 </Route> {/* Close MainLayout */}
 

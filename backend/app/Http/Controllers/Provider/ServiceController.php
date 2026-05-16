@@ -38,7 +38,7 @@ class ServiceController extends Controller
         $search = $request->get('search');
         $type = $request->get('type');
 
-        $query = Service::with(['category', 'location', 'media'])
+        $query = Service::with(['category', 'location', 'media', 'roomTypes:id,service_id,name,base_price,capacity_adults'])
             ->where('provider_id', $provider->id);
 
         if ($search) {
@@ -55,11 +55,29 @@ class ServiceController extends Controller
             'data' => $services->items(),
             'meta' => [
                 'current_page' => $services->currentPage(),
-                'last_page' => $services->lastPage(),
-                'per_page' => $services->perPage(),
-                'total' => $services->total(),
+                'last_page'    => $services->lastPage(),
+                'per_page'     => $services->perPage(),
+                'total'        => $services->total(),
             ]
         ]);
+    }
+
+    /**
+     * Lấy tất cả dịch vụ kèm room_types (dành cho UpsellManager, không phân trang)
+     */
+    public function getWithRoomTypes(Request $request)
+    {
+        $provider = $this->getProvider($request);
+        if (!$provider) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy nhà cung cấp.'], 404);
+        }
+
+        $services = Service::with(['roomTypes:id,service_id,name,base_price,capacity_adults'])
+            ->where('provider_id', $provider->id)
+            ->select('id', 'name', 'type', 'base_price')
+            ->get();
+
+        return response()->json(['success' => true, 'data' => $services]);
     }
 
     /**

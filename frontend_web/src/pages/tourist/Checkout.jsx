@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import bookingApi from '../../api/bookingApi';
+import UpsellAlert from '../../components/tourist/booking/UpsellAlert';
+import { ArrowUpCircle, Gift } from 'lucide-react';
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n ?? 0) + 'đ';
@@ -293,7 +295,38 @@ const Checkout = () => {
 
     const [booking, setBooking] = useState(null);
     const [errors, setErrors] = useState({});
+    const [activeUpsell, setActiveUpsell] = useState(null);
 
+    // Kiểm tra Upsell khi thông tin phòng/dịch vụ thay đổi
+    useEffect(() => {
+        if (!service?.id || step !== 1) return;
+        
+        const checkUpsell = async () => {
+            try {
+                const res = await bookingApi.checkUpsells([{
+                    service_id: service.id,
+                    quantity: form.numRooms
+                }]);
+                if (res.success && res.data.length > 0) {
+                    setActiveUpsell(res.data[0]);
+                } else {
+                    setActiveUpsell(null);
+                }
+            } catch (err) {
+                console.error("Check upsell failed", err);
+            }
+        };
+
+        checkUpsell();
+    }, [service?.id, form.numRooms, step]);
+
+    const handleAcceptUpsell = () => {
+        if (!activeUpsell) return;
+        setService(activeUpsell.target_service);
+        setForm(prev => ({ ...prev, numRooms: 1 }));
+        setActiveUpsell(null);
+        alert(`Đã nâng cấp lên ${activeUpsell.target_service.name}! Bạn sẽ nhận được ưu đãi từ ${activeUpsell.perk_service.name} sau khi hoàn tất.`);
+    };
     // 1. Nếu vào bằng link Email (có bookingId), lấy data từ Server
     useEffect(() => {
         if (!bookingId) return;

@@ -10,7 +10,8 @@ import {
     Star,
     Wallet,
     Calendar,
-    MessageSquare
+    MessageSquare,
+    ArrowUp
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../utils/ConstantSystems';
@@ -18,6 +19,7 @@ import { API_ENDPOINTS } from '../../utils/ConstantSystems';
 const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: API_ENDPOINTS.PROVIDER_DASHBOARD },
     { icon: Compass, label: 'Dịch vụ của tôi', path: API_ENDPOINTS.PROVIDER_SERVICES },
+    { icon: ArrowUp, label: 'Chiến dịch Upsell', path: API_ENDPOINTS.PROVIDER_SERVICES, badge: 'Smart' },
     { icon: Calendar, label: 'Lịch đặt chỗ', path: API_ENDPOINTS.PROVIDER_BOOKINGS },
     { icon: Star, label: 'Đánh giá khách hàng', path: API_ENDPOINTS.PROVIDER_REVIEWS },
     { icon: Wallet, label: 'Ví tiền & Doanh thu', path: API_ENDPOINTS.PROVIDER_WALLET },

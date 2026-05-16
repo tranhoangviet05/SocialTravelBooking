@@ -61,6 +61,12 @@ const providerApi = {
     getWalletReport: () => axios.get('/provider/wallet/report'),
     getSettings: () => axios.get('/provider/settings'),
     updateSettings: (data) => axios.put('/provider/settings', data),
+
+    // Upsell
+    getServicesWithRooms: () => axios.get('/provider/services/all-with-rooms'),
+    getUpsells: () => axios.get('/provider/upsells'),
+    storeUpsell: (data) => axios.post('/provider/upsells', data),
+    deleteUpsell: (id) => axios.delete(`/provider/upsells/${id}`),
 };
 
 export default providerApi;

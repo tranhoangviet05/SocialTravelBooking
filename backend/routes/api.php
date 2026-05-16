@@ -78,6 +78,8 @@ Route::post('/payment/sepay/webhook', [\App\Http\Controllers\General\PaymentCont
 // ========================
 // INTERNAL API FOR n8n (No Auth for local bridge)
 // ========================
+Route::get('/n8n/upsells/internal-list', [\App\Http\Controllers\General\UpsellController::class, 'getInternalUpsells']);
+Route::get('/n8n/behavior/process-bulk', [BehaviorDatabaseController::class, 'processBulkRecommendations']);
 Route::group(['prefix' => 'internal'], function() {
     // Behavior tracking sync
     Route::post('/behavior/sync', [BehaviorTrackingController::class, 'syncFromN8n']);
@@ -109,6 +111,10 @@ Route::middleware('firebase.auth')->group(function () {
     
     // 2. Upload tệp tin
     Route::post('/upload', [\App\Http\Controllers\General\UploadController::class, 'upload']);
+
+        Route::post('/upsells/check', [\App\Http\Controllers\General\UpsellController::class, 'checkAvailableUpsells']);
+        Route::get('/user/bookings/{id}/upsell-preview', [\App\Http\Controllers\General\UpsellController::class, 'getUpgradePreview']);
+        Route::post('/user/bookings/{id}/upgrade', [\App\Http\Controllers\General\UpsellController::class, 'upgradeBooking']);
 
     // 3. Lấy thông tin user hiện tại
     Route::get('/user/get/profile', function (\Illuminate\Http\Request $request) {
@@ -222,6 +228,7 @@ Route::middleware('firebase.auth')->group(function () {
             $channelName = $request->input('channel_name');
             $socketId = $request->input('socket_id');
 
+
             // Xác thực quyền truy cập kênh
             if (str_starts_with($channelName, 'private-chat.')) {
                 $conversationId = str_replace('private-chat.', '', $channelName);
@@ -318,6 +325,7 @@ Route::middleware('firebase.auth')->group(function () {
         Route::get('/dashboard/stats', [\App\Http\Controllers\Provider\DashboardController::class, 'stats']);
 
         // --- Quản lý Dịch vụ (CRUD) ---
+        Route::get('/services/all-with-rooms', [\App\Http\Controllers\Provider\ServiceController::class, 'getWithRoomTypes']);
         Route::get('/services', [\App\Http\Controllers\Provider\ServiceController::class, 'index']);
         Route::post('/services', [\App\Http\Controllers\Provider\ServiceController::class, 'store']);
         Route::get('/services/{id}', [\App\Http\Controllers\Provider\ServiceController::class, 'show']);
@@ -359,6 +367,11 @@ Route::middleware('firebase.auth')->group(function () {
         // --- Cấu hình cửa hàng ---
         Route::get('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'index']);
         Route::put('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'update']);
+
+        // --- Quản lý Upsell ---
+        Route::get('/upsells', [\App\Http\Controllers\General\UpsellController::class, 'getProviderUpsells']);
+        Route::post('/upsells', [\App\Http\Controllers\General\UpsellController::class, 'store']);
+        Route::delete('/upsells/{id}', [\App\Http\Controllers\General\UpsellController::class, 'destroy']);
     });
 });
 

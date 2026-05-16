@@ -138,7 +138,7 @@ class BehaviorDatabaseController extends Controller
      */
     public function processBulkRecommendations()
     {
-        // 1. Tìm tất cả user có hành vi mới (is_pending = true)
+        // 1. Tìm tất cả user có hành vi mới
         $pendingUsers = DB::table('user_behaviors')
             ->where('is_pending', true)
             ->distinct()
@@ -151,15 +151,15 @@ class BehaviorDatabaseController extends Controller
         $processedCount = 0;
 
         foreach ($pendingUsers as $userId) {
-            // 2. Với mỗi user, tìm địa điểm họ quan tâm nhất (score cao nhất)
+            // 2. Tìm địa điểm quan tâm nhất của user
             $bestInterest = DB::table('user_behaviors')
                 ->where('user_id', $userId)
                 ->whereNotNull('location_id')
                 ->orderBy('score', 'desc')
                 ->first();
 
-            if (!$bestInterest) {
-                // Đánh dấu đã xem để không lặp lại
+            // Nếu tổng điểm quá thấp (< 30), coi như chưa đủ quan tâm để đổi gợi ý
+            if (!$bestInterest || $bestInterest->score < 30) {
                 DB::table('user_behaviors')->where('user_id', $userId)->update(['is_pending' => false]);
                 continue;
             }
@@ -167,42 +167,62 @@ class BehaviorDatabaseController extends Controller
             $locationId = $bestInterest->location_id;
             $serviceType = $bestInterest->service_type;
 
-            \Log::info("Processing best interest for user: $userId at location: $locationId (Type: $serviceType)");
-
-            // 3. Xác định loại hình cần gợi ý (Bán chéo)
-            if ($serviceType === 'tour') {
-                $targetTypes = ['hotel', 'homestay', 'resort', 'villa'];
-                $targetLabel = 'Accommodations';
-            } else {
-                $targetTypes = ['tour'];
-                $targetLabel = 'Tours';
+            // Kiểm tra xem gợi ý hiện tại có đang ở địa điểm này không để tránh ghi đè trùng lặp
+            $currentRec = DB::table('user_recommendations')->where('user_id', $userId)->first();
+            if ($currentRec && $currentRec->location_id == $locationId) {
+                // Đã gợi ý địa điểm này rồi, không cần đổi nữa trừ khi muốn refresh dữ liệu
+                DB::table('user_behaviors')->where('user_id', $userId)->update(['is_pending' => false]);
+                continue;
             }
 
-            // 4. Tìm top 4 dịch vụ gợi ý tại địa điểm đó
-            $recommendations = \App\Models\Service::query()
+            \Log::info("Processing optimized hybrid recommendations for user: $userId at location: $locationId");
+
+            // 3. Logic Gợi ý Hỗn hợp (Hybrid)
+            // Lấy 3 cái bán chéo (Target) và 1 cái cùng loại (Same)
+            if ($serviceType === 'tour') {
+                $crossTypes = ['hotel', 'homestay', 'resort'];
+                $sameTypes = ['tour'];
+            } else {
+                $crossTypes = ['tour'];
+                $sameTypes = ['hotel', 'homestay', 'resort'];
+            }
+
+            // Lấy danh sách Cross-sell (Tối đa 3)
+            $crossRecs = \App\Models\Service::query()
                 ->where('location_id', $locationId)
-                ->whereIn('type', $targetTypes)
+                ->whereIn('type', $crossTypes)
                 ->where('status', 'active')
-                ->with(['media' => function($q) {
-                    $q->where('is_cover', true);
-                }])
+                ->with(['media' => fn($q) => $q->where('is_cover', true)])
                 ->orderBy('rating_avg', 'desc')
-                ->limit(4)
+                ->limit(3)
                 ->get();
 
-            // 5. Lưu hoặc cập nhật gợi ý
-            DB::table('user_recommendations')->updateOrInsert(
-                ['user_id' => $userId], // Một user chỉ có 1 bộ gợi ý tốt nhất hiện tại
-                [
-                    'location_id' => $locationId,
-                    'suggested_services' => json_encode($recommendations),
-                    'updated_at' => now()
-                ]
-            );
+            // Lấy danh sách cùng loại (Tối đa 1)
+            $sameRecs = \App\Models\Service::query()
+                ->where('location_id', $locationId)
+                ->whereIn('type', $sameTypes)
+                ->where('status', 'active')
+                ->with(['media' => fn($q) => $q->where('is_cover', true)])
+                ->orderBy('rating_avg', 'desc')
+                ->limit(1)
+                ->get();
 
-            // 6. Đánh dấu tất cả hành vi của user này là đã xử lý
+            // Gộp lại thành bộ 4 gợi ý hoàn chỉnh
+            $finalRecommendations = $crossRecs->merge($sameRecs);
+
+            if ($finalRecommendations->isNotEmpty()) {
+                DB::table('user_recommendations')->updateOrInsert(
+                    ['user_id' => $userId],
+                    [
+                        'location_id' => $locationId,
+                        'suggested_services' => json_encode($finalRecommendations),
+                        'updated_at' => now()
+                    ]
+                );
+                $processedCount++;
+            }
+
             DB::table('user_behaviors')->where('user_id', $userId)->update(['is_pending' => false]);
-            $processedCount++;
         }
 
         return response()->json([

@@ -6,10 +6,11 @@ import {
     CheckCircle, AlertCircle, Image as ImageIcon,
     UploadCloud, Clock, ChevronLeft, ChevronRight,
     CalendarDays, Star, Settings2, ChevronDown, ChevronUp,
-    Bed, Users, RotateCw
+    Bed, Users, RotateCw, ArrowUp, Car
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 import { uploadImage } from '../../utils/cloudinary';
+import UpsellManager from '../../components/provider/UpsellManager';
 
 
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -945,11 +946,20 @@ const MyServices = () => {
         base_price: '', description: '', address: '',
         latitude: null, longitude: null,
         max_guests: '',
-        price_unit: 'per_person', duration_days: '', duration_nights: ''
+        inventory: 1,
+        price_unit: 'per_person', 
+        address: '',
+        duration_days: '',
+        duration_nights: '',
+        vehicle_type: 'self_drive', 
+        seats: 4,
+        transmission: 'automatic', 
+        fuel_type: 'gasoline', 
     };
     const [form, setForm] = useState(initialForm);
     const [toast, setToast] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [showUpsellManager, setShowUpsellManager] = useState(false);
 
     const doFetch = useCallback((page = 1, force = false) => {
         fetchServices(force, {
@@ -1148,9 +1158,14 @@ const MyServices = () => {
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Dịch vụ của tôi</h2>
                         <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý các dịch vụ bạn đang cung cấp.</p>
                     </div>
-                    <button onClick={handleOpenCreate} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
-                        <Plus size={18} /> Thêm dịch vụ
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={() => setShowUpsellManager(true)} className="flex items-center gap-2 px-5 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-sm font-bold hover:bg-indigo-100 transition-all">
+                            <ArrowUp size={18} /> Chiến dịch Upsell
+                        </button>
+                        <button onClick={handleOpenCreate} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
+                            <Plus size={18} /> Thêm dịch vụ
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -1210,6 +1225,9 @@ const MyServices = () => {
                                                         <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
                                                         {service.type === 'tour' && (service.duration_days || service.duration_nights) && (
                                                             <span className="flex items-center gap-1"><Clock size={11} /> {service.duration_days}N {service.duration_nights}Đ</span>
+                                                        )}
+                                                        {service.type === 'vehicle' && (
+                                                            <span className="flex items-center gap-1 text-indigo-500"><Car size={11} /> {service.seats} chỗ • {service.vehicle_type === 'self_drive' ? 'Tự lái' : 'Có tài'}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1331,13 +1349,13 @@ const MyServices = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <select value={form.type} onChange={e => {
                                         const newType = e.target.value;
-                                        setForm({
-                                            ...form,
-                                            type: newType,
-                                            duration_days: newType !== 'tour' ? '' : form.duration_days,
-                                            duration_nights: newType !== 'tour' ? '' : form.duration_nights,
-                                            price_unit: ['hotel', 'homestay'].includes(newType) ? 'per_room' : 'per_person'
-                                        });
+                                            setForm({
+                                                ...form,
+                                                type: newType,
+                                                duration_days: newType !== 'tour' ? '' : form.duration_days,
+                                                duration_nights: newType !== 'tour' ? '' : form.duration_nights,
+                                                price_unit: newType === 'vehicle' ? 'per_day' : (['hotel', 'homestay'].includes(newType) ? 'per_room' : 'per_person')
+                                            });
                                     }} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="tour">🗺️ Tour du lịch</option>
                                         <option value="hotel">🏨 Khách sạn</option>
@@ -1394,13 +1412,72 @@ const MyServices = () => {
                                     </div>
                                 )}
 
+                                {form.type === 'vehicle' && (
+                                    <div className="space-y-4 p-5 bg-indigo-50/50 rounded-[2rem] border border-indigo-100/50">
+                                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest ml-1">Thông tin phương tiện</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Loại dịch vụ</label>
+                                                <select value={form.vehicle_type} onChange={e => setForm({...form, vehicle_type: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                    <option value="self_drive">🚗 Tự lái</option>
+                                                    <option value="with_driver">👨‍✈️ Có tài xế</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Số chỗ ngồi</label>
+                                                <select value={form.seats} onChange={e => setForm({...form, seats: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                    <option value="4">4 chỗ</option>
+                                                    <option value="7">7 chỗ</option>
+                                                    <option value="16">16 chỗ</option>
+                                                    <option value="29">29 chỗ</option>
+                                                    <option value="45">45 chỗ</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Hộp số</label>
+                                                <select value={form.transmission} onChange={e => setForm({...form, transmission: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                    <option value="automatic">Số tự động</option>
+                                                    <option value="manual">Số sàn</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Nhiên liệu</label>
+                                                <select value={form.fuel_type} onChange={e => setForm({...form, fuel_type: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                    <option value="gasoline">Xăng</option>
+                                                    <option value="diesel">Dầu (Diesel)</option>
+                                                    <option value="electric">Điện</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-3 gap-4">
-                                    <input required type="number" min="0" value={form.base_price} onChange={e => setForm({ ...form, base_price: Math.max(0, e.target.value) })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Giá (VNĐ)" />
-                                    <select value={form.price_unit} onChange={e => setForm({ ...form, price_unit: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
-                                        <option value="per_person">/ người</option>
-                                        {(form.type !== 'tour' && form.type !== 'vehicle') && <option value="per_room">/ phòng</option>}
-                                    </select>
-                                    <input type="number" min="1" value={form.max_guests} onChange={e => setForm({ ...form, max_guests: Math.max(1, e.target.value) })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Khách tối đa" />
+                                    <div className="col-span-1">
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Giá cơ bản</label>
+                                        <input required type="number" min="0" value={form.base_price} onChange={e => setForm({ ...form, base_price: Math.max(0, e.target.value) })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="VNĐ" />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Đơn vị tính</label>
+                                        <select value={form.price_unit} onChange={e => setForm({ ...form, price_unit: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
+                                            <option value="per_person">👤 / người</option>
+                                            {form.type !== 'tour' && <option value="per_room">🏨 / phòng</option>}
+                                            <option value="per_day">📅 / ngày</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-span-1">
+                                        {form.type === 'vehicle' ? (
+                                            <>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Số lượng xe (Tồn kho)</label>
+                                                <input required type="number" min="1" value={form.inventory} onChange={e => setForm({ ...form, inventory: Math.max(1, e.target.value) })} className="w-full px-5 py-3.5 bg-indigo-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:outline-none text-indigo-600" placeholder="Số xe" />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Khách tối đa</label>
+                                                <input type="number" min="1" value={form.max_guests} onChange={e => setForm({ ...form, max_guests: Math.max(1, e.target.value) })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Người" />
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <textarea rows={4} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold resize-none focus:outline-none" placeholder="Mô tả dịch vụ..." />
@@ -1450,6 +1527,15 @@ const MyServices = () => {
                 <AvailabilityModal
                     service={availabilityService}
                     onClose={() => setAvailabilityService(null)}
+                    showToast={showToast}
+                />
+            )}
+
+            {/* Modal Quản lý Upsell */}
+            {showUpsellManager && (
+                <UpsellManager
+                    services={services}
+                    onClose={() => setShowUpsellManager(false)}
                     showToast={showToast}
                 />
             )}

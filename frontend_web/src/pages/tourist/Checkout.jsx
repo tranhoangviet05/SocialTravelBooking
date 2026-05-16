@@ -292,7 +292,7 @@ const Checkout = () => {
     });
 
     const [booking, setBooking] = useState(null);
-    const [error, setError] = useState(null);
+    const [errors, setErrors] = useState({});
 
     // 1. Nếu vào bằng link Email (có bookingId), lấy data từ Server
     useEffect(() => {
@@ -300,7 +300,7 @@ const Checkout = () => {
 
         const fetchBooking = async () => {
             setLoadingBooking(true);
-            setError(null);
+            setErrors({});
             try {
                 const res = await bookingApi.getBookingById(bookingId);
                 if (res.success && res.data) {

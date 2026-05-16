@@ -582,7 +582,7 @@ Route::post('/n8n/logs', function (\Illuminate\Http\Request $request) {
 });
 //subMinutes(1) ,  subSeconds()
 Route::get('/n8n/bookings/abandoned', function () {
-    $threshold = now()->subHours(2); // 2 giờ cho production
+    $threshold = now()->subMinutes(1); // 2 giờ cho production
     $bookings = \App\Models\Booking::with(['user', 'service'])
         ->where('payment_status', 'pending')
         ->where('created_at', '<=', $threshold)

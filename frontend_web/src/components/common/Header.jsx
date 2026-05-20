@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, User, LogOut, ChevronDown, MessageSquare } from 'lucide-react';
+import { Bell, User, LogOut, ChevronDown, MessageSquare, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -54,7 +54,7 @@ const Header = ({ onLoginClick }) => {
 
                 {/* Auth & Icons */}
                 <div className="flex items-center space-x-6 text-gray-600">
-                    <Link to="/messages" target="_blank" className="cursor-pointer hover:text-sky-900 transition-colors">
+                    <Link to="/messages" className="cursor-pointer hover:text-sky-900 transition-colors">
                         <MessageSquare size={20} />
                     </Link>
                     <button className="cursor-pointer hover:text-sky-900 transition-colors">

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Search, Send, MoreVertical, Phone, Video,
     Image as ImageIcon, Paperclip, Smile, Loader2,
-    CheckCircle2, Clock, MapPin, User, MessageSquare
+    CheckCircle2, Clock, MapPin, User, MessageSquare, Sparkles
 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Skeleton from '../../components/common/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import chatApi from '../../api/chatApi';
@@ -15,6 +15,7 @@ import MessageSkeleton from '../../components/common/MessageSkeleton';
 
 const Messages = () => {
     const { currentUser } = useAuth();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const targetUserId = searchParams.get('userId');
     const targetUserName = searchParams.get('name');
@@ -27,7 +28,116 @@ const Messages = () => {
     const [loading, setLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isBotTyping, setIsBotTyping] = useState(false);
     const messagesEndRef = useRef(null);
+
+    const renderBotMarkdown = (text) => {
+        const lines = text.split('\n');
+        return lines.map((line, idx) => {
+            if (line.startsWith('### ')) {
+                return <h4 key={idx} className="text-sm font-bold mt-2 mb-1 text-slate-800">{line.replace('### ', '')}</h4>;
+            }
+            if (line.startsWith('## ') || line.startsWith('# ')) {
+                return <h3 key={idx} className="text-base font-bold mt-3 mb-1 text-slate-800">{line.replace(/^#+\s/, '')}</h3>;
+            }
+
+            let isListItem = false;
+            let cleanLine = line;
+            if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+                isListItem = true;
+                cleanLine = line.trim().replace(/^[-*]\s+/, '');
+            }
+
+            const parseInline = (txt) => {
+                const inlineParts = [];
+                let key = 0;
+                const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+                let match;
+                let lastIndex = 0;
+
+                while ((match = linkRegex.exec(txt)) !== null) {
+                    const before = txt.substring(lastIndex, match.index);
+                    if (before) {
+                        inlineParts.push(...parseBold(before));
+                    }
+                    const linkName = match[1];
+                    const linkUrl = match[2];
+
+                    if (linkUrl.startsWith('/')) {
+                        inlineParts.push(
+                            <a
+                                key={`link-${key++}`}
+                                href={linkUrl}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    const correctedUrl = linkUrl.startsWith('/services/') 
+                                        ? linkUrl.replace('/services/', '/service/') 
+                                        : linkUrl;
+                                    navigate(correctedUrl);
+                                }}
+                                className="text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
+                            >
+                                {linkName}
+                            </a>
+                        );
+                    } else {
+                        inlineParts.push(
+                            <a
+                                key={`link-${key++}`}
+                                href={linkUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
+                            >
+                                {linkName}
+                            </a>
+                        );
+                    }
+                    lastIndex = linkRegex.lastIndex;
+                }
+
+                const after = txt.substring(lastIndex);
+                if (after) {
+                    inlineParts.push(...parseBold(after));
+                }
+                return inlineParts;
+            };
+
+            const parseBold = (txt) => {
+                const boldParts = [];
+                const boldRegex = /\*\*(.*?)\*\*/g;
+                let match;
+                let lastIndex = 0;
+                let key = 0;
+
+                while ((match = boldRegex.exec(txt)) !== null) {
+                    const before = txt.substring(lastIndex, match.index);
+                    if (before) boldParts.push(before);
+                    boldParts.push(<strong key={`bold-${key++}`} className="font-bold text-slate-900">{match[1]}</strong>);
+                    lastIndex = boldRegex.lastIndex;
+                }
+                const after = txt.substring(lastIndex);
+                if (after) boldParts.push(after);
+                return boldParts;
+            };
+
+            const parsedContent = parseInline(cleanLine);
+
+            if (isListItem) {
+                return (
+                    <li key={idx} className="ml-4 list-disc text-sm text-slate-700 leading-normal my-0.5">
+                        {parsedContent}
+                    </li>
+                );
+            }
+
+            return (
+                <p key={idx} className="text-sm text-slate-700 leading-relaxed my-1 whitespace-pre-wrap min-h-[1em]">
+                    {parsedContent}
+                </p>
+            );
+        });
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -84,6 +194,18 @@ const Messages = () => {
         const userChannel = echo.private(`User.${currentUser.id}`);
         userChannel.listen('.MessageSent', (e) => {
             fetchConversations(false);
+
+            // Nếu nhận được tin nhắn từ Bot trong cuộc trò chuyện đang mở
+            if (activeConversation && String(e.conversation_id) === String(activeConversation.id) && e.sender_id !== currentUser.id) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === e.id)) return prev;
+                    return [...prev, e];
+                });
+                setTimeout(scrollToBottom, 50);
+                if (e.sender_id === '00000000-0000-0000-0000-000000000000') {
+                    setIsBotTyping(false);
+                }
+            }
         });
 
         // 2. Listen on active conversation channel
@@ -98,6 +220,10 @@ const Messages = () => {
                         return [...prev, e];
                     });
                     setTimeout(scrollToBottom, 50);
+
+                    if (e.sender_id === '00000000-0000-0000-0000-000000000000') {
+                        setIsBotTyping(false);
+                    }
                 }
                 fetchConversations(false);
             });
@@ -105,18 +231,23 @@ const Messages = () => {
 
         return () => {
             if (chatChannel) chatChannel.stopListening('.MessageSent');
-            userChannel.stopListening('.MessageSent'); // If we broadcast to user too
+            userChannel.stopListening('.MessageSent');
         };
     }, [currentUser, activeConversation, fetchConversations]);
 
     const handleSelectConversation = (conv) => {
         setActiveConversation(conv);
+        setIsBotTyping(false);
         fetchMessages(conv.id);
     };
 
     const handleSendMessage = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         if (!newMessage.trim()) return;
+
+        const isToBot = activeConversation
+            ? (activeConversation.other_user?.id === '00000000-0000-0000-0000-000000000000')
+            : (targetUserId === '00000000-0000-0000-0000-000000000000');
 
         const payload = activeConversation
             ? { conversation_id: activeConversation.id, content: newMessage }
@@ -134,14 +265,21 @@ const Messages = () => {
         setNewMessage('');
         setTimeout(scrollToBottom, 50);
 
+        if (isToBot) {
+            setIsBotTyping(true);
+        }
+
         try {
             const response = await chatApi.sendMessage(payload);
             if (response.success) {
                 setMessages(prev => prev.map(m => m.id === tempMessage.id ? response.data : m));
                 fetchConversations(false);
+            } else {
+                setIsBotTyping(false);
             }
         } catch (error) {
             console.error('Error sending message:', error);
+            setIsBotTyping(false);
         }
     };
 
@@ -183,6 +321,15 @@ const Messages = () => {
                             )}
                         </div>
                     </div>
+                </div>
+            );
+        }
+
+        // Nếu là tin nhắn của Gemini Bot (sender_id = '00000000-0000-0000-0000-000000000000')
+        if (message.sender_id === '00000000-0000-0000-0000-000000000000') {
+            return (
+                <div className="max-w-[80%] rounded-[20px] px-4 py-3 text-[14px] leading-relaxed bg-[#F3F4F6] text-slate-800 border border-slate-100 self-start shadow-sm flex flex-col gap-1">
+                    {renderBotMarkdown(content)}
                 </div>
             );
         }
@@ -230,6 +377,7 @@ const Messages = () => {
                         const lastMsg = conv.last_message;
                         const isActive = activeConversation?.id === conv.id;
                         const isUnread = lastMsg && !lastMsg.is_read && lastMsg.sender_id !== currentUser.id;
+                        const isBot = conv.other_user?.id === '00000000-0000-0000-0000-000000000000';
 
                         return (
                             <div
@@ -239,7 +387,11 @@ const Messages = () => {
                                     ${isActive ? 'bg-blue-50' : 'hover:bg-gray-100'}`}
                             >
                                 <div className="relative shrink-0">
-                                    {conv.other_user?.avatar_url ? (
+                                    {isBot ? (
+                                        <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md">
+                                            <Sparkles size={24} className="animate-pulse" />
+                                        </div>
+                                    ) : conv.other_user?.avatar_url ? (
                                         <img src={conv.other_user.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover" />
                                     ) : (
                                         <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-xl">
@@ -249,8 +401,11 @@ const Messages = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <span className={`text-[15px] truncate font-medium ${isUnread ? 'font-bold' : ''}`}>
-                                            {conv.business_name || conv.other_user?.display_name}
+                                        <span className={`text-[15px] truncate font-medium ${isUnread ? 'font-bold' : ''} flex items-center gap-1.5`}>
+                                            {isBot ? 'Trợ lý ảo Gemini' : (conv.business_name || conv.other_user?.display_name)}
+                                            {isBot && (
+                                                <span className="px-1.5 py-0.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-[10px] font-bold tracking-wider uppercase shadow-sm scale-90">AI</span>
+                                            )}
                                         </span>
                                         <span className="text-[12px] text-gray-500 shrink-0">
                                             {lastMsg && format(new Date(lastMsg.created_at), 'HH:mm')}
@@ -274,18 +429,25 @@ const Messages = () => {
                         <div className="h-[60px] px-4 border-b border-gray-200 flex items-center justify-between shadow-sm shrink-0">
                             <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold shrink-0 overflow-hidden">
-                                    {(activeConversation?.other_user?.avatar_url || targetUserAvatar) ? (
+                                    {(activeConversation?.other_user?.id === '00000000-0000-0000-0000-000000000000' || targetUserId === '00000000-0000-0000-0000-000000000000') ? (
+                                        <div className="w-full h-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white">
+                                            <Sparkles size={18} className="animate-pulse" />
+                                        </div>
+                                    ) : (activeConversation?.other_user?.avatar_url || targetUserAvatar) ? (
                                         <img src={activeConversation?.other_user?.avatar_url || targetUserAvatar} alt="" className="w-full h-full object-cover" />
                                     ) : (
                                         <span>{(activeConversation?.business_name || activeConversation?.other_user?.display_name || targetUserName || '?')[0].toUpperCase()}</span>
                                     )}
                                 </div>
                                 <div className="min-w-0">
-                                    <h3 className="font-bold text-[15px] truncate">
-                                        {activeConversation?.business_name || activeConversation?.other_user?.display_name || targetUserName || 'Đang tải...'}
+                                    <h3 className="font-bold text-[15px] truncate flex items-center gap-1.5">
+                                        {(activeConversation?.other_user?.id === '00000000-0000-0000-0000-000000000000' || targetUserId === '00000000-0000-0000-0000-000000000000') ? 'Trợ lý ảo Gemini' : (activeConversation?.business_name || activeConversation?.other_user?.display_name || targetUserName || 'Đang tải...')}
+                                        {(activeConversation?.other_user?.id === '00000000-0000-0000-0000-000000000000' || targetUserId === '00000000-0000-0000-0000-000000000000') && (
+                                            <span className="px-1.5 py-0.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-[10px] font-bold tracking-wider uppercase shadow-sm">AI Agent</span>
+                                        )}
                                     </h3>
                                     <p className="text-[12px] text-gray-500">
-                                        {activeConversation ? 'Đang hoạt động' : 'Bắt đầu cuộc trò chuyện mới'}
+                                        {(activeConversation?.other_user?.id === '00000000-0000-0000-0000-000000000000' || targetUserId === '00000000-0000-0000-0000-000000000000') ? 'Hệ thống tự động phản hồi 24/7' : activeConversation ? 'Đang hoạt động' : 'Bắt đầu cuộc trò chuyện mới'}
                                     </p>
                                 </div>
                             </div>
@@ -308,13 +470,18 @@ const Messages = () => {
                             {messages.map((msg, index) => {
                                 const isSelf = msg.sender_id === currentUser.id;
                                 const showAvatar = !isSelf && (index === 0 || messages[index - 1].sender_id !== msg.sender_id);
+                                const isBot = msg.sender_id === '00000000-0000-0000-0000-000000000000';
 
                                 return (
                                     <div key={msg.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'} items-end gap-2 mb-0.5`}>
                                         {!isSelf && (
                                             <div className="w-7 h-7 shrink-0">
                                                 {showAvatar && (
-                                                    (activeConversation?.other_user?.avatar_url || targetUserAvatar) ? (
+                                                    isBot ? (
+                                                        <div className="w-full h-full bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white shadow-sm">
+                                                            <Sparkles size={12} className="animate-pulse" />
+                                                        </div>
+                                                    ) : (activeConversation?.other_user?.avatar_url || targetUserAvatar) ? (
                                                         <img src={activeConversation?.other_user?.avatar_url || targetUserAvatar} alt="" className="w-full h-full rounded-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold">
@@ -328,11 +495,40 @@ const Messages = () => {
                                     </div>
                                 );
                             })}
+
+                            {isBotTyping && (
+                                <div className="flex justify-start items-end gap-2 mb-3">
+                                    {/* Bot Avatar */}
+                                    <div className="w-7 h-7 bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white shrink-0 shadow-md">
+                                        <Sparkles size={12} className="animate-spin" style={{ animationDuration: '2s' }} />
+                                    </div>
+                                    {/* Skeleton Bubble */}
+                                    <div className="flex flex-col gap-2 max-w-[65%]">
+                                        <div className="bg-[#F3F4F6] rounded-[20px] rounded-bl-sm px-4 py-3 shadow-sm border border-slate-100">
+                                            {/* Line 1 - long */}
+                                            <div className="h-3 rounded-full mb-2 skeleton-shimmer" style={{ width: '85%' }} />
+                                            {/* Line 2 - medium */}
+                                            <div className="h-3 rounded-full mb-2 skeleton-shimmer" style={{ width: '70%', animationDelay: '0.1s' }} />
+                                            {/* Line 3 - short */}
+                                            <div className="h-3 rounded-full skeleton-shimmer" style={{ width: '45%', animationDelay: '0.2s' }} />
+                                        </div>
+                                        {/* Label */}
+                                        <div className="flex items-center gap-1.5 ml-1">
+                                            <div className="flex gap-1">
+                                                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '160ms' }} />
+                                                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '320ms' }} />
+                                            </div>
+                                            <span className="text-[11px] text-indigo-500 font-medium">Gemini đang soạn câu trả lời...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <div ref={messagesEndRef} />
                         </div>
 
                         {/* Suggestions for first time chat */}
-                        {messages.length === 0 && (
+                        {messages.length === 0 && !(activeConversation?.other_user?.id === '00000000-0000-0000-0000-000000000000' || targetUserId === '00000000-0000-0000-0000-000000000000') && (
                             <div className="px-4 pb-2">
                                 <div className="flex flex-wrap gap-2">
                                     {[
@@ -350,6 +546,26 @@ const Messages = () => {
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Quick suggestions for Bot */}
+                        {(activeConversation?.other_user?.id === '00000000-0000-0000-0000-000000000000' || targetUserId === '00000000-0000-0000-0000-000000000000') && (
+                            <div className="px-4 pb-2 pt-1 flex flex-wrap gap-2">
+                                {[
+                                    { text: "Lịch trình Phú Quốc", prompt: "Lập lịch trình du lịch Phú Quốc 3 ngày 2 đêm chi tiết" },
+                                    { text: "Gợi ý khách sạn & tour", prompt: "Gợi ý cho tôi các tour du lịch hoặc khách sạn tốt đang có trên hệ thống" },
+                                    { text: "Xem đơn đặt phòng của tôi", prompt: "Tôi muốn kiểm tra các đơn hàng của tôi" },
+                                    { text: "Chuẩn bị hành lý đi Nha Trang cần gì?", prompt: "Đi du lịch Nha Trang mùa hè thì cần chuẩn bị hành lý gì?" }
+                                ].map((suggestion, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setNewMessage(suggestion.prompt)}
+                                        className="px-3 py-1 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 rounded-full text-[11px] font-medium transition-all duration-200 shadow-sm shrink-0 cursor-pointer text-slate-700"
+                                    >
+                                        {suggestion.text}
+                                    </button>
+                                ))}
                             </div>
                         )}
 
@@ -429,6 +645,21 @@ const Messages = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #ccc; }
                 body { overflow: hidden; }
+
+                @keyframes shimmer {
+                    0% { background-position: -400px 0; }
+                    100% { background-position: 400px 0; }
+                }
+                .skeleton-shimmer {
+                    background: linear-gradient(
+                        90deg,
+                        #e2e8f0 25%,
+                        #c7d2e4 50%,
+                        #e2e8f0 75%
+                    );
+                    background-size: 800px 100%;
+                    animation: shimmer 1.6s infinite linear;
+                }
             `}</style>
         </div>
     );

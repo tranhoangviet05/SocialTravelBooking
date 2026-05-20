@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircle, Send, X, Search, User, MessageSquare } from 'lucide-react';
+import { MessageCircle, Send, X, Search, User, MessageSquare, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_USERS } from '../../../pages/tourist/news_feed/mockData';
 
@@ -45,6 +45,25 @@ const FloatingMessageButton = () => {
 
                     {/* Chat Content */}
                     <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+                        {/* Gemini AI Shortcut */}
+                        <button 
+                            onClick={() => {
+                                setIsOpen(false);
+                                navigate('/messages?userId=00000000-0000-0000-0000-000000000000&name=Trợ lý ảo Gemini');
+                            }}
+                            className="w-full flex items-center gap-3 p-3 mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all cursor-pointer group shadow-sm text-left"
+                        >
+                            <div className="w-11 h-11 bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white shrink-0 shadow-md">
+                                <Sparkles size={20} className="animate-pulse" />
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                    <p className="font-bold text-slate-800 text-sm">Trợ lý ảo Gemini AI</p>
+                                    <span className="px-1.5 py-0.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-[8px] font-bold tracking-wider uppercase">AI</span>
+                                </div>
+                                <p className="text-[11px] text-gray-500 truncate font-medium">Hỏi lịch trình, tìm kiếm phòng & kiểm tra đơn đặt phòng</p>
+                            </div>
+                        </button>
                         {followers.length > 0 ? (
                             <div className="space-y-2">
                                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider ml-2 mb-3">Người theo dõi</p>

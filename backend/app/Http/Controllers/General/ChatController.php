@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Jobs\ProcessGeminiChat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +40,33 @@ class ChatController extends Controller
     {
         try {
             $userId = $request->user->id;
+            
+            // Tự động tạo cuộc hội thoại với Gemini Bot nếu chưa có
+            $botId = '00000000-0000-0000-0000-000000000000';
+            if ($userId !== $botId) {
+                $u1 = $userId < $botId ? $userId : $botId;
+                $u2 = $userId < $botId ? $botId : $userId;
+
+                $conversation = Conversation::firstOrCreate(
+                    ['user_one' => $u1, 'user_two' => $u2],
+                    ['last_message_at' => now()]
+                );
+
+                // Tạo tin nhắn chào mừng nếu hội thoại mới hoặc chưa có tin nhắn
+                $hasMessages = Message::where('conversation_id', $conversation->id)->exists();
+                if ($conversation->wasRecentlyCreated || !$hasMessages) {
+                    Message::create([
+                        'id' => \Illuminate\Support\Str::uuid(),
+                        'conversation_id' => $conversation->id,
+                        'sender_id' => $botId,
+                        'content' => "Xin chào! Tôi là Trợ lý ảo Gemini AI. Tôi có thể giúp gì cho bạn hôm nay?\n\nBạn có thể hỏi tôi về:\n- Gợi ý lịch trình du lịch (Ví dụ: 'Lập lịch trình đi Đà Lạt 3 ngày 2 đêm')\n- Tìm kiếm tour & phòng khách sạn giá tốt trên hệ thống\n- Kiểm tra thông tin các đơn đặt phòng của bạn (Ví dụ: 'Xem đơn hàng của tôi')",
+                        'is_read' => false
+                    ]);
+                    $conversation->last_message_at = now();
+                    $conversation->save();
+                }
+            }
+
             $conversations = Conversation::where('user_one', $userId)
                 ->orWhere('user_two', $userId)
                 ->with([
@@ -135,12 +163,18 @@ class ChatController extends Controller
             $userId = $request->user->id;
             $content = $request->content;
             $conversationId = $request->conversation_id;
+            $botId = '00000000-0000-0000-0000-000000000000';
+            $isBotChat = false;
 
-            return DB::transaction(function() use ($userId, $content, $conversationId, $request) {
+            $result = DB::transaction(function() use ($userId, $content, $conversationId, $request, $botId, &$isBotChat) {
                 if (!$conversationId) {
                     $recipientId = $request->recipient_id;
                     if ($userId === $recipientId) {
                         return response()->json(['success' => false, 'message' => 'Không thể tự gửi tin nhắn cho bản thân'], 400);
+                    }
+
+                    if ($recipientId === $botId) {
+                        $isBotChat = true;
                     }
 
                     // Tìm hoặc tạo conversation
@@ -157,11 +191,17 @@ class ChatController extends Controller
                     if (!$conversation) {
                         return response()->json(['success' => false, 'message' => 'Hội thoại không tồn tại'], 404);
                     }
+                    
+                    if ($conversation->user_one === $botId || $conversation->user_two === $botId) {
+                        $isBotChat = true;
+                    }
+                    
                     $conversation->last_message_at = now();
                     $conversation->save();
                 }
 
                 $message = Message::create([
+                    'id' => \Illuminate\Support\Str::uuid(),
                     'conversation_id' => $conversationId,
                     'sender_id' => $userId,
                     'content' => $content,
@@ -171,11 +211,22 @@ class ChatController extends Controller
                 $recipientId = ($conversation->user_one === $userId) ? $conversation->user_two : $conversation->user_one;
                 broadcast(new \App\Events\MessageSent($message, $recipientId))->toOthers();
 
-                return response()->json([
+                return [
                     'success' => true,
-                    'data' => $message
-                ]);
+                    'data' => $message,
+                    'conversation_id' => $conversationId
+                ];
             });
+
+            // Nếu đây là cuộc trò chuyện với bot, dispatch job để Gemini trả lời
+            if ($isBotChat && isset($result['success']) && $result['success']) {
+                ProcessGeminiChat::dispatch($result['conversation_id'], $userId);
+            }
+
+            if (is_array($result)) {
+                return response()->json($result);
+            }
+            return $result;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

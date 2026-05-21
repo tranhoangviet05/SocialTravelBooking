@@ -47,9 +47,8 @@ services:
       - N8N_HOST=socialtravelbooking.click
       - N8N_PROTOCOL=https
       - NODE_ENV=production
-      - N8N_PATH=/n8n/
-      - N8N_BASE_URL=https://socialtravelbooking.click/n8n/
-      - WEBHOOK_URL=https://socialtravelbooking.click/n8n/
+      - N8N_BASE_URL=https://socialtravelbooking.click:8888/
+      - WEBHOOK_URL=https://socialtravelbooking.click:8888/
     ports:
       - "5678:5678"
     volumes:

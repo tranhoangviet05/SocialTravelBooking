@@ -174,6 +174,8 @@ const Counter = ({ label, sublabel, value, min = 0, max = 10, onChange }) => (
     </div>
 );
 
+const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '');
+
 const RoomDetailModal = ({ room, onClose }) => {
     const [activeImg, setActiveImg] = useState(0);
     if (!room) return null;
@@ -197,7 +199,7 @@ const RoomDetailModal = ({ room, onClose }) => {
                         {images.length > 0 ? (
                             <>
                                 <img 
-                                    src={images[activeImg].startsWith('http') ? images[activeImg] : `http://localhost:8000/storage/${images[activeImg]}`} 
+                                    src={images[activeImg].startsWith('http') ? images[activeImg] : `${backendBaseUrl}/storage/${images[activeImg]}`} 
                                     alt={room.name}
                                     className="w-full h-full object-cover"
                                 />
@@ -531,7 +533,7 @@ const ServiceDetail = () => {
 
     const rawImages = serviceData.media?.map(m => m.url) || [];
     const allImages = rawImages.length > 0 
-        ? rawImages.map(img => img.startsWith('http') ? img : `http://localhost:8000/storage/${img}`)
+        ? rawImages.map(img => img.startsWith('http') ? img : `${backendBaseUrl}/storage/${img}`)
         : ['https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800'];
     const price = selectedRoomType ? selectedRoomType.base_price : (serviceData.base_price ?? 0);
     const rating = serviceData.rating_avg ?? 0;

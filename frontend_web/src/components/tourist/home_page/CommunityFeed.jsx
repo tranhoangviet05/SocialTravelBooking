@@ -12,7 +12,7 @@ const CommunityFeed = () => {
     useEffect(() => {
         const fetchLatestPosts = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/general/get/posts/latest');
+                const response = await axios.get(`${import.meta.env.VITE_API_URL}/general/get/posts/latest`);
                 if (response.data.success) {
                     setPosts(response.data.data);
                 }

@@ -13,6 +13,7 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       FIREBASE_CREDENTIALS: /var/www/firebase-service-account.json
+      REVERB_HOST: reverb
     volumes:
       - ./backend:/var/www
       - backend_vendor:/var/www/vendor
@@ -77,6 +78,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    environment:
+      REVERB_HOST: reverb
     volumes:
       - ./backend:/var/www
     networks:

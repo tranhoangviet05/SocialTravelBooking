@@ -30,8 +30,20 @@ class BehaviorTrackingController extends Controller
 
             $n8nUrl = env('N8N_WEBHOOK_URL');
             if ($n8nUrl) {
-                // Gửi toàn bộ dữ liệu sang n8n để n8n xử lý logic DB
-                Http::post($n8nUrl, $validated);
+                // Gửi dữ liệu và bắt phản hồi để debug
+                $response = Http::post($n8nUrl, $validated);
+                
+                if ($response->failed()) {
+                    Log::error('n8n Webhook Error', [
+                        'url' => $n8nUrl,
+                        'status' => $response->status(),
+                        'response' => $response->body()
+                    ]);
+                } else {
+                    Log::info('n8n Webhook Triggered Successfully', ['status' => $response->status()]);
+                }
+            } else {
+                Log::warning('N8N_WEBHOOK_URL is not defined in .env');
             }
 
             return response()->json(['success' => true]);

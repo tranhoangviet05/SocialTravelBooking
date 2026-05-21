@@ -153,6 +153,7 @@ class UpsellController extends Controller
             $booking = Booking::with(['service', 'roomType'])->where('id', $id)->where('user_id', $user->id)->first();
 
             if (!$booking) {
+                Log::warning("Upsell Preview: Booking not found or unauthorized", ['booking_id' => $id, 'user_id' => $user->id]);
                 return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn hàng.'], 404);
             }
 
@@ -166,6 +167,7 @@ class UpsellController extends Controller
                 ->first();
 
             if (!$upsell) {
+                Log::warning("Upsell Preview: No matching upsell rule found", ['service_id' => $booking->service_id, 'room_type_id' => $booking->room_type_id]);
                 return response()->json(['success' => false, 'message' => 'Không có nâng cấp phù hợp.'], 404);
             }
 

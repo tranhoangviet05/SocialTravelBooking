@@ -63,7 +63,8 @@ RUN mkdir -p bootstrap/cache && rm -f bootstrap/cache/*.php
 RUN composer install \
     --no-interaction \
     --no-dev \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --ignore-platform-req=ext-grpc
 
 # ── Phân quyền storage & bootstrap/cache ────────────────────
 RUN chown -R www-data:www-data /var/www \

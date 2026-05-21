@@ -20,7 +20,7 @@ jobs:
             cd /root/SocialTravelBooking
             
             # Cập nhật code mới nhất từ GitHub
-            git pull origin main
+            git pull origin master
             
             # Build và khởi động lại các container (không làm gián đoạn dịch vụ quá lâu)
             docker compose up -d --build

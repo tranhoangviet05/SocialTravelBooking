@@ -2,7 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import bookingApi from '../../api/bookingApi';
-import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut, Sparkles } from 'lucide-react';
+import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut, Sparkles, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import echo from '../../utils/echo';
+
+// --- Toast Component ---
+const Toast = ({ message, type = 'success', onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    return (
+        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl animate-[slideInUp_0.3s_ease-out] ${
+            type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+            {type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            <p className="text-sm font-bold">{message}</p>
+        </div>
+    );
+};
 
 
 const MyBookings = () => {
@@ -10,6 +29,10 @@ const MyBookings = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
+    const [toast, setToast] = useState(null);
+    const { currentUser } = useAuth();
+
+    const showToast = (message, type = 'success') => setToast({ message, type });
 
     const fetchBookings = async () => {
         setLoading(true);
@@ -29,17 +52,41 @@ const MyBookings = () => {
         fetchBookings();
     }, []);
 
+    // Lắng nghe sự kiện Realtime Booking
+    useEffect(() => {
+        if (!currentUser) return;
+        
+        const userChannel = echo.private(`User.${currentUser.id}`);
+        userChannel.listen('.BookingStatusUpdated', (e) => {
+            const { booking, action, message } = e;
+            
+            showToast(message, action === 'cancelled' ? 'error' : 'success');
+            
+            setBookings(prev => {
+                const exists = prev.some(b => b.id === booking.id);
+                if (exists) {
+                    return prev.map(b => b.id === booking.id ? booking : b);
+                } else {
+                    return [booking, ...prev]; // Chèn lên đầu
+                }
+            });
+        });
+
+        return () => {
+            userChannel.stopListening('.BookingStatusUpdated');
+        };
+    }, [currentUser]);
+
     const handleCancel = async (id) => {
         if (!window.confirm('Bạn có chắc chắn muốn hủy đơn đặt chỗ này không?')) return;
 
         try {
             const res = await bookingApi.cancelBooking(id);
             if (res.success) {
-                alert('Đã hủy đơn đặt chỗ thành công.');
-                fetchBookings();
+                // Websocket sẽ tự động hiển thị Toast và cập nhật state
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra khi hủy đơn.');
+            showToast(err.response?.data?.message || 'Có lỗi xảy ra khi hủy đơn.', 'error');
         }
     };
 
@@ -51,11 +98,10 @@ const MyBookings = () => {
         try {
             const res = await bookingApi.checkIn(id);
             if (res.success) {
-                alert('Yêu cầu Check-in thành công! Vui lòng chờ nhà cung cấp xác nhận.');
-                fetchBookings();
+                // Websocket sẽ xử lý
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra khi Check-in.');
+            showToast(err.response?.data?.message || 'Có lỗi xảy ra khi Check-in.', 'error');
         }
     };
 
@@ -64,11 +110,10 @@ const MyBookings = () => {
         try {
             const res = await bookingApi.undoCheckIn(id);
             if (res.success) {
-                alert('Đã hoàn tác yêu cầu Check-in.');
-                fetchBookings();
+                // Websocket sẽ xử lý
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra khi hoàn tác.');
+            showToast(err.response?.data?.message || 'Có lỗi xảy ra khi hoàn tác.', 'error');
         }
     };
 
@@ -77,11 +122,10 @@ const MyBookings = () => {
         try {
             const res = await bookingApi.checkOut(id);
             if (res.success) {
-                alert('Check-out thành công!');
-                fetchBookings();
+                // Websocket sẽ xử lý
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra khi Check-out.');
+            showToast(err.response?.data?.message || 'Có lỗi xảy ra khi Check-out.', 'error');
         }
     };
 
@@ -352,6 +396,15 @@ const MyBookings = () => {
                 </div>
             </div>
 
+            {/* Toast */}
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+            <style>{`
+                @keyframes slideInUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 };

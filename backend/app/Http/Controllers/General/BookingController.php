@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Service;
 use App\Models\ProviderProfile;
 use App\Models\Coupon;
+use App\Events\BookingStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -168,6 +169,9 @@ class BookingController extends Controller
 
                 return $booking;
             });
+
+            $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+            broadcast(new BookingStatusUpdated($booking, 'created', 'Có đơn đặt chỗ mới!'));
 
             $booking->load(['service:id,name,slug,type,base_price', 'user:id,display_name,email', 'roomType']);
 
@@ -332,6 +336,9 @@ class BookingController extends Controller
                 ]);
             });
 
+            $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+            broadcast(new BookingStatusUpdated($booking, 'cancelled', 'Đơn đặt chỗ đã bị hủy.'));
+
             return response()->json([
                 'success' => true,
                 'message' => 'Đã hủy đơn đặt chỗ thành công và hoàn trả chỗ trống.'
@@ -365,6 +372,9 @@ class BookingController extends Controller
 
         $chatService->sendCheckInRequestMessage($booking);
 
+        $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+        broadcast(new BookingStatusUpdated($booking, 'checkin_requested', 'Khách hàng vừa gửi yêu cầu Check-in!'));
+
         return response()->json([
             'success' => true,
             'message' => 'Đã gửi yêu cầu check-in! Vui lòng chờ nhà cung cấp xác nhận.',
@@ -394,6 +404,9 @@ class BookingController extends Controller
         ]);
 
         $chatService->sendUndoCheckInMessage($booking);
+
+        $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+        broadcast(new BookingStatusUpdated($booking, 'checkin_undone', 'Khách hàng vừa hủy yêu cầu Check-in.'));
 
         return response()->json([
             'success' => true,
@@ -425,6 +438,9 @@ class BookingController extends Controller
         ]);
 
         $chatService->sendCheckOutMessage($booking);
+
+        $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+        broadcast(new BookingStatusUpdated($booking, 'checked_out', 'Khách hàng đã Check-out.'));
 
         return response()->json([
             'success' => true,

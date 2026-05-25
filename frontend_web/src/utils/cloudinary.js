@@ -1,19 +1,25 @@
-import axiosClient from '../api/axios';
+import axios from 'axios';
 
 /**
- * Tải ảnh lên Server Nội bộ (Thay thế Cloudinary)
+ * Tải ảnh trực tiếp lên Cloudinary từ Frontend
  * @param {File} file 
- * @returns {Promise<string>} URL của ảnh sau khi tải lên
+ * @returns {Promise<string>} URL của ảnh sau khi tải lên Cloudinary
  */
 export const uploadImage = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+        throw new Error('Chưa cấu hình Cloudinary trong file .env');
+    }
+
     const formData = new FormData();
-    // Chú ý: Backend cần field tên là 'files[]' (mảng)
-    formData.append('files[]', file);
-    formData.append('folder', 'images'); // Lưu vào thư mục images
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
 
     try {
-        const response = await axiosClient.post(
-            '/upload', 
+        const response = await axios.post(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
             formData,
             {
                 headers: {
@@ -22,13 +28,13 @@ export const uploadImage = async (file) => {
             }
         );
 
-        if (response.success && response.urls && response.urls.length > 0) {
-            return response.urls[0]; // Lấy URL ảnh đầu tiên
+        if (response.data && response.data.secure_url) {
+            return response.data.secure_url;
         }
         
-        throw new Error('Server không trả về URL của ảnh.');
+        throw new Error('Cloudinary không trả về URL của ảnh.');
     } catch (error) {
-        console.error('Lỗi tải ảnh lên Server nội bộ:', error);
+        console.error('Lỗi tải ảnh lên Cloudinary:', error);
         throw new Error('Tải ảnh lên thất bại. Vui lòng thử lại.');
     }
 };

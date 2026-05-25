@@ -5,6 +5,8 @@ import {
     Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle, RotateCw, Search
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
+import { useAuth } from '../../contexts/AuthContext';
+import echo from '../../utils/echo';
 
 // --- Toast Component ---
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -73,6 +75,7 @@ const MyBookings = () => {
     const [backgroundTasks, setBackgroundTasks] = useState({});
     const [toast, setToast] = useState(null);
     const [cancelModal, setCancelModal] = useState(null);
+    const { currentUser } = useAuth();
 
     const loading = loadingStates.bookings;
 
@@ -80,6 +83,31 @@ const MyBookings = () => {
         if (bookings.length > 0 && statusFilter === 'all') return;
         fetchBookings(false, statusFilter); 
     }, [fetchBookings, statusFilter, bookings.length]);
+
+    // Lắng nghe sự kiện Realtime Booking
+    useEffect(() => {
+        if (!currentUser) return;
+        
+        const userChannel = echo.private(`User.${currentUser.id}`);
+        userChannel.listen('.BookingStatusUpdated', (e) => {
+            const { booking, action, message } = e;
+            
+            showToast(message, action === 'cancelled' ? 'error' : 'success');
+            
+            setBookings(prev => {
+                const exists = prev.some(b => b.id === booking.id);
+                if (exists) {
+                    return prev.map(b => b.id === booking.id ? booking : b);
+                } else {
+                    return [booking, ...prev]; // Chèn lên đầu
+                }
+            });
+        });
+
+        return () => {
+            userChannel.stopListening('.BookingStatusUpdated');
+        };
+    }, [currentUser, setBookings]);
 
     const showToast = (message, type = 'success') => setToast({ message, type });
 

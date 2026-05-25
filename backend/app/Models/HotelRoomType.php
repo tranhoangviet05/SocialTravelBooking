@@ -16,10 +16,10 @@ class HotelRoomType extends Model
         'rank', // standard, premium, vip
         'description',
         'base_price',
-        'total_rooms',
         'inventory',
+        'total_bedrooms',
+        'total_bathrooms',
         'capacity_adults',
-        'capacity_children',
         'amenities',
         'images',
         'status',
@@ -29,10 +29,10 @@ class HotelRoomType extends Model
         'amenities' => 'array',
         'images' => 'array',
         'base_price' => 'decimal:2',
-        'total_rooms' => 'integer',
         'inventory' => 'integer',
+        'total_bedrooms' => 'integer',
+        'total_bathrooms' => 'integer',
         'capacity_adults' => 'integer',
-        'capacity_children' => 'integer',
     ];
 
     /**

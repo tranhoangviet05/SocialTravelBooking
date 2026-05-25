@@ -70,8 +70,8 @@ const Messages = () => {
                                 href={linkUrl}
                                 onClick={(e) => {
                                     e.preventDefault();
-                                    const correctedUrl = linkUrl.startsWith('/services/') 
-                                        ? linkUrl.replace('/services/', '/service/') 
+                                    const correctedUrl = linkUrl.startsWith('/services/')
+                                        ? linkUrl.replace('/services/', '/service/')
                                         : linkUrl;
                                     navigate(correctedUrl);
                                 }}
@@ -195,8 +195,9 @@ const Messages = () => {
         userChannel.listen('.MessageSent', (e) => {
             fetchConversations(false);
 
-            // Nếu nhận được tin nhắn từ Bot trong cuộc trò chuyện đang mở
-            if (activeConversation && String(e.conversation_id) === String(activeConversation.id) && e.sender_id !== currentUser.id) {
+            // Nếu nhận được tin nhắn từ Bot trong cuộc trò chuyện đang mở (hoặc tin nhắn tự động hệ thống gửi thay người dùng)
+            const isAutoMessage = e.content?.includes('#BK-DETAIL-');
+            if (activeConversation && String(e.conversation_id) === String(activeConversation.id) && (e.sender_id !== currentUser.id || isAutoMessage)) {
                 setMessages(prev => {
                     if (prev.some(m => m.id === e.id)) return prev;
                     return [...prev, e];
@@ -214,7 +215,8 @@ const Messages = () => {
             chatChannel = echo.channel(`chat.${activeConversation.id}`);
 
             chatChannel.listen('.MessageSent', (e) => {
-                if (e.sender_id !== currentUser.id) {
+                const isAutoMessage = e.content?.includes('#BK-DETAIL-');
+                if (e.sender_id !== currentUser.id || isAutoMessage) {
                     setMessages(prev => {
                         if (prev.some(m => m.id === e.id)) return prev;
                         return [...prev, e];

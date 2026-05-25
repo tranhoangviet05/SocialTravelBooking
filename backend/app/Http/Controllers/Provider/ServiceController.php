@@ -38,7 +38,7 @@ class ServiceController extends Controller
         $search = $request->get('search');
         $type = $request->get('type');
 
-        $query = Service::with(['category', 'location', 'media', 'roomTypes:id,service_id,name,base_price,capacity_adults'])
+        $query = Service::with(['media', 'location', 'category', 'roomTypes'])
             ->where('provider_id', $provider->id);
 
         if ($search) {
@@ -85,32 +85,79 @@ class ServiceController extends Controller
      */
     public function store(Request $request)
     {
-        $provider = $this->getProvider($request);
-        if (!$provider) return response()->json(['success' => false, 'message' => 'Lỗi xác thực nhà cung cấp.'], 403);
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:tour,hotel,homestay,vehicle',
-            'category_id' => 'nullable|exists:categories,id',
-            'location_id' => 'nullable|exists:locations,id',
-            'base_price' => 'required|numeric|min:0',
-            'description' => 'nullable|string',
-            'address' => 'nullable|string',
-            'max_guests' => 'nullable|integer|min:1',
-            'price_unit' => 'nullable|string',
-            'duration_days' => 'nullable|integer|min:0',
-            'duration_nights' => 'nullable|integer|min:0',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-            'images' => 'nullable|array',
-            'images.*' => 'nullable|string|max:1000'
-        ]);
-
         try {
+            $provider = $this->getProvider($request);
+            if (!$provider) {
+                return response()->json(['success' => false, 'message' => 'Lỗi xác thực nhà cung cấp: Không tìm thấy hồ sơ nhà cung cấp.'], 403);
+            }
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'type' => 'required|in:tour,hotel,homestay,vehicle',
+                'category_id' => 'nullable|exists:categories,id',
+                'location_id' => 'nullable|exists:locations,id',
+                'base_price' => 'required|numeric|min:0',
+                'description' => 'nullable|string',
+                'address' => 'nullable|string',
+                'price_unit' => 'nullable|string',
+                'images' => 'nullable|array',
+                'images.*' => 'nullable|string|max:1000',
+                
+                // CTI Tour fields
+                'duration_days' => 'nullable|integer|min:0',
+                'duration_nights' => 'nullable|integer|min:0',
+                
+                // CTI Homestay/Tour capacity
+                'max_guests' => 'nullable|integer|min:1',
+                
+                // CTI Hotel fields
+                'star_rating' => 'nullable|integer|min:1|max:5',
+                'checkin_time' => 'nullable|string|max:10',
+                'checkout_time' => 'nullable|string|max:10',
+                
+                // CTI Homestay fields
+                'total_bedrooms' => 'nullable|integer|min:1',
+                'total_bathrooms' => 'nullable|integer|min:1',
+                
+                // CTI Vehicle fields
+                'vehicle_type' => 'nullable|string|max:50',
+                'seats' => 'nullable|integer|min:1',
+                'transmission' => 'nullable|string|max:50',
+                'fuel_type' => 'nullable|string|max:50',
+                'inventory' => 'nullable|integer|min:1',
+            ]);
+
             DB::transaction(function () use ($validated, $provider, &$service) {
                 // Tạo slug
                 $slug = Str::slug($validated['name']) . '-' . Str::random(5);
 
+                // Tách các trường chi tiết
+                $tourFields = [
+                    'duration_days' => $validated['duration_days'] ?? 1,
+                    'duration_nights' => $validated['duration_nights'] ?? 0,
+                    'max_guests' => $validated['max_guests'] ?? 50,
+                ];
+
+                $vehicleFields = [
+                    'vehicle_type' => $validated['vehicle_type'] ?? null,
+                    'seats' => $validated['seats'] ?? null,
+                    'transmission' => $validated['transmission'] ?? null,
+                    'fuel_type' => $validated['fuel_type'] ?? null,
+                    'inventory' => $validated['inventory'] ?? 1,
+                ];
+
+                $hotelFields = [
+                    'star_rating' => $validated['star_rating'] ?? null,
+                    'checkin_time' => $validated['checkin_time'] ?? '14:00',
+                    'checkout_time' => $validated['checkout_time'] ?? '12:00',
+                ];
+
+                $homestayFields = [
+                    'checkin_time' => $validated['checkin_time'] ?? '14:00',
+                    'checkout_time' => $validated['checkout_time'] ?? '12:00',
+                ];
+
+                // Tạo dịch vụ với các trường cơ bản
                 $service = Service::create([
                     'provider_id' => $provider->id,
                     'name' => $validated['name'],
@@ -121,14 +168,20 @@ class ServiceController extends Controller
                     'base_price' => $validated['base_price'],
                     'description' => $validated['description'] ?? '',
                     'address' => $validated['address'] ?? '',
-                    'max_guests' => $validated['max_guests'] ?? null,
                     'price_unit' => $validated['price_unit'] ?? 'per_person',
-                    'duration_days' => $validated['duration_days'] ?? null,
-                    'duration_nights' => $validated['duration_nights'] ?? null,
-                    'latitude' => $validated['latitude'] ?? null,
-                    'longitude' => $validated['longitude'] ?? null,
                     'status' => 'pending_review'
                 ]);
+
+                // Tạo bản ghi tương ứng trong bảng chi tiết
+                if ($service->type === 'tour') {
+                    $service->tourDetail()->create($tourFields);
+                } elseif ($service->type === 'vehicle') {
+                    $service->vehicleDetail()->create($vehicleFields);
+                } elseif ($service->type === 'hotel') {
+                    $service->hotelDetail()->create($hotelFields);
+                } elseif ($service->type === 'homestay') {
+                    $service->homestayDetail()->create($homestayFields);
+                }
 
                 // Xử lý ảnh nếu có
                 if (!empty($validated['images'])) {
@@ -144,29 +197,53 @@ class ServiceController extends Controller
                 }
 
                 // TỰ ĐỘNG TẠO LOẠI PHÒNG MẶC ĐỊNH (cho Hotel/Homestay)
-                if (in_array($service->type, ['hotel', 'homestay'])) {
+                if ($service->type === 'hotel') {
                     $service->roomTypes()->create([
-                        'name' => 'Phòng thường (Mặc định)',
+                        'name' => 'Phòng Tiêu Chuẩn',
                         'rank' => 'standard',
                         'description' => 'Phòng tiêu chuẩn được tạo tự động từ thông tin cơ bản.',
                         'base_price' => $service->base_price,
-                        'total_rooms' => 1,
-                        'capacity_adults' => $service->max_guests ?? 2,
-                        'capacity_children' => 0,
+                        'capacity_adults' => 2,
+                        'total_bedrooms' => 1,
+                        'total_bathrooms' => 1,
+                        'status' => 'active'
+                    ]);
+                } elseif ($service->type === 'homestay') {
+                    $service->roomTypes()->create([
+                        'name' => 'Nguyên căn',
+                        'rank' => 'entire_property',
+                        'description' => 'Căn mặc định được tạo tự động.',
+                        'base_price' => $service->base_price,
+                        'inventory' => 1,
+                        'capacity_adults' => $validated['max_guests'] ?? 2,
+                        'total_bedrooms' => $validated['total_bedrooms'] ?? 1,
+                        'total_bathrooms' => $validated['total_bathrooms'] ?? 1,
                         'status' => 'active'
                     ]);
                 }
             });
 
             // Load relations cho response
-            $service->load('media');
+            $service->load(['media', 'location', 'category', 'roomTypes']);
+
+            // Phát sự kiện realtime
+            broadcast(new \App\Events\AdminServiceUpdated($service, 'created'));
+
+            // Gửi dữ liệu sang N8N để kiểm duyệt tự động
+            \App\Jobs\SendServiceToN8n::dispatch($service);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Đã tạo dịch vụ thành công, vui lòng chờ Admin duyệt.',
                 'data' => $service
             ], 201);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provider ServiceController@store error: " . $e->getMessage(), [
+                'exception' => $e,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Lỗi khi tạo dịch vụ: ' . $e->getMessage()
@@ -179,17 +256,34 @@ class ServiceController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $provider = $this->getProvider($request);
-        $service = Service::with(['media', 'category', 'location', 'schedules'])->findOrFail($id);
+        try {
+            $provider = $this->getProvider($request);
+            if (!$provider) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy thông tin nhà cung cấp.'], 403);
+            }
 
-        if ($service->provider_id !== $provider->id) {
-            return response()->json(['success' => false, 'message' => 'Bạn không có quyền xem dịch vụ này.'], 403);
+            $service = Service::with(['media', 'category', 'location', 'schedules'])->findOrFail($id);
+
+            if ($service->provider_id !== $provider->id) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền xem dịch vụ này.'], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $service
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provider ServiceController@show error for ID: {$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi xem chi tiết dịch vụ: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => $service
-        ]);
     }
 
     /**
@@ -197,113 +291,183 @@ class ServiceController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $provider = $this->getProvider($request);
-        $service = Service::findOrFail($id);
-
-        if ($service->provider_id !== $provider->id) {
-            return response()->json(['success' => false, 'message' => 'Bạn không có quyền sửa dịch vụ này.'], 403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'type' => 'sometimes|string',
-            'category_id' => 'sometimes|exists:categories,id',
-            'location_id' => 'sometimes|exists:locations,id',
-            'base_price' => 'sometimes|numeric|min:0',
-            'description' => 'nullable|string',
-            'address' => 'nullable|string',
-            'max_guests' => 'nullable|integer|min:1',
-            'price_unit' => 'nullable|string',
-            'duration_days' => 'nullable|integer|min:0',
-            'duration_nights' => 'nullable|integer|min:0',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-            'images' => 'nullable|array',
-            'images.*' => 'nullable|string|max:1000'
-        ]);
-
-        // Khi sửa, đẩy về trạng thái chờ duyệt lại
-        $validated['status'] = 'pending_review';
-
+        \Illuminate\Support\Facades\Log::info("Provider ServiceController@update called for ID: {$id}. Payload: ", $request->all());
+        
         try {
+            $provider = $this->getProvider($request);
+            if (!$provider) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy thông tin nhà cung cấp.'], 403);
+            }
+
+            $service = Service::findOrFail($id);
+
+            if ($service->provider_id !== $provider->id) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền sửa dịch vụ này.'], 403);
+            }
+
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'type' => 'sometimes|string',
+                'category_id' => 'sometimes|exists:categories,id',
+                'location_id' => 'sometimes|exists:locations,id',
+                'base_price' => 'sometimes|numeric|min:0',
+                'description' => 'nullable|string',
+                'address' => 'nullable|string',
+                'price_unit' => 'nullable|string',
+                'images' => 'nullable|array',
+                'images.*' => 'nullable|string|max:1000',
+                
+                // CTI Tour fields
+                'duration_days' => 'nullable|integer|min:0',
+                'duration_nights' => 'nullable|integer|min:0',
+                
+                // CTI Homestay/Tour capacity
+                'max_guests' => 'nullable|integer|min:1',
+                
+                // CTI Hotel fields
+                'star_rating' => 'nullable|integer|min:1|max:5',
+                'checkin_time' => 'nullable|string|max:10',
+                'checkout_time' => 'nullable|string|max:10',
+                
+                // CTI Homestay fields
+                'total_bedrooms' => 'nullable|integer|min:1',
+                'total_bathrooms' => 'nullable|integer|min:1',
+                
+                // CTI Vehicle fields
+                'vehicle_type' => 'nullable|string|max:50',
+                'seats' => 'nullable|integer|min:1',
+                'transmission' => 'nullable|string|max:50',
+                'fuel_type' => 'nullable|string|max:50',
+                'inventory' => 'nullable|integer|min:1',
+            ]);
+
+            // Khi sửa, đẩy về trạng thái chờ duyệt lại
+            $validated['status'] = 'pending_review';
+
             DB::transaction(function () use ($validated, $service) {
-                // 1. Tách images ra khỏi validated
+                // Tách images ra khỏi validated
                 $images = $validated['images'] ?? null;
                 unset($validated['images']);
 
-                // 2. Cập nhật các thông tin cơ bản
+                // Tách các trường chi tiết
+                $tourFields = array_filter([
+                    'duration_days' => $validated['duration_days'] ?? null,
+                    'duration_nights' => $validated['duration_nights'] ?? null,
+                    'max_guests' => $validated['max_guests'] ?? null,
+                ], fn($v) => !is_null($v));
+
+                $vehicleFields = array_filter([
+                    'vehicle_type' => $validated['vehicle_type'] ?? null,
+                    'seats' => $validated['seats'] ?? null,
+                    'transmission' => $validated['transmission'] ?? null,
+                    'fuel_type' => $validated['fuel_type'] ?? null,
+                    'inventory' => $validated['inventory'] ?? null,
+                ], fn($v) => !is_null($v));
+
+                $hotelFields = array_filter([
+                    'star_rating' => $validated['star_rating'] ?? null,
+                    'checkin_time' => $validated['checkin_time'] ?? null,
+                    'checkout_time' => $validated['checkout_time'] ?? null,
+                ], fn($v) => !is_null($v));
+
+                $homestayFields = array_filter([
+                    'checkin_time' => $validated['checkin_time'] ?? null,
+                    'checkout_time' => $validated['checkout_time'] ?? null,
+                ], fn($v) => !is_null($v));
+
+                $syncRoomTypeFields = [
+                    'max_guests' => $validated['max_guests'] ?? null,
+                    'total_bedrooms' => $validated['total_bedrooms'] ?? null,
+                    'total_bathrooms' => $validated['total_bathrooms'] ?? null,
+                    'base_price' => $validated['base_price'] ?? null,
+                ];
+
+                // Xóa các trường chi tiết khỏi validated của bảng chính services
+                unset(
+                    $validated['duration_days'], $validated['duration_nights'], $validated['max_guests'],
+                    $validated['star_rating'], $validated['checkin_time'], $validated['checkout_time'],
+                    $validated['total_bedrooms'], $validated['total_bathrooms'],
+                    $validated['vehicle_type'], $validated['seats'], $validated['transmission'], $validated['fuel_type'], $validated['inventory']
+                );
+
+                // Cập nhật các thông tin cơ bản
                 $service->update($validated);
 
-                // 3. Nếu có gửi danh sách ảnh mới, cập nhật lại bảng service_media
+                // Cập nhật hoặc tạo mới thông tin chi tiết
+                if ($service->type === 'tour' && !empty($tourFields)) {
+                    $service->tourDetail()->updateOrCreate([], $tourFields);
+                } elseif ($service->type === 'vehicle' && !empty($vehicleFields)) {
+                    $service->vehicleDetail()->updateOrCreate([], $vehicleFields);
+                } elseif ($service->type === 'hotel' && !empty($hotelFields)) {
+                    $service->hotelDetail()->updateOrCreate([], $hotelFields);
+                } elseif ($service->type === 'homestay' && !empty($homestayFields)) {
+                    $service->homestayDetail()->updateOrCreate([], $homestayFields);
+
+                    // Đồng bộ dữ liệu qua loại phòng "Nguyên căn" mặc định nếu có
+                    $defaultRoomType = $service->roomTypes()->where('name', 'Nguyên căn')->first();
+                    if ($defaultRoomType) {
+                        $defaultRoomType->update([
+                            'capacity_adults' => $syncRoomTypeFields['max_guests'] ?? $defaultRoomType->capacity_adults,
+                            'total_bedrooms' => $syncRoomTypeFields['total_bedrooms'] ?? $defaultRoomType->total_bedrooms,
+                            'total_bathrooms' => $syncRoomTypeFields['total_bathrooms'] ?? $defaultRoomType->total_bathrooms,
+                            'base_price' => $syncRoomTypeFields['base_price'] ?? $defaultRoomType->base_price,
+                        ]);
+                    }
+                }
+
+                // Nếu FE gửi danh sách images mới → đồng bộ service_media
                 if ($images !== null) {
-                    // Xóa ảnh cũ (hoặc có thể giữ lại tùy logic, ở đây là ghi đè danh sách mới)
+                    // Lọc bỏ chuỗi rỗng
+                    $images = array_values(array_filter($images, fn($url) => !empty($url)));
+
+                    // Lấy ảnh cũ để so sánh
+                    $oldUrls = $service->media()->pluck('url')->toArray();
+
+                    // Tìm ảnh bị loại bỏ (có trong cũ nhưng không còn trong mới)
+                    $removedUrls = array_diff($oldUrls, $images);
+
+                    // Xóa file vật lý khỏi ổ đĩa (chỉ xóa ảnh local, bỏ qua Cloudinary)
+                    foreach ($removedUrls as $url) {
+                        $this->deleteLocalImage($url);
+                    }
+
+                    // Xóa media cũ rồi tạo lại
                     $service->media()->delete();
-                    
                     foreach ($images as $index => $url) {
-                        \App\Models\ServiceMedia::create([
+                        ServiceMedia::create([
                             'service_id' => $service->id,
-                            'url' => $url,
-                            'is_cover' => ($index === 0),
+                            'url'        => $url,
+                            'is_cover'   => ($index === 0),
                             'sort_order' => $index,
-                            'type' => 'image'
+                            'type'       => 'image',
                         ]);
                     }
                 }
             });
 
+            // Phát sự kiện realtime
+            broadcast(new \App\Events\AdminServiceUpdated($service, 'updated'));
+
+            // Gửi dữ liệu sang N8N để kiểm duyệt lại
+            \App\Jobs\SendServiceToN8n::dispatch($service);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
-                'data' => $service->load('media')
+                'data' => $service->load(['media', 'location', 'category', 'roomTypes'])
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provider ServiceController@update error for ID: {$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Lỗi khi cập nhật dịch vụ: ' . $e->getMessage()
             ], 500);
         }
-        // Tách images ra trước, không được update trực tiếp lên bảng services
-        $images = $validated['images'] ?? null;
-        unset($validated['images']);
-
-        // Đưa về chờ duyệt lại
-        $validated['status'] = 'pending_review';
-        $service->update($validated);
-
-        // Nếu FE gửi danh sách images mới → đồng bộ service_media
-        if ($images !== null) {
-            // Lọc bỏ chuỗi rỗng
-            $images = array_values(array_filter($images, fn($url) => !empty($url)));
-
-            // Lấy ảnh cũ để so sánh
-            $oldUrls = $service->media()->pluck('url')->toArray();
-
-            // Tìm ảnh bị loại bỏ (có trong cũ nhưng không còn trong mới)
-            $removedUrls = array_diff($oldUrls, $images);
-
-            // Xóa file vật lý khỏi ổ đĩa (chỉ xóa ảnh local, bỏ qua Cloudinary)
-            foreach ($removedUrls as $url) {
-                $this->deleteLocalImage($url);
-            }
-
-            // Xóa media cũ rồi tạo lại
-            $service->media()->delete();
-            foreach ($images as $index => $url) {
-                ServiceMedia::create([
-                    'service_id' => $service->id,
-                    'url'        => $url,
-                    'is_cover'   => ($index === 0),
-                    'sort_order' => $index,
-                    'type'       => 'image',
-                ]);
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Cập nhật dịch vụ thành công, vui lòng chờ Admin duyệt lại.',
-            'data'    => $service->load('media')
-        ]);
     }
 
     /**
@@ -311,24 +475,45 @@ class ServiceController extends Controller
      */
     public function destroy(Request $request, $id)
     {
-        $provider = $this->getProvider($request);
-        $service = Service::findOrFail($id);
+        try {
+            $provider = $this->getProvider($request);
+            if (!$provider) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy thông tin nhà cung cấp.'], 403);
+            }
 
-        if ($service->provider_id !== $provider->id) {
-            return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa dịch vụ này.'], 403);
+            $service = Service::findOrFail($id);
+
+            if ($service->provider_id !== $provider->id) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa dịch vụ này.'], 403);
+            }
+
+            // Xóa toàn bộ ảnh vật lý trước khi soft delete
+            foreach ($service->media()->pluck('url') as $url) {
+                $this->deleteLocalImage($url);
+            }
+
+            $serviceName = $service->name;
+            $service->delete();
+
+            // Phát sự kiện realtime
+            broadcast(new \App\Events\AdminServiceUpdated($id, 'deleted'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã xóa dịch vụ thành công.'
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Provider ServiceController@destroy error for ID: {$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi xóa dịch vụ: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Xóa toàn bộ ảnh vật lý trước khi soft delete
-        foreach ($service->media()->pluck('url') as $url) {
-            $this->deleteLocalImage($url);
-        }
-
-        $service->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã xóa dịch vụ thành công.'
-        ]);
     }
 
     /**
@@ -504,13 +689,13 @@ class ServiceController extends Controller
 
         $validated = $request->validate([
             'name'              => 'required|string|max:255',
-            'rank'              => 'nullable|string|in:standard,premium,vip',
+            'rank'              => 'nullable|string|in:standard,premium,vip,entire_property',
             'description'       => 'nullable|string',
             'base_price'        => 'required|numeric|min:0',
-            'total_rooms'       => 'required|integer|min:1',
             'inventory'         => 'required|integer|min:1',
             'capacity_adults'   => 'required|integer|min:1',
-            'capacity_children' => 'nullable|integer|min:0',
+            'total_bedrooms'    => 'nullable|integer|min:1',
+            'total_bathrooms'   => 'nullable|integer|min:1',
             'amenities'         => 'nullable|array',
             'images'            => 'nullable|array',
         ]);
@@ -537,13 +722,13 @@ class ServiceController extends Controller
 
         $validated = $request->validate([
             'name'              => 'sometimes|string|max:255',
-            'rank'              => 'sometimes|string|in:standard,premium,vip',
+            'rank'              => 'sometimes|string|in:standard,premium,vip,entire_property',
             'description'       => 'nullable|string',
             'base_price'        => 'sometimes|numeric|min:0',
-            'total_rooms'       => 'sometimes|integer|min:1',
             'inventory'         => 'sometimes|integer|min:1',
             'capacity_adults'   => 'sometimes|integer|min:1',
-            'capacity_children' => 'nullable|integer|min:0',
+            'total_bedrooms'    => 'nullable|integer|min:1',
+            'total_bathrooms'   => 'nullable|integer|min:1',
             'amenities'         => 'nullable|array',
             'images'            => 'nullable|array',
             'status'            => 'sometimes|string|in:active,inactive',

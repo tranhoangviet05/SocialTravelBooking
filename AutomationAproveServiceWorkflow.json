@@ -1,0 +1,245 @@
+{
+    "name": "SocialTravelBooking - AI Service Moderation",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "moderate-service",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "1",
+            "name": "Webhook (Receive Service)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "prompt": "Bạn là một AI kiểm duyệt nội dung khắt khe cho nền tảng Đặt phòng & Du lịch (Social Travel Booking).\nNhiệm vụ: Đánh giá dịch vụ xem có hợp lệ hiển thị công khai không.\n\nTiêu chí TỪ CHỐI (reject):\n1. Nội dung người lớn, cờ bạc, bạo lực, vi phạm pháp luật.\n2. Mô tả vô nghĩa, spam (ví dụ: \"test\", \"asdasd\").\n3. Giá quá phi lý (ví dụ: 1000 VNĐ cho khách sạn).\n\nTiêu chí DUYỆT (approve):\n1. Nội dung rõ ràng, hợp lý, đúng chuyên ngành.\n\nTiêu chí THỦ CÔNG (manual):\n1. Không chắc chắn hoặc nghi ngờ lừa đảo/cố ý lách luật.\n\nDỮ LIỆU ĐẦU VÀO:\nTên: {{$json.body.name}}\nLoại: {{$json.body.type}}\nGiá: {{$json.body.base_price}}\nMô tả: {{$json.body.description}}\n\nYÊU CẦU ĐẦU RA (Chỉ trả về JSON thuần):\n{\n  \"decision\": \"approve\" | \"reject\" | \"manual\",\n  \"reason\": \"Lý do ngắn gọn tiếng Việt\"\n}"
+            },
+            "id": "2",
+            "name": "Basic LLM Chain",
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "model": "models/gemini-1.5-flash",
+                "options": {}
+            },
+            "id": "2_model",
+            "name": "Google Gemini Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                450,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "content": "={{ $json.message.content }}",
+                "options": {}
+            },
+            "id": "3",
+            "name": "Parse JSON",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "dataType": "string",
+                "value1": "={{ JSON.parse($json.content).decision }}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "approve",
+                            "output": 0
+                        },
+                        {
+                            "value2": "reject",
+                            "output": 1
+                        },
+                        {
+                            "value2": "manual",
+                            "output": 2
+                        }
+                    ]
+                }
+            },
+            "id": "4",
+            "name": "Switch (Decision)",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=http://host.docker.internal:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "decision",
+                            "value": "approve"
+                        },
+                        {
+                            "name": "reason",
+                            "value": "={{ JSON.parse($('Parse JSON').item.json.content).reason }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "5",
+            "name": "Approve Service",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1150,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=http://host.docker.internal:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "decision",
+                            "value": "reject"
+                        },
+                        {
+                            "name": "reason",
+                            "value": "={{ JSON.parse($('Parse JSON').item.json.content).reason }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "6",
+            "name": "Reject Service",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1150,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=http://host.docker.internal:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "decision",
+                            "value": "manual"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "7",
+            "name": "Manual Review",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1150,
+                500
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (Receive Service)": {
+            "main": [
+                [
+                    {
+                        "node": "Basic LLM Chain",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Basic LLM Chain",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Basic LLM Chain": {
+            "main": [
+                [
+                    {
+                        "node": "Parse JSON",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse JSON": {
+            "main": [
+                [
+                    {
+                        "node": "Switch (Decision)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch (Decision)": {
+            "main": [
+                [
+                    {
+                        "node": "Approve Service",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Reject Service",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Manual Review",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {}
+}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\ProviderProfile;
+use App\Events\BookingStatusUpdated;
 use Illuminate\Http\Request;
 
 class BookingController extends Controller
@@ -127,6 +128,9 @@ class BookingController extends Controller
         if ($newStatus === 'ongoing') {
             $chatService->sendCheckInConfirmedMessage($booking);
         }
+
+        $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+        broadcast(new BookingStatusUpdated($booking, 'status_updated', "Đơn đặt chỗ đã chuyển sang trạng thái: {$newStatus}"));
 
         return response()->json([
             'success' => true,

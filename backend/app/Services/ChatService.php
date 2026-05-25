@@ -60,7 +60,7 @@ class ChatService
             $conversation->update(['last_message_at' => now()]);
 
             // Broadcast real-time
-            broadcast(new MessageSent($message, $touristId))->toOthers();
+            broadcast(new MessageSent($message, $touristId));
 
             Log::info("Automated message sent for booking " . $booking->booking_code);
 
@@ -91,7 +91,7 @@ class ChatService
             ]);
 
             $conversation->update(['last_message_at' => now()]);
-            broadcast(new MessageSent($message, $providerUserId))->toOthers();
+            broadcast(new MessageSent($message, $providerUserId));
 
         } catch (\Exception $e) {
             Log::error("ChatService Error: " . $e->getMessage());
@@ -119,7 +119,7 @@ class ChatService
             ]);
 
             $conversation->update(['last_message_at' => now()]);
-            broadcast(new MessageSent($message, $providerUserId))->toOthers();
+            broadcast(new MessageSent($message, $providerUserId));
 
         } catch (\Exception $e) {
             Log::error("ChatService Error: " . $e->getMessage());
@@ -148,7 +148,7 @@ class ChatService
             ]);
 
             $conversation->update(['last_message_at' => now()]);
-            broadcast(new MessageSent($message, $providerUserId))->toOthers();
+            broadcast(new MessageSent($message, $providerUserId));
 
         } catch (\Exception $e) {
             Log::error("ChatService Error: " . $e->getMessage());
@@ -177,7 +177,7 @@ class ChatService
             ]);
 
             $conversation->update(['last_message_at' => now()]);
-            broadcast(new MessageSent($message, $touristId))->toOthers();
+            broadcast(new MessageSent($message, $touristId));
 
         } catch (\Exception $e) {
             Log::error("ChatService Error: " . $e->getMessage());

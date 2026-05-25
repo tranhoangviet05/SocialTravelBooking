@@ -35,6 +35,7 @@ import adminApi from '../../api/adminApi';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAdminData } from '../../contexts/AdminDataContext';
 import TableSkeleton from '../../components/common/TableSkeleton';
+import echo from '../../utils/echo';
 
 const ServiceManagement = () => {
     const { services, meta, loadingStates, fetchServices, setServices, updateService, removeService, isLoadingServices } = useAdminData();
@@ -65,6 +66,37 @@ const ServiceManagement = () => {
     useEffect(() => {
         doFetchServices(currentPage, false);
     }, [filterType, filterStatus, currentPage, doFetchServices]);
+
+    useEffect(() => {
+        const channel = echo.channel('admin.services');
+        channel.listen('.AdminServiceUpdated', (e) => {
+            const { service_id, service_name, service, action } = e;
+            if (action === 'created') {
+                toast?.success?.(`Có dịch vụ mới chờ duyệt: ${service_name}`);
+                if (service) {
+                    setServices(prev => [service, ...prev]);
+                }
+            } else if (action === 'updated') {
+                toast?.info?.(`Dịch vụ đã được cập nhật: ${service_name}`);
+                if (service) {
+                    setServices(prev => {
+                        const exists = prev.some(s => s.id === service_id);
+                        if (exists) {
+                            return prev.map(s => s.id === service_id ? service : s);
+                        }
+                        return [service, ...prev];
+                    });
+                }
+            } else if (action === 'deleted') {
+                toast?.info?.(`Dịch vụ đã bị xóa: ${service_name}`);
+                setServices(prev => prev.filter(s => s.id !== service_id));
+            }
+        });
+
+        return () => {
+            channel.stopListening('.AdminServiceUpdated');
+        };
+    }, [currentPage, doFetchServices, toast]);
 
     const fetchPage = async (page = 1) => {
         setCurrentPage(page);
@@ -301,9 +333,14 @@ const ServiceManagement = () => {
                                         </div>
                                     </td>
                                     <td className="px-8 py-5">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(svc.status)} uppercase tracking-tight`}>
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(svc.status)} uppercase tracking-tight flex-shrink-0 inline-block`}>
                                             {getStatusLabel(svc.status)}
                                         </span>
+                                        {svc.status === 'active' && svc.approval_note && (
+                                            <div className="text-[9px] text-emerald-600 mt-1.5 flex items-center gap-1 font-bold bg-emerald-50/50 px-2 py-1 rounded-lg w-max">
+                                                <ShieldCheck size={10} /> {svc.approval_note}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-8 py-5 text-right relative">
                                         <button
@@ -485,13 +522,15 @@ const ServiceManagement = () => {
                                     <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
                                     <p className="font-bold text-slate-400">Đang tải dữ liệu chi tiết...</p>
                                 </div>
-                            ) : detailModal.service ? (
+                            ) : detailModal.service ? (() => {
+                                const roomTypes = detailModal.service.room_types || detailModal.service.roomTypes || [];
+                                return (
                                 <div className="p-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                         {/* Left Column */}
-                                        <div className="md:col-span-2 space-y-8">
+                                        <div className="lg:col-span-2 space-y-8">
                                             {/* Main Media */}
-                                            <div className="aspect-video w-full rounded-3xl bg-slate-200 overflow-hidden shadow-inner">
+                                            <div className="aspect-video w-full rounded-[2rem] bg-slate-200 overflow-hidden shadow-md relative group">
                                                 {detailModal.service.media && detailModal.service.media.length > 0 ? (
                                                     <img 
                                                         src={detailModal.service.media[0].url} 
@@ -503,18 +542,24 @@ const ServiceManagement = () => {
                                                         <ImageIcon size={64} />
                                                     </div>
                                                 )}
+                                                <div className="absolute top-4 left-4 bg-slate-900/60 backdrop-blur text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider">
+                                                    📸 Ảnh bìa
+                                                </div>
                                             </div>
 
                                             {/* Gallery */}
                                             {detailModal.service.media && detailModal.service.media.length > 1 && (
                                                 <div className="space-y-4">
                                                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                                                        <ImageIcon size={18} className="text-pink-500" /> Bộ sưu tập ({detailModal.service.media.length})
+                                                        <ImageIcon size={18} className="text-pink-500" /> Bộ sưu tập ảnh ({detailModal.service.media.length})
                                                     </h4>
                                                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
                                                         {detailModal.service.media.map((m, i) => (
-                                                            <div key={i} className="aspect-square rounded-2xl bg-white border border-slate-200 overflow-hidden cursor-pointer hover:border-indigo-500 transition-all shadow-sm">
-                                                                <img src={m.url} alt="" className="w-full h-full object-cover" />
+                                                            <div key={i} className="aspect-square rounded-2xl bg-white border border-slate-200 overflow-hidden cursor-pointer hover:border-indigo-500 transition-all shadow-sm group relative">
+                                                                <img src={m.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                                {m.is_cover && (
+                                                                    <span className="absolute bottom-1 right-1 bg-indigo-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded">COVER</span>
+                                                                )}
                                                             </div>
                                                         ))}
                                                     </div>
@@ -524,41 +569,372 @@ const ServiceManagement = () => {
                                             {/* Description */}
                                             <div className="space-y-4">
                                                 <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                                                    <FileText size={18} className="text-indigo-500" /> Mô tả chi tiết
+                                                    <FileText size={18} className="text-indigo-500" /> Mô tả chi tiết dịch vụ
                                                 </h4>
-                                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
+                                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap text-sm">
                                                     {detailModal.service.description || 'Không có mô tả chi tiết cho dịch vụ này.'}
                                                 </div>
                                             </div>
+
+                                            {/* Vehicle Specific Details */}
+                                            {detailModal.service.type === 'vehicle' && (
+                                                <div className="space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                        <Car size={18} className="text-indigo-500" /> Thông số phương tiện di chuyển
+                                                    </h4>
+                                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Hình thức</p>
+                                                            <p className="text-sm font-black text-slate-880 mt-1">
+                                                                {detailModal.service.vehicle_type === 'self_drive' ? '🚗 Tự lái' : '👨‍✈️ Có tài xế'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Số chỗ ngồi</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                💺 {detailModal.service.seats || '--'} chỗ
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Hộp số</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                ⚙️ {detailModal.service.transmission === 'manual' ? 'Số sàn' : detailModal.service.transmission === 'automatic' ? 'Số tự động' : '--'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nhiên liệu</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                ⛽ {detailModal.service.fuel_type === 'gasoline' ? 'Xăng' : detailModal.service.fuel_type === 'diesel' ? 'Dầu Diesel' : detailModal.service.fuel_type === 'electric' ? 'Điện' : '--'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Hotel Specific Details */}
+                                            {detailModal.service.type === 'hotel' && (
+                                                <div className="space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                        <Hotel size={18} className="text-emerald-500" /> Thông tin cơ sở lưu trú khách sạn
+                                                    </h4>
+                                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Hạng sao</p>
+                                                            <div className="flex items-center gap-1 mt-1 text-amber-500">
+                                                                {detailModal.service.star_rating ? (
+                                                                    [...Array(detailModal.service.star_rating)].map((_, i) => (
+                                                                        <Star key={i} size={14} className="fill-amber-400 text-amber-400" />
+                                                                    ))
+                                                                ) : 'Chưa xếp hạng'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Giờ nhận phòng tiêu chuẩn</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                🕒 {detailModal.service.checkin_time || '14:00'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Giờ trả phòng tiêu chuẩn</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                🕒 {detailModal.service.checkout_time || '12:00'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Homestay Specific Details */}
+                                            {detailModal.service.type === 'homestay' && (
+                                                <div className="space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                        <Home size={18} className="text-amber-500" /> Cấu trúc & Thời gian Homestay
+                                                    </h4>
+                                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Phòng ngủ</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                🛏️ {detailModal.service.total_bedrooms || 1} phòng
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Phòng tắm</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                🚿 {detailModal.service.total_bathrooms || 1} phòng
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nhận phòng</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                🕒 {detailModal.service.checkin_time || '14:00'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Trả phòng</p>
+                                                            <p className="text-sm font-black text-slate-800 mt-1">
+                                                                🕒 {detailModal.service.checkout_time || '12:00'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Room Types for Hotel / Homestay */}
+                                            {(detailModal.service.type === 'hotel' || detailModal.service.type === 'homestay') && (
+                                                <div className="space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                        <Hotel size={18} className="text-emerald-500" /> Cấu trúc & Loại phòng nghỉ ({roomTypes.length})
+                                                    </h4>
+                                                    {roomTypes.length > 0 ? (
+                                                        <div className="grid grid-cols-1 gap-6">
+                                                            {roomTypes.map((room) => {
+                                                                let roomImgs = [];
+                                                                try {
+                                                                    roomImgs = typeof room.images === 'string' ? JSON.parse(room.images) : room.images || [];
+                                                                } catch(e) {
+                                                                    roomImgs = room.images || [];
+                                                                }
+                                                                let roomAmenities = [];
+                                                                try {
+                                                                    roomAmenities = typeof room.amenities === 'string' ? JSON.parse(room.amenities) : room.amenities || [];
+                                                                } catch(e) {
+                                                                    roomAmenities = room.amenities || [];
+                                                                }
+
+                                                                return (
+                                                                <div key={room.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-all">
+                                                                    {/* Room image thumbnail */}
+                                                                    <div className="w-full md:w-1/3 bg-slate-100 h-48 md:h-auto relative shrink-0">
+                                                                        {roomImgs.length > 0 ? (
+                                                                            <img 
+                                                                                src={roomImgs[0]} 
+                                                                                alt={room.name} 
+                                                                                className="w-full h-full object-cover" 
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                                                                <ImageIcon size={32} />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Room info */}
+                                                                    <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                                                                        <div>
+                                                                            <div className="flex items-center justify-between gap-4 mb-2">
+                                                                                <h5 className="font-black text-slate-800 text-base">{room.name}</h5>
+                                                                                <span className="text-sm font-black text-indigo-600 bg-indigo-50/50 px-3 py-1 rounded-xl">
+                                                                                    {formatPrice(room.base_price)} <span className="text-[10px] text-slate-400 font-bold">/đêm</span>
+                                                                                </span>
+                                                                            </div>
+                                                                            <p className="text-xs text-slate-500 line-clamp-2 mb-4 leading-relaxed font-medium">
+                                                                                {room.description || 'Chưa có mô tả chi tiết cho loại phòng này.'}
+                                                                            </p>
+                                                                            
+                                                                            {/* Specifications */}
+                                                                            <div className="grid grid-cols-2 gap-3">
+                                                                                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600 bg-slate-50 px-3 py-2 rounded-xl">
+                                                                                    <Users size={12} className="text-emerald-500 shrink-0" />
+                                                                                    <span>Sức chứa: {room.capacity_adults} Lớn {room.capacity_children > 0 && `, ${room.capacity_children} Trẻ`}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600 bg-slate-50 px-3 py-2 rounded-xl">
+                                                                                    <Home size={12} className="text-emerald-500 shrink-0" />
+                                                                                    <span>Số phòng: {room.total_rooms} (Kho: {room.inventory})</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Room Amenities */}
+                                                                        {roomAmenities.length > 0 && (
+                                                                            <div className="flex flex-wrap gap-1.5 border-t border-slate-50 pt-3">
+                                                                                {roomAmenities.slice(0, 5).map((am, i) => (
+                                                                                    <span key={i} className="text-[9px] font-black uppercase bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 rounded-md">
+                                                                                        {am}
+                                                                                    </span>
+                                                                                ))}
+                                                                                {roomAmenities.length > 5 && (
+                                                                                    <span className="text-[9px] font-black uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                                                                                        +{ roomAmenities.length - 5 } khác
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )})}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] text-center text-sm font-bold text-amber-600">
+                                                            ⚠️ Dịch vụ khách sạn này chưa có loại phòng nào được tạo! (Thiếu dữ liệu để duyệt)
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Schedules */}
                                             {detailModal.service.type === 'tour' && detailModal.service.schedules?.length > 0 && (
                                                 <div className="space-y-4">
                                                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                                                        <Map size={18} className="text-sky-500" /> Lịch trình chuyến đi
+                                                        <Map size={18} className="text-sky-500" /> Lịch trình chuyến đi chi tiết
                                                     </h4>
                                                     <div className="space-y-4">
-                                                        {[...detailModal.service.schedules].sort((a,b) => a.day_number - b.day_number).map((day) => (
-                                                            <div key={day.id} className="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm">
-                                                                <div className="flex items-center gap-4 mb-4">
-                                                                    <div className="w-10 h-10 bg-sky-500 text-white rounded-xl flex items-center justify-center text-sm font-black shadow-lg shadow-sky-200">
-                                                                        {day.day_number}
+                                                        {[...detailModal.service.schedules].sort((a,b) => a.day_number - b.day_number).map((day) => {
+                                                            let acts = [];
+                                                            try {
+                                                                acts = typeof day.activities === 'string' ? JSON.parse(day.activities) : day.activities || [];
+                                                            } catch(e) {
+                                                                acts = day.activities || [];
+                                                            }
+                                                            let meals = [];
+                                                            try {
+                                                                meals = typeof day.meals === 'string' ? JSON.parse(day.meals) : day.meals || [];
+                                                            } catch(e) {
+                                                                meals = day.meals || [];
+                                                            }
+
+                                                            return (
+                                                            <div key={day.id} className="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-md transition-all">
+                                                                <div className="flex items-center justify-between mb-4">
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className="w-10 h-10 bg-sky-500 text-white rounded-xl flex items-center justify-center text-sm font-black shadow-lg shadow-sky-200 shrink-0">
+                                                                            {day.day_number}
+                                                                        </div>
+                                                                        <p className="font-black text-slate-900 text-sm md:text-base">{day.title}</p>
                                                                     </div>
-                                                                    <p className="font-black text-slate-900">{day.title}</p>
+                                                                    {meals.length > 0 && (
+                                                                        <div className="flex gap-1">
+                                                                            {meals.map((m, idx) => (
+                                                                                <span key={idx} className="bg-amber-50 text-amber-600 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-amber-100">
+                                                                                    🍴 {m}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
+                                                                {day.description && (
+                                                                    <p className="text-xs text-slate-500 mb-3 italic ml-14 font-medium leading-relaxed">{day.description}</p>
+                                                                )}
                                                                 <div className="ml-14 space-y-2">
-                                                                    {day.activities && Array.isArray(day.activities) && day.activities.map((act, i) => (
-                                                                        <div key={i} className="flex items-center gap-3 text-sm font-bold text-slate-500">
-                                                                            <div className="w-2 h-2 bg-sky-400 rounded-full shrink-0" />
-                                                                            {act}
+                                                                    {acts.length > 0 && acts.map((act, i) => (
+                                                                        <div key={i} className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                                                                            <div className="w-1.5 h-1.5 bg-sky-400 rounded-full shrink-0" />
+                                                                            <span>{act}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
                                                             </div>
-                                                        ))}
+                                                        )})}
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* Inclusions & Exclusions */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {/* Includes */}
+                                                <div className="space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                        <CheckCircle2 size={18} className="text-emerald-500" /> Dịch vụ bao gồm
+                                                    </h4>
+                                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm min-h-[150px] space-y-3">
+                                                        {detailModal.service.includes && detailModal.service.includes.length > 0 ? (
+                                                            detailModal.service.includes.map((inc, i) => (
+                                                                <div key={i} className="flex items-start gap-2.5 text-xs font-bold text-slate-600 leading-normal">
+                                                                    <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                                                                    <span>{inc}</span>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-xs text-slate-400 font-bold italic">Không có thông tin dịch vụ bao gồm.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Excludes */}
+                                                <div className="space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                        <XCircle size={18} className="text-rose-500" /> Không bao gồm
+                                                    </h4>
+                                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm min-h-[150px] space-y-3">
+                                                        {detailModal.service.excludes && detailModal.service.excludes.length > 0 ? (
+                                                            detailModal.service.excludes.map((exc, i) => (
+                                                                <div key={i} className="flex items-start gap-2.5 text-xs font-bold text-slate-600 leading-normal">
+                                                                    <XCircle size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                                                                    <span>{exc}</span>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-xs text-slate-400 font-bold italic">Không có thông tin dịch vụ loại trừ.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* System / Service Amenities */}
+                                            <div className="space-y-4">
+                                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                    <Tag size={18} className="text-indigo-500" /> Các tiện nghi & Tiện ích đi kèm
+                                                </h4>
+                                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                                                    {detailModal.service.amenities && detailModal.service.amenities.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-2.5">
+                                                            {detailModal.service.amenities.map((am, i) => (
+                                                                <span key={i} className="px-4 py-2 bg-slate-50 text-slate-700 text-xs font-black uppercase rounded-xl border border-slate-100 flex items-center gap-2">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                                                    {am}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-slate-400 font-bold italic">Chưa cấu hình các tiện ích đi kèm.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Customer Reviews */}
+                                            <div className="space-y-4">
+                                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                                    <Star size={18} className="text-amber-500" /> Nhận xét & Đánh giá từ khách hàng ({detailModal.service.reviews?.length || 0})
+                                                </h4>
+                                                <div className="space-y-4">
+                                                    {detailModal.service.reviews && detailModal.service.reviews.length > 0 ? (
+                                                        detailModal.service.reviews.slice(0, 5).map((rev) => (
+                                                            <div key={rev.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
+                                                                <div className="flex items-center justify-between gap-4">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 font-black text-xs flex items-center justify-center border border-indigo-100">
+                                                                            {rev.user?.display_name?.[0]?.toUpperCase()}
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="text-xs font-black text-slate-800">{rev.user?.display_name}</p>
+                                                                            <p className="text-[9px] font-bold text-slate-400">
+                                                                                {new Date(rev.created_at).toLocaleDateString('vi-VN')}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-0.5">
+                                                                        {[...Array(5)].map((_, i) => (
+                                                                            <Star key={i} size={12} className={i < rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-100"} />
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-xs text-slate-600 font-medium leading-relaxed pl-10">
+                                                                    {rev.content || 'Khách hàng không để lại nhận xét.'}
+                                                                </p>
+                                                                {rev.provider_reply && (
+                                                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs font-medium text-slate-500 ml-10 mt-2">
+                                                                        <p className="font-black text-slate-700 mb-1">📬 Nhà cung cấp phản hồi:</p>
+                                                                        {rev.provider_reply}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm text-center text-xs text-slate-400 font-bold italic py-8">
+                                                            Chưa có đánh giá nào cho dịch vụ này.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* Right Column */}
@@ -572,59 +948,83 @@ const ServiceManagement = () => {
                                                 <div className="grid grid-cols-2 gap-6">
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời lượng</p>
-                                                        <p className="text-sm font-bold">{detailModal.service.duration_days}N {detailModal.service.duration_nights}Đ</p>
+                                                        <p className="text-sm font-bold">
+                                                            {detailModal.service.type === 'tour' 
+                                                                ? `${detailModal.service.duration_days}N ${detailModal.service.duration_nights}Đ` 
+                                                                : 'Lưu trú / Thuê'}
+                                                        </p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sức chứa</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sức chứa tối đa</p>
                                                         <p className="text-sm font-bold">{detailModal.service.max_guests || '--'} khách</p>
                                                     </div>
+                                                </div>
+                                                <div className="h-px bg-white/10" />
+                                                <div className="grid grid-cols-2 gap-6">
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kho / Số lượng</p>
+                                                        <p className="text-sm font-bold">{detailModal.service.inventory || '1'} chiếc/slot</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn vị giá</p>
+                                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                                                            {detailModal.service.price_unit === 'per_person' ? 'Mỗi người' : 'Mỗi phòng/xe'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Danh mục & Thẻ</h5>
+                                                <div className="space-y-4">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 flex items-center gap-1.5">
+                                                            📂 {detailModal.service.category?.name || 'Chưa có'}
+                                                        </span>
+                                                    </div>
+                                                    {detailModal.service.tags && detailModal.service.tags.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 border-t border-slate-50 pt-3">
+                                                            {detailModal.service.tags.map((t, idx) => (
+                                                                <span key={idx} className="text-[9px] font-black uppercase bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 rounded-md">
+                                                                    #{t}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
                                             <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100">
                                                 <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">Nhà cung cấp</h5>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 font-black shadow-sm text-lg">
-                                                        {detailModal.service.provider?.user?.display_name?.[0]}
+                                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 font-black shadow-sm text-lg shrink-0">
+                                                        {detailModal.service.provider?.user?.display_name?.[0]?.toUpperCase()}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-black text-slate-900 truncate">{detailModal.service.provider?.user?.display_name}</p>
+                                                        <p className="text-sm font-black text-slate-900 truncate">{detailModal.service.provider?.business_name || detailModal.service.provider?.user?.display_name}</p>
                                                         <p className="text-[10px] text-indigo-500 font-bold truncate">{detailModal.service.provider?.user?.email}</p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Địa điểm</h5>
+                                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Địa điểm hoạt động</h5>
                                                 <div className="flex items-start gap-4">
                                                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
                                                         <MapPin size={20} />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-xs font-black text-slate-900">{detailModal.service.location?.name || 'Tỉnh/Thành'}</p>
+                                                        <p className="text-xs font-black text-slate-900">{detailModal.service.location?.name || 'Chưa gắn'}</p>
                                                         <p className="text-[10px] text-slate-400 font-bold mt-1 leading-relaxed">
                                                             {detailModal.service.address || 'Chưa có địa chỉ cụ thể'}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {((detailModal.service.amenities?.length > 0) || (detailModal.service.includes?.length > 0)) && (
-                                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Tiện ích & Bao gồm</h5>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {[...(detailModal.service.amenities || []), ...(detailModal.service.includes || [])].map((item, i) => (
-                                                            <span key={i} className="px-3 py-1.5 bg-slate-50 text-slate-600 text-[10px] font-bold rounded-xl border border-slate-100">
-                                                                {item}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
-                            ) : (
+                            )})() : (
                                 <div className="h-full flex items-center justify-center p-12 text-slate-400 font-bold">
                                     Không có dữ liệu để hiển thị.
                                 </div>

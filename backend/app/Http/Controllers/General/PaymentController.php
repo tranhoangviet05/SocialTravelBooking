@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Events\BookingStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -154,6 +155,9 @@ class PaymentController extends Controller
 
             // --- TỰ ĐỘNG KIỂM TRA & GỬI MAIL UPSELL ---
             \App\Http\Controllers\General\UpsellController::checkAndNotifyUpsell($booking);
+
+            $booking->loadMissing(['service.provider.user', 'service.location', 'service.media', 'roomType', 'user']);
+            broadcast(new BookingStatusUpdated($booking, 'paid', 'Đơn đặt chỗ đã được thanh toán thành công!'));
         });
 
         return response()->json(['success' => true, 'message' => 'Xác nhận thanh toán thành công']);

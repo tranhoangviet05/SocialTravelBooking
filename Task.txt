@@ -1,0 +1,4 @@
+Realtime quản lý dịch vụ, quản lý bookings, đánh giá khách hàng
+Tự động kiểm duyệt Dịch vụ, Bài viết ở Admin (N8N WF + Gemini AI)
+Báo cáo bài viết, báo cáo dịch vụ, báo cáo khách du lịch,...
+Tính năng thanh toán 1 nửa số tiền (đặt cọc), Thanh toán khi checkin

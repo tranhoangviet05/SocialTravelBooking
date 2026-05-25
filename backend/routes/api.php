@@ -96,6 +96,9 @@ Route::group(['prefix' => 'internal'], function() {
         Route::post('/save-recommendations', [BehaviorDatabaseController::class, 'saveRecommendations']);
         Route::post('/cleanup', [BehaviorDatabaseController::class, 'cleanup']);
     });
+
+    // N8N Moderation Webhook callback
+    Route::post('/services/{id}/moderate', [\App\Http\Controllers\Machine\ServiceController::class, 'moderate']);
 });
 
 // ========================

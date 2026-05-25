@@ -13,6 +13,15 @@ class Service extends Model
 
     protected $guarded = [];
 
+    protected $with = ['tourDetail', 'hotelDetail', 'homestayDetail', 'vehicleDetail'];
+
+    protected $appends = [
+        'duration_days', 'duration_nights', 'max_guests',
+        'star_rating', 'checkin_time', 'checkout_time',
+        'total_bedrooms', 'total_bathrooms',
+        'vehicle_type', 'seats', 'transmission', 'fuel_type', 'inventory'
+    ];
+
     /**
      * Tự động chuyển đổi dữ liệu JSON từ Postgres sang mảng PHP
      */
@@ -107,5 +116,118 @@ class Service extends Model
     public function upsells()
     {
         return $this->hasMany(ServiceUpsell::class, 'trigger_service_id');
+    }
+
+    // --- CTI DELEGATION RELATIONSHIPS ---
+
+    public function tourDetail()
+    {
+        return $this->hasOne(TourDetail::class, 'service_id');
+    }
+
+    public function hotelDetail()
+    {
+        return $this->hasOne(HotelDetail::class, 'service_id');
+    }
+
+    public function homestayDetail()
+    {
+        return $this->hasOne(HomestayDetail::class, 'service_id');
+    }
+
+    public function vehicleDetail()
+    {
+        return $this->hasOne(VehicleDetail::class, 'service_id');
+    }
+
+    // --- CTI DELEGATION ACCESSORS & MUTATORS ---
+
+    public function getDurationDaysAttribute()
+    {
+        return $this->tourDetail?->duration_days;
+    }
+
+    public function getDurationNightsAttribute()
+    {
+        return $this->tourDetail?->duration_nights;
+    }
+
+    public function getMaxGuestsAttribute()
+    {
+        if ($this->type === 'tour') {
+            return $this->tourDetail?->max_guests;
+        }
+        if ($this->type === 'homestay') {
+            return $this->roomTypes->first()?->capacity_adults;
+        }
+        return null;
+    }
+
+    public function getStarRatingAttribute()
+    {
+        return $this->hotelDetail?->star_rating;
+    }
+
+    public function getCheckinTimeAttribute()
+    {
+        if ($this->type === 'hotel') {
+            return $this->hotelDetail?->checkin_time;
+        }
+        if ($this->type === 'homestay') {
+            return $this->homestayDetail?->checkin_time;
+        }
+        return null;
+    }
+
+    public function getCheckoutTimeAttribute()
+    {
+        if ($this->type === 'hotel') {
+            return $this->hotelDetail?->checkout_time;
+        }
+        if ($this->type === 'homestay') {
+            return $this->homestayDetail?->checkout_time;
+        }
+        return null;
+    }
+
+    public function getTotalBedroomsAttribute()
+    {
+        if ($this->type === 'homestay') {
+            return $this->roomTypes->first()?->total_bedrooms;
+        }
+        return null;
+    }
+
+    public function getTotalBathroomsAttribute()
+    {
+        if ($this->type === 'homestay') {
+            return $this->roomTypes->first()?->total_bathrooms;
+        }
+        return null;
+    }
+
+    public function getVehicleTypeAttribute()
+    {
+        return $this->vehicleDetail?->vehicle_type;
+    }
+
+    public function getSeatsAttribute()
+    {
+        return $this->vehicleDetail?->seats;
+    }
+
+    public function getTransmissionAttribute()
+    {
+        return $this->vehicleDetail?->transmission;
+    }
+
+    public function getFuelTypeAttribute()
+    {
+        return $this->vehicleDetail?->fuel_type;
+    }
+
+    public function getInventoryAttribute()
+    {
+        return $this->vehicleDetail?->inventory;
     }
 }

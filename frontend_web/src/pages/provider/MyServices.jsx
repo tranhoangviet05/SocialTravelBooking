@@ -11,6 +11,8 @@ import {
 import providerApi from '../../api/providerApi';
 import { uploadImage } from '../../utils/cloudinary';
 import UpsellManager from '../../components/provider/UpsellManager';
+import { useAuth } from '../../contexts/AuthContext';
+import echo from '../../utils/echo';
 
 
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -331,9 +333,10 @@ const RoomTypeModal = ({ service, onClose, showToast }) => {
     const [confirmDel, setConfirmDel] = useState(null);
 
     const emptyForm = {
-        name: '', rank: 'standard', base_price: '', total_rooms: '1',
+        name: '', rank: 'standard', base_price: '',
         inventory: '1',
-        capacity_adults: '2', capacity_children: '0',
+        total_bedrooms: '1', total_bathrooms: '1',
+        capacity_adults: '2',
         description: '', amenities: '', images: []
     };
     const [form, setForm] = useState(emptyForm);
@@ -357,10 +360,10 @@ const RoomTypeModal = ({ service, onClose, showToast }) => {
             name: rt.name,
             rank: rt.rank || 'standard',
             base_price: rt.base_price,
-            total_rooms: rt.total_rooms.toString(),
             inventory: (rt.inventory || 1).toString(),
+            total_bedrooms: (rt.total_bedrooms || 1).toString(),
+            total_bathrooms: (rt.total_bathrooms || 1).toString(),
             capacity_adults: rt.capacity_adults.toString(),
-            capacity_children: rt.capacity_children.toString(),
             description: rt.description || '',
             amenities: (rt.amenities || []).join('\n'),
             images: rt.images || []
@@ -375,10 +378,10 @@ const RoomTypeModal = ({ service, onClose, showToast }) => {
             const payload = {
                 ...form,
                 base_price: Number(form.base_price),
-                total_rooms: Number(form.total_rooms),
                 inventory: Number(form.inventory),
+                total_bedrooms: Number(form.total_bedrooms),
+                total_bathrooms: Number(form.total_bathrooms),
                 capacity_adults: Number(form.capacity_adults),
-                capacity_children: Number(form.capacity_children),
                 amenities: form.amenities.split('\n').map(s => s.trim()).filter(Boolean),
                 images: form.images
             };
@@ -454,11 +457,11 @@ const RoomTypeModal = ({ service, onClose, showToast }) => {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Số phòng ngủ *</label>
-                                    <input required type="number" value={form.total_rooms} onChange={e => setForm({ ...form, total_rooms: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                                    <input required type="number" value={form.total_bedrooms} onChange={e => setForm({ ...form, total_bedrooms: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Số lượng phòng (Kho) *</label>
-                                    <input required type="number" value={form.inventory} onChange={e => setForm({ ...form, inventory: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Số phòng tắm *</label>
+                                    <input required type="number" value={form.total_bathrooms} onChange={e => setForm({ ...form, total_bathrooms: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
                                 </div>
                             </div>
                         </div>
@@ -466,12 +469,12 @@ const RoomTypeModal = ({ service, onClose, showToast }) => {
                         <div className="grid grid-cols-2 gap-4 mt-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sức chứa (Lớn) *</label>
-                                    <input required type="number" value={form.capacity_adults} onChange={e => setForm({ ...form, capacity_adults: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Số lượng (Kho) *</label>
+                                    <input required type="number" value={form.inventory} onChange={e => setForm({ ...form, inventory: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Trẻ em</label>
-                                    <input type="number" value={form.capacity_children} onChange={e => setForm({ ...form, capacity_children: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sức chứa *</label>
+                                    <input required type="number" value={form.capacity_adults} onChange={e => setForm({ ...form, capacity_adults: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
                                 </div>
                             </div>
                             <div>
@@ -557,12 +560,12 @@ const RoomTypeModal = ({ service, onClose, showToast }) => {
                                             {rt.rank === 'vip' ? '👑 VIP' : rt.rank === 'premium' ? '✨ Cao cấp' : '🏠 Bình dân'}
                                         </span>
                                         <span className="px-2 py-0.5 bg-white text-emerald-600 border border-emerald-100 rounded-lg text-[10px] font-black">
-                                            {rt.inventory} Phòng • {rt.total_rooms} PN
+                                            {rt.inventory} Căn/Phòng • {rt.total_bedrooms || 1} Ngủ • {rt.total_bathrooms || 1} Tắm
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-4 mt-1.5">
                                         <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase">
-                                            <Users size={12} /> {rt.capacity_adults} Lớn, {rt.capacity_children} Trẻ
+                                            <Users size={12} /> {rt.capacity_adults} Người
                                         </div>
                                         <div className="w-1 h-1 bg-slate-200 rounded-full" />
                                         <div className="text-[11px] font-black text-emerald-600 uppercase italic">
@@ -921,6 +924,8 @@ const MyServices = () => {
         addService, updateService, removeService
     } = useProviderData();
 
+    const { currentUser } = useAuth();
+
     const loading = loadingStates.services || loadingStates.system;
     const [hasProfile, setHasProfile] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -944,17 +949,20 @@ const MyServices = () => {
     const initialForm = {
         name: '', type: 'tour', category_id: '', location_id: '',
         base_price: '', description: '', address: '',
-        latitude: null, longitude: null,
         max_guests: '',
         inventory: 1,
-        price_unit: 'per_person', 
-        address: '',
+        price_unit: 'per_person',
         duration_days: '',
         duration_nights: '',
-        vehicle_type: 'self_drive', 
+        vehicle_type: 'self_drive',
         seats: 4,
-        transmission: 'automatic', 
-        fuel_type: 'gasoline', 
+        transmission: 'automatic',
+        fuel_type: 'gasoline',
+        star_rating: '',
+        checkin_time: '14:00',
+        checkout_time: '12:00',
+        total_bedrooms: 1,
+        total_bathrooms: 1,
     };
     const [form, setForm] = useState(initialForm);
     const [toast, setToast] = useState(null);
@@ -981,6 +989,28 @@ const MyServices = () => {
     }, [searchTerm, typeFilter, doFetch, services.length]);
 
     const showToast = (msg, type = 'success') => setToast({ message: msg, type });
+
+    useEffect(() => {
+        if (!currentUser?.id) return;
+
+        const channel = echo.private(`User.${currentUser.id}`);
+        channel.listen('.ProviderServiceStatusUpdated', (e) => {
+            const { service_id, service_name, status, rejection_reason, approval_note } = e;
+            if (status === 'active') {
+                showToast(`Dịch vụ đã được duyệt: ${service_name}`, 'success');
+            } else if (status === 'rejected') {
+                showToast(`Dịch vụ bị từ chối: ${service_name}\nLý do: ${rejection_reason}`, 'error');
+            }
+            
+            setServices(prev => prev.map(s => 
+                s.id === service_id ? { ...s, status, rejection_reason, approval_note } : s
+            ));
+        });
+
+        return () => {
+            channel.stopListening('.ProviderServiceStatusUpdated');
+        };
+    }, [currentUser?.id, currentPage, doFetch]);
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files);
@@ -1027,7 +1057,17 @@ const MyServices = () => {
             max_guests: service.max_guests || '',
             price_unit: service.price_unit,
             duration_days: service.duration_days || '',
-            duration_nights: service.duration_nights || ''
+            duration_nights: service.duration_nights || '',
+            star_rating: service.star_rating || '',
+            checkin_time: service.checkin_time || '14:00',
+            checkout_time: service.checkout_time || '12:00',
+            total_bedrooms: service.total_bedrooms || 1,
+            total_bathrooms: service.total_bathrooms || 1,
+            vehicle_type: service.vehicle_type || 'self_drive',
+            seats: service.seats || 4,
+            transmission: service.transmission || 'automatic',
+            fuel_type: service.fuel_type || 'gasoline',
+            inventory: service.inventory || 1
         });
         setSelectedFiles([]);
         setPreviewUrls(service.media?.map(m => m.url) || []);
@@ -1037,7 +1077,7 @@ const MyServices = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (submitting) return;
-        
+
         // 1. Validate cơ bản trước khi đóng modal
         if (!form.location_id || !form.category_id || !form.name) {
             return showToast('Vui lòng nhập đầy đủ các trường bắt buộc', 'error');
@@ -1048,7 +1088,7 @@ const MyServices = () => {
         setSubmitting(true);
 
         const taskId = editMode ? currentServiceId : `temp-${Date.now()}`;
-        
+
         // 3. Tạo dữ liệu "Lạc quan" (Optimistic)
         if (!editMode) {
             const tempSvc = {
@@ -1141,10 +1181,10 @@ const MyServices = () => {
 
     const getTypeBadge = (type) => {
         const map = {
-            tour: { cls: 'bg-blue-50 text-blue-600 border border-blue-100', label: '🗺️ Tour' },
-            hotel: { cls: 'bg-purple-50 text-purple-600 border border-purple-100', label: '🏨 Khách sạn' },
-            homestay: { cls: 'bg-pink-50 text-pink-600 border border-pink-100', label: '🏡 Homestay' },
-            vehicle: { cls: 'bg-orange-50 text-orange-600 border border-orange-100', label: '🚌 Phương tiện' },
+            tour: { cls: 'bg-blue-50 text-blue-600 border border-blue-100', label: 'Tour' },
+            hotel: { cls: 'bg-purple-50 text-purple-600 border border-purple-100', label: 'Khách sạn' },
+            homestay: { cls: 'bg-pink-50 text-pink-600 border border-pink-100', label: 'Homestay' },
+            vehicle: { cls: 'bg-orange-50 text-orange-600 border border-orange-100', label: 'Phương tiện' },
         };
         const t = map[type] || map.tour;
         return <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${t.cls}`}>{t.label}</span>;
@@ -1220,7 +1260,14 @@ const MyServices = () => {
                                                 </div>
                                                 <div>
                                                     <h3 className="text-sm font-black text-slate-900 truncate uppercase">{service.name}</h3>
-                                                    <div className="flex gap-2 mt-1.5">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
+                                                    <div className="flex flex-col gap-1.5 mt-1.5">
+                                                        <div className="flex gap-2">{getTypeBadge(service.type)} {getStatusBadge(service.status)}</div>
+                                                        {service.status === 'active' && service.approval_note && (
+                                                            <div className="text-[9px] text-emerald-600 flex items-center gap-1 font-bold bg-emerald-50/50 px-2 py-1 rounded-lg w-max">
+                                                                <ShieldCheck size={10} /> {service.approval_note}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold uppercase">
                                                         <span className="flex items-center gap-1"><MapPin size={11} /> {service.location?.name || '---'}</span>
                                                         {service.type === 'tour' && (service.duration_days || service.duration_nights) && (
@@ -1349,18 +1396,18 @@ const MyServices = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <select value={form.type} onChange={e => {
                                         const newType = e.target.value;
-                                            setForm({
-                                                ...form,
-                                                type: newType,
-                                                duration_days: newType !== 'tour' ? '' : form.duration_days,
-                                                duration_nights: newType !== 'tour' ? '' : form.duration_nights,
-                                                price_unit: newType === 'vehicle' ? 'per_day' : (['hotel', 'homestay'].includes(newType) ? 'per_room' : 'per_person')
-                                            });
+                                        setForm({
+                                            ...form,
+                                            type: newType,
+                                            duration_days: newType !== 'tour' ? '' : form.duration_days,
+                                            duration_nights: newType !== 'tour' ? '' : form.duration_nights,
+                                            price_unit: newType === 'vehicle' ? 'per_day' : (['hotel', 'homestay'].includes(newType) ? 'per_room' : 'per_person')
+                                        });
                                     }} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
-                                        <option value="tour">🗺️ Tour du lịch</option>
-                                        <option value="hotel">🏨 Khách sạn</option>
-                                        <option value="homestay">🏡 Homestay</option>
-                                        <option value="vehicle">🚌 Phương tiện</option>
+                                        <option value="tour">Tour du lịch</option>
+                                        <option value="hotel">Khách sạn</option>
+                                        <option value="homestay">Homestay</option>
+                                        <option value="vehicle">Phương tiện</option>
                                     </select>
                                     <select required value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} className="px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
                                         <option value="">-- Danh mục --</option>
@@ -1418,14 +1465,14 @@ const MyServices = () => {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Loại dịch vụ</label>
-                                                <select value={form.vehicle_type} onChange={e => setForm({...form, vehicle_type: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
-                                                    <option value="self_drive">🚗 Tự lái</option>
-                                                    <option value="with_driver">👨‍✈️ Có tài xế</option>
+                                                <select value={form.vehicle_type} onChange={e => setForm({ ...form, vehicle_type: e.target.value })} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                    <option value="self_drive">Tự lái</option>
+                                                    <option value="with_driver">Có tài xế</option>
                                                 </select>
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Số chỗ ngồi</label>
-                                                <select value={form.seats} onChange={e => setForm({...form, seats: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                <select value={form.seats} onChange={e => setForm({ ...form, seats: e.target.value })} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
                                                     <option value="4">4 chỗ</option>
                                                     <option value="7">7 chỗ</option>
                                                     <option value="16">16 chỗ</option>
@@ -1435,18 +1482,69 @@ const MyServices = () => {
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Hộp số</label>
-                                                <select value={form.transmission} onChange={e => setForm({...form, transmission: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                <select value={form.transmission} onChange={e => setForm({ ...form, transmission: e.target.value })} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
                                                     <option value="automatic">Số tự động</option>
                                                     <option value="manual">Số sàn</option>
                                                 </select>
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Nhiên liệu</label>
-                                                <select value={form.fuel_type} onChange={e => setForm({...form, fuel_type: e.target.value})} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                <select value={form.fuel_type} onChange={e => setForm({ ...form, fuel_type: e.target.value })} className="w-full px-5 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
                                                     <option value="gasoline">Xăng</option>
                                                     <option value="diesel">Dầu (Diesel)</option>
                                                     <option value="electric">Điện</option>
                                                 </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {form.type === 'hotel' && (
+                                    <div className="space-y-4 p-5 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50">
+                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Thông tin khách sạn</p>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Hạng sao</label>
+                                                <select value={form.star_rating} onChange={e => setForm({ ...form, star_rating: e.target.value ? Number(e.target.value) : '' })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none">
+                                                    <option value="">Chưa xếp hạng</option>
+                                                    <option value="1">1 sao ⭐</option>
+                                                    <option value="2">2 sao ⭐⭐</option>
+                                                    <option value="3">3 sao ⭐⭐⭐</option>
+                                                    <option value="4">4 sao ⭐⭐⭐⭐</option>
+                                                    <option value="5">5 sao ⭐⭐⭐⭐⭐</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Giờ nhận phòng</label>
+                                                <input type="text" value={form.checkin_time} onChange={e => setForm({ ...form, checkin_time: e.target.value })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none" placeholder="14:00" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Giờ trả phòng</label>
+                                                <input type="text" value={form.checkout_time} onChange={e => setForm({ ...form, checkout_time: e.target.value })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none" placeholder="12:00" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {form.type === 'homestay' && (
+                                    <div className="space-y-4 p-5 bg-amber-50/50 rounded-[2rem] border border-amber-100/50">
+                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1">Thông tin Homestay nguyên căn</p>
+                                        <div className="grid grid-cols-4 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Số phòng ngủ</label>
+                                                <input type="number" min="1" value={form.total_bedrooms} onChange={e => setForm({ ...form, total_bedrooms: Math.max(1, parseInt(e.target.value) || 1) })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Số phòng tắm</label>
+                                                <input type="number" min="1" value={form.total_bathrooms} onChange={e => setForm({ ...form, total_bathrooms: Math.max(1, parseInt(e.target.value) || 1) })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Giờ nhận</label>
+                                                <input type="text" value={form.checkin_time} onChange={e => setForm({ ...form, checkin_time: e.target.value })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none" placeholder="14:00" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Giờ trả</label>
+                                                <input type="text" value={form.checkout_time} onChange={e => setForm({ ...form, checkout_time: e.target.value })} className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold focus:outline-none" placeholder="12:00" />
                                             </div>
                                         </div>
                                     </div>
@@ -1460,9 +1558,9 @@ const MyServices = () => {
                                     <div className="col-span-1">
                                         <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Đơn vị tính</label>
                                         <select value={form.price_unit} onChange={e => setForm({ ...form, price_unit: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none">
-                                            <option value="per_person">👤 / người</option>
-                                            {form.type !== 'tour' && <option value="per_room">🏨 / phòng</option>}
-                                            <option value="per_day">📅 / ngày</option>
+                                            {form.type !== 'vehicle' && <option value="per_person">người</option>}
+                                            {form.type !== 'tour' && form.type !== 'vehicle' && <option value="per_room">phòng</option>}
+                                            {form.type !== 'hotel' && form.type !== 'homestay' && <option value="per_day">ngày</option>}
                                         </select>
                                     </div>
                                     <div className="col-span-1">
@@ -1471,12 +1569,12 @@ const MyServices = () => {
                                                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Số lượng xe (Tồn kho)</label>
                                                 <input required type="number" min="1" value={form.inventory} onChange={e => setForm({ ...form, inventory: Math.max(1, e.target.value) })} className="w-full px-5 py-3.5 bg-indigo-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:outline-none text-indigo-600" placeholder="Số xe" />
                                             </>
-                                        ) : (
+                                        ) : form.type !== 'hotel' ? (
                                             <>
                                                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 ml-1">Khách tối đa</label>
                                                 <input type="number" min="1" value={form.max_guests} onChange={e => setForm({ ...form, max_guests: Math.max(1, e.target.value) })} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:outline-none" placeholder="Người" />
                                             </>
-                                        )}
+                                        ) : null}
                                     </div>
                                 </div>
 

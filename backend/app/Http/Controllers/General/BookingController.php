@@ -4,6 +4,7 @@ namespace App\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\SystemHoliday;
 use App\Models\Service;
 use App\Models\ProviderProfile;
 use App\Models\Coupon;
@@ -42,7 +43,27 @@ class BookingController extends Controller
         try {
             $service = Service::with('provider')->findOrFail($request->service_id);
 
+            // ===== KIỂM TRA NGÀY LỄ HỆ THỐNG =====
+            // Ngày đặt có nằm trong System Holiday bị chặn không?
+            $checkInDate = $request->check_in_date;
+            $blockedHoliday = SystemHoliday::where('date', $checkInDate)
+                ->where('is_block_booking', true)
+                ->first();
+
+            if ($blockedHoliday) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Ngày {$blockedHoliday->date->format('d/m/Y')} là \"{$blockedHoliday->name}\" ({$blockedHoliday->type_label}). Dịch vụ tạm ngừng nhận đặt vào ngày này.",
+                    'holiday' => [
+                        'name'        => $blockedHoliday->name,
+                        'type'        => $blockedHoliday->type,
+                        'description' => $blockedHoliday->description,
+                    ],
+                ], 422);
+            }
+
             // Tính giá dựa trên loại phòng (nếu là khách sạn/homestay) hoặc dịch vụ chung
+
             $basePrice = $service->base_price ?? $service->price ?? 0;
             $roomType = null;
 
@@ -361,6 +382,29 @@ class BookingController extends Controller
         $userId = $request->user->id;
         $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
 
+        // Kiểm tra đơn hàng đã được thanh toán chưa
+        if ($booking->payment_status !== 'paid') {
+            return response()->json(['success' => false, 'message' => 'Đơn hàng chưa được thanh toán, không thể check-in.'], 400);
+        }
+
+        // Kiểm tra trạng thái đơn hàng phải là 'confirmed' (Provider đã xác nhận)
+        if ($booking->status !== 'confirmed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Đơn hàng phải được nhà cung cấp xác nhận trước khi check-in. Trạng thái hiện tại: ' . $booking->status
+            ], 400);
+        }
+
+        // Kiểm tra ngày check-in: chỉ được check-in từ ngày đặt trở đi
+        $today = Carbon::today();
+        $checkInDate = Carbon::parse($booking->check_in_date);
+        if ($today->lt($checkInDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Chưa đến ngày nhận dịch vụ. Ngày check-in là: ' . $checkInDate->format('d/m/Y') . '.'
+            ], 400);
+        }
+
         if ($booking->tourist_check_in_at) {
             return response()->json(['success' => false, 'message' => 'Bạn đã gửi yêu cầu check-in rồi.'], 400);
         }
@@ -422,7 +466,7 @@ class BookingController extends Controller
     public function checkOut(Request $request, $id, \App\Services\ChatService $chatService)
     {
         $userId = $request->user->id;
-        $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
+        $booking = Booking::with('service')->where('id', $id)->where('user_id', $userId)->firstOrFail();
 
         if (!$booking->is_checked_in) {
             return response()->json(['success' => false, 'message' => 'Bạn chưa được xác nhận check-in, không thể check-out.'], 400);
@@ -430,6 +474,19 @@ class BookingController extends Controller
 
         if ($booking->checked_out_at) {
             return response()->json(['success' => false, 'message' => 'Bạn đã check-out rồi.'], 400);
+        }
+
+        // Kiểm tra ngày check-out cho dịch vụ lưu trú nhiều đêm (hotel/homestay)
+        // Tour 1 ngày hoặc không có check_out_date thì được phép check-out ngay
+        $today = Carbon::today();
+        if ($booking->check_out_date && in_array($booking->service?->type, ['hotel', 'homestay'])) {
+            $checkOutDate = Carbon::parse($booking->check_out_date);
+            if ($today->lt($checkOutDate)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chưa đến ngày trả phòng. Ngày check-out là: ' . $checkOutDate->format('d/m/Y') . '. Nếu muốn trả sớm, vui lòng liên hệ nhà cung cấp.'
+                ], 400);
+            }
         }
 
         $booking->update([

@@ -24,6 +24,7 @@ class AvailabilityController extends Controller
 
     /**
      * Lấy danh sách trạng thái trong một khoảng thời gian
+     * Kèm theo system_holidays để Frontend hiển thị overlay calendar toàn diện
      */
     public function index(Request $request, $serviceId)
     {
@@ -36,16 +37,22 @@ class AvailabilityController extends Controller
 
         $startDate = $request->get('start_date', Carbon::now()->toDateString());
         $endDate = $request->get('end_date', Carbon::now()->addDays(30)->toDateString());
-        $query = ServiceAvailability::where('service_id', $serviceId)
-            ->whereBetween('available_date', [$startDate, $endDate]);
 
-        $availability = $query->orderBy('available_date')->get();
+        // Lấy trạng thái của dịch vụ này
+        $availability = ServiceAvailability::where('service_id', $serviceId)
+            ->whereBetween('available_date', [$startDate, $endDate])
+            ->orderBy('available_date')
+            ->get();
 
-        $availability = $query->orderBy('available_date')->get();
+        // Lấy ngày lễ hệ thống trong cùng khoảng ngày để hiển thị overlay
+        $systemHolidays = \App\Models\SystemHoliday::whereBetween('date', [$startDate, $endDate])
+            ->orderBy('date')
+            ->get(['id', 'date', 'name', 'type', 'description', 'is_block_booking']);
 
         return response()->json([
-            'success' => true,
-            'data' => $availability
+            'success'         => true,
+            'data'            => $availability,
+            'system_holidays' => $systemHolidays,
         ]);
     }
 
@@ -62,27 +69,35 @@ class AvailabilityController extends Controller
         }
 
         $validated = $request->validate([
-            'dates' => 'required|array|min:1',
-            'dates.*' => 'date_format:Y-m-d',
-            'total_slots' => 'required|integer|min:0',
+            'dates'          => 'required|array|min:1',
+            'dates.*'        => 'date_format:Y-m-d',
+            'total_slots'    => 'required|integer|min:0',
             'price_override' => 'nullable|numeric|min:0',
-            'is_blocked' => 'boolean'
+            'is_blocked'     => 'boolean',
+            // Mới: Lý do chặn ngày (chỉ cần khi is_blocked = true)
+            'block_reason'   => 'nullable|string|max:255',
+            'block_type'     => 'nullable|in:maintenance,staff_leave,private_event,fully_booked,other',
         ]);
 
-        $defaultSlots = $service->max_guests || 0;
+        // Nếu is_blocked = false, xóa lý do chặn
+        $isBlocked = $validated['is_blocked'] ?? false;
+        $blockReason = $isBlocked ? ($validated['block_reason'] ?? null) : null;
+        $blockType   = $isBlocked ? ($validated['block_type'] ?? null) : null;
 
         try {
-            DB::transaction(function () use ($serviceId, $validated) {
+            DB::transaction(function () use ($serviceId, $validated, $isBlocked, $blockReason, $blockType) {
                 foreach ($validated['dates'] as $date) {
                     ServiceAvailability::updateOrCreate(
                         [
-                            'service_id' => $serviceId,
+                            'service_id'     => $serviceId,
                             'available_date' => $date
                         ],
                         [
-                            'total_slots' => $validated['total_slots'],
+                            'total_slots'    => $validated['total_slots'],
                             'price_override' => $validated['price_override'] ?? null,
-                            'is_blocked' => $validated['is_blocked'] ?? false,
+                            'is_blocked'     => $isBlocked,
+                            'block_reason'   => $blockReason,
+                            'block_type'     => $blockType,
                         ]
                     );
                 }
@@ -90,7 +105,7 @@ class AvailabilityController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã cập nhật trạng thái khả dụng thành công.'
+                'message' => 'Cập nhật trạng thái khả dụng thành công.'
             ]);
         } catch (\Exception $e) {
             return response()->json([

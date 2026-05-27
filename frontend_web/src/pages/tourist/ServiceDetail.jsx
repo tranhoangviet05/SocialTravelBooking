@@ -15,6 +15,7 @@ import axios from 'axios';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useBehaviorTracking } from '../../hooks/useBehaviorTracking';
 import { 
     format, addMonths, subMonths, startOfMonth, endOfMonth, 
@@ -293,7 +294,7 @@ const RoomDetailModal = ({ room, onClose }) => {
     );
 };
 
-const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities, systemHolidays = [] }) => {
+const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities, systemHolidays = [], onBlockedClick }) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const renderHeader = () => (
@@ -372,8 +373,18 @@ const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities, systemHo
                     <div key={dateStr} className="relative group">
                         <button
                             type="button"
-                            disabled={!isAvailable}
-                            onClick={() => onSelect(dateStr)}
+                            onClick={() => {
+                                if (!isAvailable) {
+                                    if (onBlockedClick) {
+                                        if (isHolidayBlocked) onBlockedClick(`Hệ thống đã chặn ngày lễ: ${holiday.name}`);
+                                        else if (isProviderBlocked) onBlockedClick(`Nhà cung cấp đã chặn ngày này: ${availability?.block_reason || ''}`);
+                                        else if (isPast) onBlockedClick(`Không thể chọn ngày trong quá khứ.`);
+                                        else if (slotsLeft <= 0) onBlockedClick(`Ngày ${dateStr} đã hết chỗ.`);
+                                    }
+                                } else {
+                                    onSelect(dateStr);
+                                }
+                            }}
                             title={tooltip}
                             className={`relative w-full h-12 flex flex-col items-center justify-center rounded-xl transition-all border
                                 ${!isCurrentMonth ? 'opacity-20 pointer-events-none border-transparent' : ''}
@@ -514,6 +525,7 @@ const ServiceDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
+    const toast = useNotification();
 
     const [serviceData, setServiceData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -1188,7 +1200,9 @@ const ServiceDetail = () => {
                                             <AvailabilityCalendar 
                                                 selectedDate={bookingForm.startDate}
                                                 availabilities={serviceData.availabilities}
+                                                systemHolidays={systemHolidays}
                                                 onSelect={(date) => setBookingForm({ ...bookingForm, startDate: date })}
+                                                onBlockedClick={(msg) => toast?.error?.(msg)}
                                             />
 
                                             {bookingForm.startDate && (

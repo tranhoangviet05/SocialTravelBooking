@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import axios from 'axios';
 import ServiceCardSkeleton from '../../components/common/ServiceCardSkeleton';
 import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
@@ -894,7 +895,13 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
                                     return (
                                         <div
                                             key={date}
-                                            onClick={() => !isHolidayBlocked && toggleDate(date)}
+                                            onClick={() => {
+                                                if (isHolidayBlocked) {
+                                                    showToast(`Hệ thống đã chặn lịch ngày lễ: ${holiday.name}`, 'error');
+                                                } else {
+                                                    toggleDate(date);
+                                                }
+                                            }}
                                             title={holiday ? holiday.name : ''}
                                             className={`relative p-4 rounded-3xl border-2 transition-all ${
                                                 isHolidayBlocked ? 'border-blue-200 bg-blue-50/50 cursor-not-allowed opacity-80' :

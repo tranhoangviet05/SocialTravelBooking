@@ -41,6 +41,7 @@ import SettingManagement from './pages/admin/SettingManagement';
 import ReviewManagement from './pages/admin/ReviewManagement';
 import AutomationManagement from './pages/admin/AutomationManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
+import HolidayManagement from './pages/admin/HolidayManagement';
 
 // --- Provider Pages ---
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -118,6 +119,7 @@ function App() {
                   <Route path={API_ENDPOINTS.AUTOMATION_ADMIN} element={<AutomationManagement />} />
                   <Route path={API_ENDPOINTS.REPORTS_ADMIN} element={<ReportManagement />} />
                   <Route path={API_ENDPOINTS.SETTINGS_ADMIN} element={<SettingManagement />} />
+                  <Route path={API_ENDPOINTS.HOLIDAYS_ADMIN} element={<HolidayManagement />} />
 
                   {/* Fallback routes for admin */}
                   <Route path="/admin/services" element={<ServiceManagement />} />

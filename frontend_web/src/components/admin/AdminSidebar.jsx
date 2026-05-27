@@ -13,7 +13,8 @@ import {
     Briefcase,
     Star,
     Zap,
-    Tag
+    Tag,
+    CalendarDays
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../utils/ConstantSystems';
@@ -29,6 +30,7 @@ const menuItems = [
     { icon: Ticket, label: 'Mã giảm giá', path: API_ENDPOINTS.COUPONS_ADMIN },
     { icon: Star, label: 'Đánh giá', path: API_ENDPOINTS.REVIEWS_ADMIN },
     { icon: Zap, label: 'Tự động hóa', path: API_ENDPOINTS.AUTOMATION_ADMIN },
+    { icon: CalendarDays, label: 'Ngày lễ & Đặc biệt', path: API_ENDPOINTS.HOLIDAYS_ADMIN },
     { icon: ShieldAlert, label: 'Báo cáo', path: API_ENDPOINTS.REPORTS_ADMIN },
     { icon: Settings, label: 'Cài đặt', path: API_ENDPOINTS.SETTINGS_ADMIN },
 ];

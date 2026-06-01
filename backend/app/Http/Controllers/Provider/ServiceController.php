@@ -229,8 +229,15 @@ class ServiceController extends Controller
             // Phát sự kiện realtime
             broadcast(new \App\Events\AdminServiceUpdated($service, 'created'));
 
-            // Gửi dữ liệu sang N8N để kiểm duyệt tự động
-            \App\Jobs\SendServiceToN8n::dispatch($service);
+            // Gửi dữ liệu sang N8N kiểm duyệt (N8N sẽ phản hồi ngay lập tức nhờ chế độ Respond Immediately)
+            $webhookUrl = config('services.n8n.moderation_url');
+            if ($webhookUrl) {
+                try {
+                    \Illuminate\Support\Facades\Http::timeout(2)->post($webhookUrl, $service->toArray());
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning("Không thể gọi N8N Moderation Webhook: " . $e->getMessage());
+                }
+            }
 
             return response()->json([
                 'success' => true,
@@ -448,8 +455,15 @@ class ServiceController extends Controller
             // Phát sự kiện realtime
             broadcast(new \App\Events\AdminServiceUpdated($service, 'updated'));
 
-            // Gửi dữ liệu sang N8N để kiểm duyệt lại
-            \App\Jobs\SendServiceToN8n::dispatch($service);
+            // Gửi dữ liệu sang N8N kiểm duyệt lại (N8N sẽ phản hồi ngay lập tức nhờ chế độ Respond Immediately)
+            $webhookUrl = config('services.n8n.moderation_url');
+            if ($webhookUrl) {
+                try {
+                    \Illuminate\Support\Facades\Http::timeout(2)->post($webhookUrl, $service->toArray());
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning("Không thể gọi N8N Moderation Webhook: " . $e->getMessage());
+                }
+            }
 
             return response()->json([
                 'success' => true,

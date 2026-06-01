@@ -28,7 +28,7 @@ class SendServiceToN8n implements ShouldQueue
      */
     public function handle(): void
     {
-        $webhookUrl = env('N8N_MODERATION_WEBHOOK_URL', 'http://localhost:5678/webhook/moderate-service');
+        $webhookUrl = config('services.n8n.moderation_url');
 
         try {
             $response = Http::timeout(10)->post($webhookUrl, $this->service->toArray());

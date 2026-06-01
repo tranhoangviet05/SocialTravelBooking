@@ -28,7 +28,7 @@ class BehaviorTrackingController extends Controller
                 'tags'         => 'nullable|array', // Mảng tag_id
             ]);
 
-            $n8nUrl = env('N8N_WEBHOOK_URL', 'http://socialtravelbooking.click:8888/webhook/behavior-tracking');
+            $n8nUrl = config('services.n8n.url');
             if ($n8nUrl) {
                 // Gửi dữ liệu và bắt phản hồi để debug
                 $response = Http::post($n8nUrl, $validated);

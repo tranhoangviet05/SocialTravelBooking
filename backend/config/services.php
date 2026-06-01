@@ -46,4 +46,10 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-flash-latest'),
     ],
 
+    'n8n' => [
+        'url' => env('N8N_WEBHOOK_URL', 'http://localhost:5678/webhook/behavior-tracking'),
+        'upsell_url' => env('N8N_UPSELL_WEBHOOK_URL', 'http://localhost:5678/webhook/booking-confirmed-trigger'),
+        'moderation_url' => env('N8N_MODERATION_WEBHOOK_URL', 'http://localhost:5678/webhook/moderate-service'),
+    ],
+
 ];

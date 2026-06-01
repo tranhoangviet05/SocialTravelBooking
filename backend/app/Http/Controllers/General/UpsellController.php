@@ -53,7 +53,7 @@ class UpsellController extends Controller
                 Log::info("Sent Upsell invitation email for Booking: " . $booking->booking_code);
 
                 // 2. Trigger n8n Workflow (nếu có cấu hình)
-                $n8nWebhook = env('N8N_UPSELL_WEBHOOK_URL');
+                $n8nWebhook = config('services.n8n.upsell_url');
                 if ($n8nWebhook) {
                     Http::post($n8nWebhook, [
                         'booking_id' => $booking->id,

@@ -85,6 +85,7 @@ services:
       REVERB_HOST: reverb
     volumes:
       - ./backend:/var/www
+      - backend_vendor:/var/www/vendor
     networks:
       - stb_network
 

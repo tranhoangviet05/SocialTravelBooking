@@ -6,7 +6,7 @@ import {
     CheckCircle, AlertCircle, Image as ImageIcon,
     UploadCloud, Clock, ChevronLeft, ChevronRight,
     CalendarDays, Star, Settings2, ChevronDown, ChevronUp,
-    Bed, Users, RotateCw, ArrowUp, Car
+    Bed, Users, RotateCw, ArrowUp, Car, ShieldCheck
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 import { uploadImage } from '../../utils/cloudinary';
@@ -1001,8 +1001,8 @@ const MyServices = () => {
             } else if (status === 'rejected') {
                 showToast(`Dịch vụ bị từ chối: ${service_name}\nLý do: ${rejection_reason}`, 'error');
             }
-            
-            setServices(prev => prev.map(s => 
+
+            setServices(prev => prev.map(s =>
                 s.id === service_id ? { ...s, status, rejection_reason, approval_note } : s
             ));
         });
@@ -1199,9 +1199,9 @@ const MyServices = () => {
                         <p className="text-gray-500 text-sm mt-1 font-medium">Quản lý các dịch vụ bạn đang cung cấp.</p>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => setShowUpsellManager(true)} className="flex items-center gap-2 px-5 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-sm font-bold hover:bg-indigo-100 transition-all">
+                        {/* <button onClick={() => setShowUpsellManager(true)} className="flex items-center gap-2 px-5 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-sm font-bold hover:bg-indigo-100 transition-all">
                             <ArrowUp size={18} /> Chiến dịch Upsell
-                        </button>
+                        </button> */}
                         <button onClick={handleOpenCreate} className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
                             <Plus size={18} /> Thêm dịch vụ
                         </button>

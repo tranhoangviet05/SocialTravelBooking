@@ -91,7 +91,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "=http://host.docker.internal:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
+                "url": "=http://backend:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -119,7 +119,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "=http://host.docker.internal:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
+                "url": "=http://backend:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -147,7 +147,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "=http://host.docker.internal:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
+                "url": "=http://backend:8000/api/internal/services/{{ $('Webhook (Receive Service)').item.json.body.id }}/moderate",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [

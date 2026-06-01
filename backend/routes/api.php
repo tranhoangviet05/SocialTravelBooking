@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Admin\HolidayController;
 
 use App\Http\Controllers\General\LocationController;
 use App\Http\Controllers\General\CategoryController;
@@ -70,6 +71,9 @@ Route::get('/general/get/posts/latest', [PostController::class, 'latest']);
 
 // Mã giảm giá (Public)
 Route::get('/general/get/coupons', [\App\Http\Controllers\General\CouponController::class, 'index']);
+
+// Ngày đặc biệt / Nghỉ lễ (Public - Frontend & Provider đọc để hiển thị calendar)
+Route::get('/holidays', [HolidayController::class, 'publicIndex']);
 
 // Webhook SePay (Public - không cần auth, SePay gọi vào)
 Route::post('/payment/sepay/webhook', [\App\Http\Controllers\General\PaymentController::class, 'sepayWebhook']);
@@ -314,6 +318,12 @@ Route::middleware('firebase.auth')->group(function () {
         // Tự động hóa n8n
         Route::get('/automation/workflows', [\App\Http\Controllers\Admin\AutomationController::class, 'index']);
         Route::patch('/automation/workflows/{id}/toggle', [\App\Http\Controllers\Admin\AutomationController::class, 'toggle']);
+
+        // Quản lý Ngày Lễ / Ngày Đặc Biệt
+        Route::get('/holidays', [HolidayController::class, 'index']);
+        Route::post('/holidays', [HolidayController::class, 'store']);
+        Route::put('/holidays/{id}', [HolidayController::class, 'update']);
+        Route::delete('/holidays/{id}', [HolidayController::class, 'destroy']);
     });
 
     // ===========================================================

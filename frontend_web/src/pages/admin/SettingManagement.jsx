@@ -3,8 +3,10 @@ import { Settings, Save, Bell, Shield, Database, Globe, Percent, Loader2, Sparkl
 import adminApi from '../../api/adminApi';
 import SettingsSkeleton from '../../components/common/SettingsSkeleton';
 import { useNotification } from '../../contexts/NotificationContext';
+import HolidayManagement from './HolidayManagement';
 
 const SettingManagement = () => {
+    const [activeTab, setActiveTab] = useState('general');
     const [settings, setSettings] = useState({});
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -57,20 +59,47 @@ const SettingManagement = () => {
     }
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 max-w-5xl">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Cài đặt hệ thống</h2>
-                        <p className="text-gray-500 text-sm mt-1 font-medium">Cấu hình tham số vận hành sàn và các thiết lập bảo mật.</p>
+                        <p className="text-gray-500 text-sm mt-1 font-medium">Cấu hình tham số vận hành sàn và các thiết lập bảo mật, ngày lễ.</p>
                     </div>
-                    <button onClick={fetchSettings}
-                        className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer">
-                        <RotateCw size={20} />
+                    {activeTab === 'general' && (
+                        <button onClick={fetchSettings}
+                            className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer">
+                            <RotateCw size={20} />
+                        </button>
+                    )}
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 border-b border-gray-200 pb-px">
+                    <button
+                        onClick={() => setActiveTab('general')}
+                        className={`px-6 py-3 font-bold text-sm border-b-2 transition-colors ${
+                            activeTab === 'general'
+                                ? 'border-sky-500 text-sky-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        Cấu hình chung
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('holiday')}
+                        className={`px-6 py-3 font-bold text-sm border-b-2 transition-colors ${
+                            activeTab === 'holiday'
+                                ? 'border-sky-500 text-sky-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        Ngày Lễ & Nghỉ Phép
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
-                    {/* Commission Settings */}
+                {activeTab === 'general' ? (
+                    <div className="grid grid-cols-1 gap-6">
+                        {/* Commission Settings */}
                     <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm transition-all hover:shadow-md">
                         <div className="flex items-center gap-3 mb-8">
                             <div className="w-12 h-12 bg-sky-50 text-sky-500 rounded-2xl flex items-center justify-center">
@@ -211,10 +240,12 @@ const SettingManagement = () => {
                             className="flex items-center gap-2 px-10 py-3.5 bg-sky-500 text-white rounded-2xl text-xs font-black shadow-xl shadow-sky-500/25 hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-50"
                         >
                             {submitting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                            Lưu cấu hình hệ thống
                         </button>
+                    </div>
                 </div>
-            </div>
+                ) : (
+                    <HolidayManagement />
+                )}
         </div>
     );
 };

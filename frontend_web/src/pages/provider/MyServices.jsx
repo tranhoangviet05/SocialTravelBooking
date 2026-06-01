@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
+import axios from 'axios';
 import ServiceCardSkeleton from '../../components/common/ServiceCardSkeleton';
 import {
     Plus, Search, Trash2, Loader2, Package, MapPin, X, Edit3,
@@ -703,6 +704,7 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
     const [roomTypes, setRoomTypes] = useState([]);
     const [selectedRoomTypeId, setSelectedRoomTypeId] = useState('');
     const [saving, setSaving] = useState(false);
+    const [systemHolidays, setSystemHolidays] = useState([]);
 
     // Batch form
     const [batchForm, setBatchForm] = useState({
@@ -723,7 +725,10 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
                     setRoomTypes(rtRes.data || []);
                     if (rtRes.data?.length > 0) setSelectedRoomTypeId(rtRes.data[0].id);
                 }
-                await fetchAvailability();
+                await Promise.all([
+                    fetchAvailability(),
+                    fetchHolidays()
+                ]);
             } catch (err) {
                 showToast('Không tải được dữ liệu', 'error');
             } finally {
@@ -732,6 +737,22 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
         };
         fetchData();
     }, [service.id]);
+
+    const fetchHolidays = async () => {
+        try {
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/holidays`, {
+                params: {
+                    start_date: new Date().toISOString().split('T')[0],
+                    end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                }
+            });
+            if (res.data.success) {
+                setSystemHolidays(res.data.data);
+            }
+        } catch (error) {
+            console.error("Lỗi lấy ngày lễ:", error);
+        }
+    };
 
     const fetchAvailability = async (rtId = selectedRoomTypeId) => {
         const res = await providerApi.getAvailability(service.id, {
@@ -846,9 +867,10 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
                             <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2">
                                 <RotateCw size={16} className="text-emerald-500" /> Trạng thái 30 ngày tới
                             </h4>
-                            <div className="flex gap-4">
+                            <div className="flex flex-wrap gap-4 mt-2 sm:mt-0">
                                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-full" /> <span className="text-[10px] font-bold text-slate-500">Còn trống</span></div>
                                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-rose-500 rounded-full" /> <span className="text-[10px] font-bold text-slate-500">Đã chặn</span></div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-500 rounded-full" /> <span className="text-[10px] font-bold text-slate-500">Hệ thống chặn lễ</span></div>
                             </div>
                         </div>
 
@@ -863,21 +885,35 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
                                     const dateStr = d.getDate() + '/' + (d.getMonth() + 1);
 
                                     const status = availability.find(a => a.available_date === date);
+                                    const holiday = systemHolidays.find(h => h.date === date);
+                                    const isHolidayBlocked = holiday?.is_block_booking === true;
+                                    const isHolidayDisplay = holiday && !isHolidayBlocked;
+                                    
                                     const isSelected = batchForm.dates.includes(date);
                                     const isBlocked = status?.is_blocked;
 
                                     return (
                                         <div
                                             key={date}
-                                            onClick={() => toggleDate(date)}
-                                            className={`relative p-4 rounded-3xl border-2 cursor-pointer transition-all ${isSelected ? 'border-indigo-600 bg-indigo-50 shadow-lg shadow-indigo-100 ring-2 ring-indigo-600/10' :
-                                                isBlocked ? 'border-rose-100 bg-rose-50/50' :
-                                                    'border-slate-50 bg-white hover:border-slate-200'
-                                                }`}
+                                            onClick={() => {
+                                                if (isHolidayBlocked) {
+                                                    showToast(`Hệ thống đã chặn lịch ngày lễ: ${holiday.name}`, 'error');
+                                                } else {
+                                                    toggleDate(date);
+                                                }
+                                            }}
+                                            title={holiday ? holiday.name : ''}
+                                            className={`relative p-4 rounded-3xl border-2 transition-all ${
+                                                isHolidayBlocked ? 'border-blue-200 bg-blue-50/50 cursor-not-allowed opacity-80' :
+                                                isSelected ? 'border-indigo-600 bg-indigo-50 shadow-lg shadow-indigo-100 ring-2 ring-indigo-600/10 cursor-pointer' :
+                                                isBlocked ? 'border-rose-100 bg-rose-50/50 cursor-pointer' :
+                                                isHolidayDisplay ? 'border-blue-100 bg-blue-50/30 cursor-pointer' :
+                                                'border-slate-50 bg-white hover:border-slate-200 cursor-pointer'
+                                            }`}
                                         >
                                             <div className="flex justify-between items-start mb-2">
                                                 <span className={`text-[10px] font-black uppercase tracking-tighter ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{dayStr}</span>
-                                                <div className={`w-2 h-2 rounded-full ${isBlocked ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                                                <div className={`w-2 h-2 rounded-full ${isHolidayBlocked ? 'bg-blue-500' : isBlocked ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                                             </div>
                                             <div className={`text-lg font-black ${isSelected ? 'text-indigo-900' : 'text-slate-900'}`}>{dateStr}</div>
 
@@ -891,6 +927,11 @@ const AvailabilityModal = ({ service, onClose, showToast }) => {
                                                 {status?.price_override && (
                                                     <div className="text-[10px] font-black text-rose-500 truncate">
                                                         {Number(status.price_override).toLocaleString()}₫
+                                                    </div>
+                                                )}
+                                                {holiday && (
+                                                    <div className={`text-[9px] font-bold truncate mt-1 ${isHolidayBlocked ? 'text-blue-500' : 'text-slate-400'}`}>
+                                                        {isHolidayBlocked ? '🚫 ' : '🎌 '}{holiday.name}
                                                     </div>
                                                 )}
                                             </div>

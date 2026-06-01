@@ -15,6 +15,7 @@ import axios from 'axios';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useBehaviorTracking } from '../../hooks/useBehaviorTracking';
 import { 
     format, addMonths, subMonths, startOfMonth, endOfMonth, 
@@ -293,7 +294,7 @@ const RoomDetailModal = ({ room, onClose }) => {
     );
 };
 
-const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities }) => {
+const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities, systemHolidays = [], onBlockedClick }) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const renderHeader = () => (
@@ -351,36 +352,90 @@ const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities }) => {
                 const isPast = isBefore(cloneDay, today);
                 const isCurrentMonth = isSameMonth(cloneDay, monthStart);
                 const isSelected = selectedDate === dateStr;
-                const isAvailable = availability && slotsLeft > 0 && !isPast;
+
+                // Kiểm tra system holiday
+                const holiday = systemHolidays.find(h => h.date === dateStr);
+                const isHolidayBlocked = holiday?.is_block_booking === true;
+                const isHolidayDisplay = holiday && !isHolidayBlocked; // chỉ hiển thị, không chặn
+
+                // Provider block
+                const isProviderBlocked = availability?.is_blocked === true;
+
+                const isAvailable = !isHolidayBlocked && !isProviderBlocked
+                    && availability && slotsLeft > 0 && !isPast;
+
+                // Tooltip text
+                let tooltip = '';
+                if (isHolidayBlocked) tooltip = `🚫 ${holiday.name}`;
+                else if (isProviderBlocked) tooltip = `🔒 ${availability?.block_reason || 'Nhà cung cấp đóng cửa'}`;
 
                 days.push(
-                    <button
-                        key={day}
-                        type="button"
-                        disabled={!isAvailable}
-                        onClick={() => onSelect(dateStr)}
-                        className={`relative h-12 flex flex-col items-center justify-center rounded-xl transition-all border
-                            ${!isCurrentMonth ? 'opacity-20 pointer-events-none border-transparent' : ''}
-                            ${isSelected ? 'bg-sky-500 border-sky-500 text-white shadow-md shadow-sky-100 z-10 scale-105' : 
-                              isAvailable ? 'bg-white border-slate-100 hover:border-sky-300 text-slate-800' : 
-                              'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed'}
-                        `}
-                    >
-                        <span className="text-xs font-black">{format(cloneDay, 'd')}</span>
-                        {isAvailable && (
-                            <span className={`text-[8px] font-bold mt-0.5 ${isSelected ? 'text-white/80' : 'text-sky-500'}`}>
-                                {slotsLeft} vé
-                            </span>
+                    <div key={dateStr} className="relative group">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!isAvailable) {
+                                    if (onBlockedClick) {
+                                        if (isHolidayBlocked) onBlockedClick(`Hệ thống đã chặn ngày lễ: ${holiday.name}`);
+                                        else if (isProviderBlocked) onBlockedClick(`Nhà cung cấp đã chặn ngày này: ${availability?.block_reason || ''}`);
+                                        else if (isPast) onBlockedClick(`Không thể chọn ngày trong quá khứ.`);
+                                        else if (slotsLeft <= 0) onBlockedClick(`Ngày ${dateStr} đã hết chỗ.`);
+                                    }
+                                } else {
+                                    onSelect(dateStr);
+                                }
+                            }}
+                            title={tooltip}
+                            className={`relative w-full h-12 flex flex-col items-center justify-center rounded-xl transition-all border
+                                ${!isCurrentMonth ? 'opacity-20 pointer-events-none border-transparent' : ''}
+                                ${isSelected
+                                    ? 'bg-sky-500 border-sky-500 text-white shadow-md shadow-sky-100 z-10 scale-105'
+                                    : isHolidayBlocked
+                                        ? 'bg-rose-50 border-rose-200 text-rose-400 cursor-not-allowed'
+                                        : isProviderBlocked
+                                            ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                                            : isHolidayDisplay
+                                                ? 'bg-blue-50 border-blue-200 text-slate-800 hover:border-sky-300'
+                                                : isAvailable
+                                                    ? 'bg-white border-slate-100 hover:border-sky-300 text-slate-800'
+                                                    : 'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed'}
+                            `}
+                        >
+                            <span className="text-xs font-black">{format(cloneDay, 'd')}</span>
+                            {isAvailable && !isSelected && (
+                                <span className="text-[8px] font-bold mt-0.5 text-sky-500">
+                                    {slotsLeft} vé
+                                </span>
+                            )}
+                            {isSelected && (
+                                <span className="text-[8px] font-bold mt-0.5 text-white/80">{slotsLeft} vé</span>
+                            )}
+                            {isHolidayBlocked && isCurrentMonth && (
+                                <span className="text-[7px] font-bold text-rose-400 mt-0.5 truncate w-full text-center px-0.5">🚫</span>
+                            )}
+                            {isHolidayDisplay && isCurrentMonth && (
+                                <span className="text-[7px] font-bold text-blue-400 mt-0.5">🎌</span>
+                            )}
+                            {isProviderBlocked && isCurrentMonth && !isHolidayBlocked && (
+                                <span className="text-[7px] font-bold text-slate-400 mt-0.5">🔒</span>
+                            )}
+                            {!isAvailable && !isHolidayBlocked && !isProviderBlocked && isCurrentMonth && !isPast && (
+                                <span className="text-[8px] font-bold text-slate-300 mt-0.5">Hết</span>
+                            )}
+                        </button>
+                        {/* Tooltip khi hover */}
+                        {tooltip && isCurrentMonth && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded-lg whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                                {tooltip}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                            </div>
                         )}
-                        {!isAvailable && isCurrentMonth && !isPast && (
-                            <span className="text-[8px] font-bold text-slate-300 mt-0.5">Hết</span>
-                        )}
-                    </button>
+                    </div>
                 );
                 day = addDays(day, 1);
             }
             rows.push(
-                <div className="grid grid-cols-7 gap-1" key={day}>
+                <div className="grid grid-cols-7 gap-1" key={day.toISOString()}>
                     {days}
                 </div>
             );
@@ -394,6 +449,25 @@ const AvailabilityCalendar = ({ selectedDate, onSelect, availabilities }) => {
             {renderHeader()}
             {renderDays()}
             {renderCells()}
+            {/* Chú thích */}
+            <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                    <div className="w-3 h-3 bg-white border border-slate-200 rounded" />
+                    Còn chỗ
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                    <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded flex items-center justify-center text-[8px]">🎌</div>
+                    Ngày lễ (mở đặt)
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                    <div className="w-3 h-3 bg-rose-50 border border-rose-200 rounded flex items-center justify-center text-[8px]">🚫</div>
+                    Bị chặn
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                    <div className="w-3 h-3 bg-slate-100 border border-slate-200 rounded flex items-center justify-center text-[8px]">🔒</div>
+                    NCC đóng
+                </div>
+            </div>
         </div>
     );
 };
@@ -451,6 +525,7 @@ const ServiceDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
+    const toast = useNotification();
 
     const [serviceData, setServiceData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -458,6 +533,7 @@ const ServiceDetail = () => {
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
     const [selectedRoomModal, setSelectedRoomModal] = useState(null);
+    const [systemHolidays, setSystemHolidays] = useState([]);
     const [bookingForm, setBookingForm] = useState({
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
@@ -484,14 +560,24 @@ const ServiceDetail = () => {
 
         const fetchDetail = async () => {
             try {
-                const response = await axios.get(`${import.meta.env.VITE_API_URL}/general/get/services/detail/${slug}`);
-                if (response.data.success) {
-                    const data = response.data.data;
+                const [serviceRes, holidayRes] = await Promise.all([
+                    axios.get(`${import.meta.env.VITE_API_URL}/general/get/services/detail/${slug}`),
+                    axios.get(`${import.meta.env.VITE_API_URL}/holidays`, {
+                        params: {
+                            start_date: format(new Date(), 'yyyy-MM-dd'),
+                            end_date: format(addDays(new Date(), 90), 'yyyy-MM-dd'),
+                        }
+                    }),
+                ]);
+                if (serviceRes.data.success) {
+                    const data = serviceRes.data.data;
                     setServiceData(data);
-                    // Mặc định chọn loại phòng đầu tiên nếu có
                     if (data.room_types && data.room_types.length > 0) {
                         setSelectedRoomType(data.room_types[0]);
                     }
+                }
+                if (holidayRes.data.success) {
+                    setSystemHolidays(holidayRes.data.data);
                 }
             } catch (error) {
                 console.error("Lỗi khi lấy chi tiết dịch vụ:", error);
@@ -1114,7 +1200,9 @@ const ServiceDetail = () => {
                                             <AvailabilityCalendar 
                                                 selectedDate={bookingForm.startDate}
                                                 availabilities={serviceData.availabilities}
+                                                systemHolidays={systemHolidays}
                                                 onSelect={(date) => setBookingForm({ ...bookingForm, startDate: date })}
+                                                onBlockedClick={(msg) => toast?.error?.(msg)}
                                             />
 
                                             {bookingForm.startDate && (

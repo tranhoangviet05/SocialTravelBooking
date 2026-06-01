@@ -13,7 +13,8 @@ import {
     Briefcase,
     Star,
     Zap,
-    Tag
+    Tag,
+    CalendarDays
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../utils/ConstantSystems';

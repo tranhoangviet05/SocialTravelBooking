@@ -40,6 +40,7 @@ export const API_ENDPOINTS = {
     AUTOMATION_ADMIN: '/admin/automation',
     SERVICES_ADMIN: '/admin/services',
     SETTINGS_ADMIN: '/admin/settings',
+    HOLIDAYS_ADMIN: '/admin/holidays',
 
     // Provider
     PROVIDER_SERVICES: '/provider/services',

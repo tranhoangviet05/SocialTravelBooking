@@ -66,6 +66,12 @@ const adminApi = {
     getAutomationWorkflows: () => axios.get('/admin/automation/workflows'),
     toggleAutomationWorkflow: (id) => axios.patch(`/admin/automation/workflows/${id}/toggle`),
     getAutomationLogs: () => axios.get('/admin/automation-logs'),
+
+    // Quản lý ngày lễ / ngày đặc biệt
+    getHolidays: (year) => axios.get('/admin/holidays', { params: { year } }),
+    createHoliday: (data) => axios.post('/admin/holidays', data),
+    updateHoliday: (id, data) => axios.put(`/admin/holidays/${id}`, data),
+    deleteHoliday: (id) => axios.delete(`/admin/holidays/${id}`),
 };
 
 export default adminApi;

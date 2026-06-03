@@ -1,7 +1,8 @@
-import React from 'react';
-import { Star, MapPin, Clock, Users, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, MapPin, Clock, Users, Heart, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useWishlist } from '../../../contexts/WishlistContext';
+import echo from '../../../utils/echo';
 
 const ServiceCard = ({ service, className = '' }) => {
     // Mapping backend fields to local variables
@@ -22,7 +23,24 @@ const ServiceCard = ({ service, className = '' }) => {
         tags = [],
         provider,
         media_count,
+        status,
     } = service;
+
+    const [isSuspended, setIsSuspended] = useState(status ? status !== 'active' : false);
+
+    useEffect(() => {
+        const channel = echo.channel('services');
+        const listener = (e) => {
+            if (e.service_id === id) {
+                setIsSuspended(e.status !== 'active');
+            }
+        };
+        channel.listen('.PublicServiceStatusUpdated', listener);
+        
+        return () => {
+            channel.stopListening('.PublicServiceStatusUpdated', listener);
+        };
+    }, [id]);
 
     const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
     const isFavorited = isInWishlist(id);
@@ -72,10 +90,16 @@ const ServiceCard = ({ service, className = '' }) => {
                 />
 
                 {/* Glassmorphism Badge: Type */}
-                <div className="absolute top-4 left-4">
-                    <span className={`backdrop-blur-md ${type === 'tour' ? 'bg-amber-500/90' : 'bg-sky-600/90'} text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm`}>
+                <div className="absolute top-4 left-4 flex flex-col gap-2">
+                    <span className={`backdrop-blur-md ${type === 'tour' ? 'bg-amber-500/90' : 'bg-sky-600/90'} text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm self-start`}>
                         {typeLabel}
                     </span>
+                    {isSuspended && (
+                        <span className="backdrop-blur-md bg-rose-500/90 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm self-start flex items-center gap-1">
+                            <AlertCircle size={12} />
+                            Tạm ngưng
+                        </span>
+                    )}
                 </div>
 
                 {/* Favorite Button */}

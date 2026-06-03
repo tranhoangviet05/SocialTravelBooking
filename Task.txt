@@ -1,4 +1,12 @@
-Realtime quản lý dịch vụ, quản lý bookings, đánh giá khách hàng
-Tự động kiểm duyệt Dịch vụ, Bài viết ở Admin (N8N WF + Gemini AI)
-Báo cáo bài viết, báo cáo dịch vụ, báo cáo khách du lịch,...
-Tính năng thanh toán 1 nửa số tiền (đặt cọc), Thanh toán khi checkin
+Realtime dịch vụ đối với giao diện người dùng
+Tạo mã giảm giá sau đó cấp mã giảm giá cho người dùng cụ thể
+Thanh toán tiền cọc (30%) sau đó thanh toán phần còn lại khi CheckIn (tiền cọc không thể hoàn trả)
+Thanh toán khi CheckIn (100%)
+Ví (TravelWalllet):
++ Provider dùng để nhận tiền cọc và tiền còn lại
++ User dùng để thanh toán tiền cọc và tiền còn lại
+--> Logic giữ tiền trung gian (Admin giữ tiền trung gian khi User thanh toán -> User CheckIn -> Provider nhận tiền)
+Logic rút tiền từ Ví (TravelWalllet) về tài khoản ngân hàng:
++ User cung cấp tài khoản ngân hàng và gửi yêu cầu rút tiền
++ Admin nhận yêu cầu rút tiền sau đó chuyển thủ công cho User.???
+(Hiện tại chỉ thanh toán, luồng nhận tiền vào bằng Sepay chứ chưa có cách giải quyết luồng rút tiền cho User?)

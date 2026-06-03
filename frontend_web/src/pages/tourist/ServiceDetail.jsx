@@ -12,6 +12,7 @@ import Button from '../../components/common/Button';
 import ServiceReviews from '../../components/tourist/services/ServiceReviews';
 import { MOCK_REVIEWS } from '../../data/mockServices';
 import axios from 'axios';
+import echo from '../../utils/echo';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { useAuth } from '../../contexts/AuthContext';
@@ -542,6 +543,27 @@ const ServiceDetail = () => {
         rooms: 1
     });
     const [selectedRoomType, setSelectedRoomType] = useState(null);
+    const [isServiceSuspended, setIsServiceSuspended] = useState(false);
+
+    // Listen for realtime service status updates
+    useEffect(() => {
+        if (!serviceData || !serviceData.id) return;
+
+        const channel = echo.channel('services');
+        channel.listen('.PublicServiceStatusUpdated', (e) => {
+            if (e.service_id === serviceData.id) {
+                if (e.status !== 'active') {
+                    setIsServiceSuspended(true);
+                } else {
+                    setIsServiceSuspended(false);
+                }
+            }
+        });
+
+        return () => {
+            echo.leaveChannel('services');
+        };
+    }, [serviceData?.id]);
 
     useEffect(() => {
         // Kiểm tra hash để chuyển tab tự động (ví dụ: #reviews)
@@ -684,7 +706,7 @@ const ServiceDetail = () => {
     const isMissingDates = (isHotel || isHomestay) && (!bookingForm.startDate || !bookingForm.endDate);
     const isTourUnavailable = isTour && (!currentAvailability || tourTicketsLeft <= 0);
 
-    const canBook = !isOverCapacity && !isMissingDates && !isTourUnavailable;
+    const canBook = !isOverCapacity && !isMissingDates && !isTourUnavailable && !isServiceSuspended;
 
     const amenities = serviceData.amenities || serviceData.tags || [];
     const includes = serviceData.includes || [];
@@ -1379,11 +1401,29 @@ const ServiceDetail = () => {
                                         !canBook ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'shadow-sky-200'
                                     }`}
                                 >
-                                    {isTour 
-                                        ? (!bookingForm.startDate ? 'Chọn ngày khởi hành' : isTourUnavailable ? 'Hết vé ngày này' : 'Đặt ngay')
-                                        : (isMissingDates ? 'Chọn ngày để đặt' : isOverCapacity ? 'Không đủ chỗ' : 'Đặt ngay')}
+                                    {isServiceSuspended 
+                                        ? 'Tạm Ngưng Hoạt Động'
+                                        : isTour 
+                                            ? (!bookingForm.startDate ? 'Chọn ngày khởi hành' : isTourUnavailable ? 'Hết vé ngày này' : 'Đặt ngay')
+                                            : (isMissingDates ? 'Chọn ngày để đặt' : isOverCapacity ? 'Không đủ chỗ' : 'Đặt ngay')
+                                    }
                                 </Button>
-                                <p className="text-center text-xs text-slate-400">Bạn sẽ không bị tính phí lúc này</p>
+                                {isServiceSuspended ? (
+                                    <div className="mt-3 text-center">
+                                        <p className="text-sm font-bold text-rose-500 flex items-center justify-center gap-1.5">
+                                            <AlertCircle size={16} /> Dịch vụ này tạm thời ngưng hoạt động.
+                                        </p>
+                                        <button 
+                                            type="button"
+                                            onClick={() => navigate(-1)} 
+                                            className="text-xs text-slate-500 hover:text-sky-500 mt-1 underline"
+                                        >
+                                            Quay lại trang trước
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-center text-xs text-slate-400">Bạn sẽ không bị tính phí lúc này</p>
+                                )}
                             </form>
                         </div>
                     </div>

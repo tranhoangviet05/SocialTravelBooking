@@ -57,6 +57,9 @@ class ServiceController extends Controller
 
             // Notify Admin (cập nhật lại dòng hiện tại)
             broadcast(new AdminServiceUpdated($service, 'updated'));
+            
+            // Notify Public (Tourists on frontend)
+            broadcast(new \App\Events\PublicServiceStatusUpdated($service->id, $service->status));
 
             return response()->json([
                 'success' => true,

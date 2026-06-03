@@ -455,6 +455,7 @@ class ServiceController extends Controller
 
             // Phát sự kiện realtime
             broadcast(new \App\Events\AdminServiceUpdated($service, 'updated'));
+            broadcast(new \App\Events\PublicServiceStatusUpdated($service->id, 'pending_review'));
 
             // Gửi dữ liệu sang N8N kiểm duyệt lại
             $webhookUrl = config('services.n8n.moderation_url');
@@ -513,6 +514,7 @@ class ServiceController extends Controller
 
             // Phát sự kiện realtime
             broadcast(new \App\Events\AdminServiceUpdated($id, 'deleted'));
+            broadcast(new \App\Events\PublicServiceStatusUpdated($id, 'deleted'));
 
             return response()->json([
                 'success' => true,

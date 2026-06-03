@@ -385,6 +385,12 @@ class ServiceController extends Controller
                     $service->approval_note
                 ));
             }
+            
+            // Notify Public (Tourists on frontend)
+            broadcast(new \App\Events\PublicServiceStatusUpdated(
+                $service->id,
+                $service->status
+            ));
             return response()->json([
                 'success' => true,
                 'message' => 'Cập nhật trạng thái dịch vụ thành công',

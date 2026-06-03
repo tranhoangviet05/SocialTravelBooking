@@ -60,6 +60,7 @@ class GeminiService
                 ];
             }
 
+            Log::info('Gemini Payload', ['payload' => json_encode($payload, JSON_PRETTY_PRINT)]);
             $response = Http::withHeaders(['Content-Type' => 'application/json'])
                 ->timeout(45)
                 ->post($url, $payload);

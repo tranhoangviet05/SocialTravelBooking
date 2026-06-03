@@ -87,14 +87,14 @@ class ProcessGeminiChat implements ShouldQueue
                     'name' => 'search_user_bookings',
                     'description' => 'Tìm kiếm đơn đặt phòng/tour của khách hàng hiện tại. Sử dụng khi khách hỏi về lịch sử đặt, thời gian check-in, trạng thái đơn.',
                     'parameters' => [
-                        'type' => 'object',
+                        'type' => 'OBJECT',
                         'properties' => [
                             'service_type' => [
-                                'type' => 'string',
+                                'type' => 'STRING',
                                 'description' => 'Loại dịch vụ: "hotel", "tour", "homestay", "vehicle", hoặc "all"',
                             ],
                             'booking_code' => [
-                                'type' => 'string',
+                                'type' => 'STRING',
                                 'description' => 'Mã đơn hàng cụ thể nếu khách có cung cấp (ví dụ: BKG-1234)',
                             ]
                         ]
@@ -104,14 +104,14 @@ class ProcessGeminiChat implements ShouldQueue
                     'name' => 'search_services',
                     'description' => 'Tìm kiếm các dịch vụ, tour, khách sạn trên hệ thống để giới thiệu cho khách.',
                     'parameters' => [
-                        'type' => 'object',
+                        'type' => 'OBJECT',
                         'properties' => [
                             'keyword' => [
-                                'type' => 'string',
+                                'type' => 'STRING',
                                 'description' => 'Từ khóa tìm kiếm (ví dụ: "Phú Quốc", "Đà Lạt", "Khách sạn 5 sao")',
                             ],
                             'service_type' => [
-                                'type' => 'string',
+                                'type' => 'STRING',
                                 'description' => 'Loại dịch vụ cần tìm: "hotel", "tour", "homestay", "vehicle", hoặc "all"',
                             ]
                         ]

@@ -31,7 +31,7 @@ class GeminiService
         try {
             if (!$this->apiKey) {
                 Log::error('Gemini Service: API Key is missing.');
-                return 'Hệ thống chưa cấu hình API Key cho Gemini. Vui lòng liên hệ Admin.';
+                return ['error' => 'Hệ thống chưa cấu hình API Key cho Gemini. Vui lòng liên hệ Admin.'];
             }
 
             $url = "{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}";
@@ -57,14 +57,14 @@ class GeminiService
             // Gọi API bằng HTTP Client của Laravel
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->timeout(30)->post($url, $payload);
+            ])->timeout(45)->post($url, $payload);
 
             if ($response->failed()) {
                 Log::error('Gemini API Error', [
                     'status' => $response->status(),
-                    'body' => $response->body()
+                    'body'   => $response->body(),
                 ]);
-                return 'Rất tiếc, tôi đang gặp sự cố kết nối với hệ thống AI. Vui lòng thử lại sau.';
+                return ['error' => 'Rất tiếc, tôi đang gặp sự cố kết nối với hệ thống AI. Vui lòng thử lại sau.'];
             }
 
             $data = $response->json();
@@ -72,7 +72,7 @@ class GeminiService
 
             if (!$part) {
                 Log::warning('Gemini Response: Format invalid or empty candidates', ['response' => $data]);
-                return 'Tôi không thể xử lý câu hỏi này lúc này. Bạn có thể hỏi câu khác được không?';
+                return ['error' => 'Tôi không thể xử lý câu hỏi này lúc này. Bạn có thể hỏi câu khác được không?'];
             }
 
             // Nếu mô hình yêu cầu gọi hàm
@@ -85,9 +85,9 @@ class GeminiService
         } catch (\Throwable $e) {
             Log::error('Gemini Service Exception', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace'   => $e->getTraceAsString()
             ]);
-            return 'Đã xảy ra lỗi hệ thống khi xử lý câu trả lời từ AI.';
+            return ['error' => 'Đã xảy ra lỗi hệ thống khi xử lý câu trả lời từ AI.'];
         }
     }
 }

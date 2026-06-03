@@ -126,6 +126,13 @@ class ProcessGeminiChat implements ShouldQueue
             while ($loopCount < $maxLoops) {
                 $response = $geminiService->generateContent($systemInstruction, $contents, $tools);
 
+                // Nếu GeminiService trả về mảng lỗi
+                if (is_array($response) && isset($response['error'])) {
+                    $replyText = $response['error'];
+                    break;
+                }
+
+                // Nếu AI yêu cầu gọi hàm
                 if (is_array($response) && isset($response['functionCall'])) {
                     $functionCall = $response['functionCall'];
                     $functionName = $functionCall['name'];
@@ -147,9 +154,9 @@ class ProcessGeminiChat implements ShouldQueue
                         $functionResult = ['error' => 'Function not found'];
                     }
 
-                    // Đưa kết quả vào lịch sử dưới dạng functionResponse
+                    // Đưa kết quả vào lịch sử - role phải là 'user' theo đặc tả Gemini API
                     $contents[] = [
-                        'role' => 'function',
+                        'role' => 'user',
                         'parts' => [
                             [
                                 'functionResponse' => [
@@ -164,6 +171,7 @@ class ProcessGeminiChat implements ShouldQueue
                     ];
                     $loopCount++;
                 } elseif (is_string($response)) {
+                    // AI trả về câu trả lời cuối cùng dạng văn bản
                     $replyText = $response;
                     break;
                 } else {

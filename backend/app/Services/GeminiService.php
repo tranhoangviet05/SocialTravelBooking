@@ -23,9 +23,10 @@ class GeminiService
      *
      * @param string $systemInstruction Chỉ dẫn hệ thống (Persona)
      * @param array $contents Danh sách hội thoại (history) chuẩn định dạng Gemini
-     * @return string|null
+     * @param array|null $tools Danh sách các công cụ (Function Calling)
+     * @return array|string|null Trả về mảng nếu gọi hàm, chuỗi nếu là text bình thường
      */
-    public function generateContent(string $systemInstruction, array $contents): ?string
+    public function generateContent(string $systemInstruction, array $contents, ?array $tools = null): array|string|null
     {
         try {
             if (!$this->apiKey) {
@@ -47,6 +48,12 @@ class GeminiService
                 ];
             }
 
+            if (!empty($tools)) {
+                $payload['tools'] = [
+                    ['functionDeclarations' => $tools]
+                ];
+            }
+
             // Gọi API bằng HTTP Client của Laravel
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
@@ -61,14 +68,20 @@ class GeminiService
             }
 
             $data = $response->json();
-            $textResponse = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            $part = $data['candidates'][0]['content']['parts'][0] ?? null;
 
-            if (!$textResponse) {
+            if (!$part) {
                 Log::warning('Gemini Response: Format invalid or empty candidates', ['response' => $data]);
                 return 'Tôi không thể xử lý câu hỏi này lúc này. Bạn có thể hỏi câu khác được không?';
             }
 
-            return $textResponse;
+            // Nếu mô hình yêu cầu gọi hàm
+            if (isset($part['functionCall'])) {
+                return ['functionCall' => $part['functionCall']];
+            }
+
+            // Nếu trả về văn bản bình thường
+            return $part['text'] ?? 'Tôi chưa hiểu rõ ý bạn, vui lòng nói rõ hơn nhé.';
         } catch (\Throwable $e) {
             Log::error('Gemini Service Exception', [
                 'message' => $e->getMessage(),

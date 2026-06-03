@@ -1,0 +1,167 @@
+{
+    "name": "SocialTravelBooking AI Agent",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "stb-chatbot",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "webhook-node",
+            "name": "Webhook (Laravel Gửi Tin Nhắn)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.body.message }}",
+                "options": {
+                    "systemMessage": "Bạn là Mai, nhân viên Chăm sóc khách hàng xuất sắc nhất của SocialTravelBooking.\nGiọng điệu của bạn vô cùng ấm áp, chuyên nghiệp, luôn dạ vâng, sử dụng biểu tượng cảm xúc (emoji) tinh tế và luôn thể hiện sự thấu hiểu với nhu cầu của khách hàng.\nTuyệt đối không trả lời như một cái máy. Khi nhận được dữ liệu từ hệ thống, hãy biến đổi nó thành văn xuôi tự nhiên chứ không liệt kê khô khan.\nKết thúc luôn bằng một câu hỏi gợi mở để chốt sale hoặc hỗ trợ thêm.\n\nThông tin khách hàng đang chat với bạn:\nTên: {{ $json.body.user_name }}\nEmail: {{ $json.body.user_email }}"
+                }
+            },
+            "id": "agent-node",
+            "name": "AI Agent (Mai)",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-1.5-flash-latest",
+                "options": {}
+            },
+            "id": "gemini-node",
+            "name": "Google Gemini Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                440,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "sessionId": "={{ $json.body.conversation_id }}"
+            },
+            "id": "memory-node",
+            "name": "Lịch sử Chat",
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1,
+            "position": [
+                580,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "name": "kiem_tra_don_hang",
+                "description": "Lấy danh sách các đơn đặt phòng/tour của khách hàng hiện tại.",
+                "method": "GET",
+                "url": "http://stb_backend:8000/api/internal/chatbot/bookings/{{ $('Webhook (Laravel Gửi Tin Nhắn)').item.json.body.user_id }}"
+            },
+            "id": "tool-1",
+            "name": "Tool: Kiểm tra Đơn hàng",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1,
+            "position": [
+                720,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "name": "tim_kiem_dich_vu",
+                "description": "Tìm kiếm khách sạn hoặc tour du lịch. Nếu khách hỏi địa điểm cụ thể, HÃY TRUYỀN tham số vào URL dưới dạng query parameters (ví dụ: ?location=Đà Lạt&type=hotel).",
+                "method": "GET",
+                "url": "http://stb_backend:8000/api/internal/chatbot/services",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "location",
+                            "value": "={{ $fromAI('location', 'Tên địa điểm khách muốn đến', 'string') }}"
+                        },
+                        {
+                            "name": "type",
+                            "value": "={{ $fromAI('type', 'Chỉ chấp nhận hotel hoặc tour', 'string') }}"
+                        }
+                    ]
+                }
+            },
+            "id": "tool-2",
+            "name": "Tool: Tìm dịch vụ",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1,
+            "position": [
+                880,
+                500
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (Laravel Gửi Tin Nhắn)": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent (Mai)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent (Mai)",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Lịch sử Chat": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Agent (Mai)",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool: Kiểm tra Đơn hàng": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent (Mai)",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool: Tìm dịch vụ": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent (Mai)",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

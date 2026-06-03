@@ -49,7 +49,7 @@ class ProcessGeminiChat implements ShouldQueue
                 return;
             }
 
-            // 1. Lấy lịch sử chat (15 tin nhắn gần nhất) để giữ context hội thoại
+            // Lấy lịch sử chat (15 tin nhắn gần nhất) để giữ context hội thoại
             $messages = Message::where('conversation_id', $this->conversationId)
                 ->orderBy('created_at', 'asc')
                 ->take(15)
@@ -76,68 +76,41 @@ class ProcessGeminiChat implements ShouldQueue
                 }
             }
 
-            // 2. Tra cứu dữ liệu thực tế (Simple RAG): Danh sách 6 tour/khách sạn bán chạy nhất
-            $activeServices = Service::where('status', 'active')
-                ->with(['location'])
-                ->orderBy('total_bookings', 'desc')
-                ->limit(6)
-                ->get();
+            // Gửi tin nhắn sang Webhook của N8N để AI Agent xử lý
+            $webhookUrl = config('services.n8n.chatbot_webhook_url');
 
-            $servicesContext = "Dưới đây là các dịch vụ du lịch (Tour và Khách sạn) đang mở bán thực tế trên hệ thống. Nếu người dùng hỏi gợi ý, hãy khuyên họ đặt các dịch vụ này và chèn link liên kết dạng Markdown `/service/{slug}`:\n";
-            foreach ($activeServices as $service) {
-                $typeLabel = $service->type === 'tour' ? 'Tour du lịch' : 'Khách sạn/Phòng';
-                $locationName = $service->location ? $service->location->name : 'Nhiều địa điểm';
-                $price = number_format($service->base_price, 0, ',', '.') . ' VND';
-                
-                $servicesContext .= "- **{$service->name}** ({$typeLabel}) tại {$locationName}. Giá từ: {$price}. Đường dẫn chi tiết: `/service/{$service->slug}`\n";
-            }
-
-            // 3. Tra cứu lịch sử đặt chỗ (Booking Assistant) của chính user này
-            $bookings = Booking::where('user_id', $this->userId)
-                ->with(['service'])
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get();
-
-            $bookingsContext = "Thông tin cá nhân khách hàng:\n";
-            $bookingsContext .= "- Tên hiển thị: {$user->display_name}\n";
-            $bookingsContext .= "- Email: {$user->email}\n";
-            $bookingsContext .= "- Các đơn đặt chỗ (Bookings) gần đây của khách hàng:\n";
-
-            if ($bookings->isEmpty()) {
-                $bookingsContext .= "  (Chưa có đơn đặt chỗ nào trên hệ thống)\n";
+            if (!$webhookUrl) {
+                Log::error("ProcessGeminiChat: N8N Chatbot Webhook URL is not configured in .env");
+                $replyText = 'Hệ thống đang bảo trì để nâng cấp kiến trúc. Admin vui lòng cấu hình N8N_CHATBOT_WEBHOOK_URL trong file .env nhé!';
             } else {
-                foreach ($bookings as $booking) {
-                    $statusLabel = $this->getBookingStatusLabel($booking->status);
-                    $paymentLabel = $booking->payment_status === 'paid' ? 'Đã thanh toán' : ($booking->payment_status === 'refunded' ? 'Đã hoàn tiền' : 'Chưa thanh toán');
-                    $amount = number_format($booking->total_amount, 0, ',', '.') . ' VND';
-                    $checkIn = $booking->check_in_date;
-                    
-                    $bookingsContext .= "  + Mã đơn: `#{$booking->booking_code}`, Dịch vụ: {$booking->service->name}, Trạng thái: {$statusLabel}, Thanh toán: {$paymentLabel}, Ngày check-in: {$checkIn}, Tổng số tiền: {$amount}\n";
+                // Lấy nội dung tin nhắn mới nhất của user trong mảng history
+                $latestUserMessage = count($contents) > 0 ? end($contents)['parts'][0]['text'] : '';
+
+                try {
+                    // Đặt timeout cao (60s) vì AI Agent N8N có thể mất nhiều thời gian suy nghĩ và gọi Tools
+                    $response = \Illuminate\Support\Facades\Http::timeout(60)->post($webhookUrl, [
+                        'user_id' => $this->userId,
+                        'user_name' => $user->display_name,
+                        'user_email' => $user->email,
+                        'conversation_id' => $this->conversationId,
+                        'message' => $latestUserMessage,
+                    ]);
+
+                    if ($response->successful()) {
+                        // N8N AI Agent trả về output mặc định nằm ở trường "output"
+                        $n8nData = $response->json();
+                        $replyText = $n8nData['output'] ?? (is_string($n8nData) ? $n8nData : json_encode($n8nData, JSON_UNESCAPED_UNICODE));
+                    } else {
+                        Log::error("ProcessGeminiChat: N8N Error", ['status' => $response->status(), 'body' => $response->body()]);
+                        $replyText = 'Xin lỗi, trợ lý AI đang bị quá tải (Lỗi từ N8N). Bạn vui lòng thử lại sau nhé.';
+                    }
+                } catch (\Throwable $e) {
+                    Log::error("ProcessGeminiChat: N8N Timeout/Connection Error: " . $e->getMessage());
+                    $replyText = 'Xin lỗi, hệ thống máy chủ AI đang gặp sự cố kết nối. Xin vui lòng thử lại sau ít phút.';
                 }
             }
 
-            // 4. Xây dựng System Instruction (Persona & Context)
-            $systemInstruction = "Bạn là Trợ lý ảo Gemini AI, trợ lý hỗ trợ khách hàng thông minh, thân thiện của ứng dụng 'Social Travel Booking'.\n"
-                . "Nhiệm vụ của bạn là giải đáp thắc mắc, lập lịch trình du lịch và hỗ trợ khách hàng kiểm tra đơn đặt chỗ hoặc tìm kiếm dịch vụ.\n\n"
-                . "QUY TẮC PHẢN HỒI:\n"
-                . "1. Trả lời bằng tiếng Việt lịch sự, thân thiện, sử dụng các từ xưng hô ấm áp như 'Tôi' (hoặc 'Gemini') và 'bạn', 'quý khách'.\n"
-                . "2. Nếu khách hàng hỏi về lịch trình du lịch, hãy lập lịch trình cụ thể, khoa học, đề xuất các danh lam thắng cảnh và hoạt động hấp dẫn.\n"
-                . "3. CHỈ giới thiệu các dịch vụ thực tế có trong danh sách bên dưới khi khách hàng cần tư vấn đặt phòng/tour cụ thể. ĐÍNH KÈM link liên kết dạng Markdown `/service/{slug}` để họ nhấp vào.\n"
-                . "4. Khi khách hàng hỏi về đơn hàng của họ (ví dụ: 'đơn hàng của tôi', 'booking của tôi'), hãy sử dụng thông tin đơn hàng được cung cấp trong ngữ cảnh bên dưới để trả lời chính xác mã đơn, trạng thái, ngày check-in. Nếu không có đơn hàng nào, hãy báo cho họ biết.\n"
-                . "5. Không bịa đặt thông tin về các đơn hàng hoặc dịch vụ không tồn tại trong ngữ cảnh được cung cấp.\n\n"
-                . "=== NGỮ CẢNH HỆ THỐNG ===\n"
-                . $servicesContext . "\n"
-                . $bookingsContext;
-
-            // 5. Gọi Gemini API
-            $replyText = $geminiService->generateContent($systemInstruction, $contents);
-
-            if (!$replyText) {
-                $replyText = 'Xin lỗi, tôi đang gặp lỗi kết nối với hệ thống AI. Vui lòng thử lại sau.';
-            }
-
-            // 6. Lưu tin nhắn của Bot vào DB
+            // 5. Lưu tin nhắn văn bản cuối cùng của Bot vào DB
             $botMessage = Message::create([
                 'id' => \Illuminate\Support\Str::uuid(),
                 'conversation_id' => $this->conversationId,

@@ -73,7 +73,8 @@ const Messages = () => {
                                     const correctedUrl = linkUrl.startsWith('/services/')
                                         ? linkUrl.replace('/services/', '/service/')
                                         : linkUrl;
-                                    navigate(correctedUrl);
+                                    // Thay vì navigate (chuyển trang ở tab hiện tại), ta mở tab mới
+                                    window.open(correctedUrl, '_blank');
                                 }}
                                 className="text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
                             >

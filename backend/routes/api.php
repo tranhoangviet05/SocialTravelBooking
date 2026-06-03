@@ -391,6 +391,11 @@ Route::middleware('firebase.auth')->group(function () {
 // ===========================================================
 // N8N AUTOMATION ROUTES (Công khai cho n8n)
 // ===========================================================
+
+// --- N8N CHATBOT AI AGENT TOOLS ---
+Route::get('/internal/chatbot/bookings/{userId}', [\App\Http\Controllers\Internal\ChatbotController::class, 'getUserBookings']);
+Route::get('/internal/chatbot/services', [\App\Http\Controllers\Internal\ChatbotController::class, 'searchServices']);
+
 Route::get('/n8n/users', function () {
     $users = \App\Models\User::where('role', 'tourist')
         // Lấy cả user active và banned (để có thể mở khóa qua email)

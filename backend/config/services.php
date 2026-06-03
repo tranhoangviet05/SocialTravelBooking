@@ -50,6 +50,7 @@ return [
         'url' => env('N8N_WEBHOOK_URL', 'http://localhost:5678/webhook/behavior-tracking'),
         'upsell_url' => env('N8N_UPSELL_WEBHOOK_URL', 'http://localhost:5678/webhook/booking-confirmed-trigger'),
         'moderation_url' => env('N8N_MODERATION_WEBHOOK_URL', 'http://localhost:5678/webhook/moderate-service'),
+        'chatbot_webhook_url' => env('N8N_CHATBOT_WEBHOOK_URL'),
     ],
 
 ];

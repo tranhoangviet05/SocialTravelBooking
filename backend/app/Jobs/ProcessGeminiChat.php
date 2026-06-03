@@ -81,7 +81,7 @@ class ProcessGeminiChat implements ShouldQueue
 
             if (!$webhookUrl) {
                 Log::error("ProcessGeminiChat: N8N Chatbot Webhook URL is not configured in .env");
-                $replyText = 'Hệ thống đang bảo trì để nâng cấp kiến trúc. Admin vui lòng cấu hình N8N_CHATBOT_WEBHOOK_URL trong file .env nhé!';
+                $replyText = 'Hệ thống đang bảo trì để nâng cấp kiến trúc.';
             } else {
                 // Lấy nội dung tin nhắn mới nhất của user trong mảng history
                 $latestUserMessage = count($contents) > 0 ? end($contents)['parts'][0]['text'] : '';

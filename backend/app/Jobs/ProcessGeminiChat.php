@@ -51,9 +51,11 @@ class ProcessGeminiChat implements ShouldQueue
 
             // Lấy lịch sử chat (15 tin nhắn gần nhất) để giữ context hội thoại
             $messages = Message::where('conversation_id', $this->conversationId)
-                ->orderBy('created_at', 'asc')
+                ->latest('created_at')
                 ->take(15)
-                ->get();
+                ->get()
+                ->reverse()
+                ->values();
 
             $contents = [];
             $lastRole = null;

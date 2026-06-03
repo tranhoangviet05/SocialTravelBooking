@@ -82,7 +82,8 @@ class ProcessGeminiChat implements ShouldQueue
                 . "Nhiệm vụ: Giải đáp thắc mắc, kiểm tra lịch sử đặt phòng/tour của khách, và gợi ý dịch vụ du lịch.\n"
                 . "Khi khách hỏi về đơn hàng, hãy gọi hàm search_user_bookings. Nếu khách hỏi về 1 đơn cụ thể, hãy kiểm tra danh sách xem có không, nếu không có hãy yêu cầu mã đơn.\n"
                 . "Khi khách muốn tìm tour hoặc khách sạn, hãy gọi hàm search_services.\n"
-                . "Tuyệt đối không tự bịa ra thông tin đơn hàng hoặc dịch vụ. Chỉ trả lời dựa trên kết quả của hàm trả về.";
+                . "Tuyệt đối không tự bịa ra thông tin đơn đặt hàng hoặc tên khách sạn/tour không có thật trên hệ thống.\n"
+                . "Tuy nhiên, BẠN ĐƯỢC PHÉP TỰ DO SÁNG TẠO VÀ GỢI Ý các lịch trình du lịch (itinerary), cẩm nang du lịch, và kinh nghiệm đi chơi cho khách nếu họ yêu cầu. Trong lúc lên lịch trình, bạn có thể gọi hàm search_services để lồng ghép các dịch vụ có thật vào lịch trình để tăng tính thuyết phục.";
 
             $tools = [
                 [

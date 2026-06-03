@@ -76,37 +76,98 @@ class ProcessGeminiChat implements ShouldQueue
                 }
             }
 
-            // Gửi tin nhắn sang Webhook của N8N để AI Agent xử lý
-            $webhookUrl = config('services.n8n.chatbot_webhook_url');
+            $systemInstruction = "Bạn là nhân viên CSKH xuất sắc của SocialTravelBooking. Giọng điệu ấm áp, chuyên nghiệp, luôn xưng hô 'Chúng tôi' và 'Bạn' (hoặc tùy theo xưng hô của khách).\n"
+                . "Nhiệm vụ: Giải đáp thắc mắc, kiểm tra lịch sử đặt phòng/tour của khách, và gợi ý dịch vụ du lịch.\n"
+                . "Khi khách hỏi về đơn hàng, hãy gọi hàm search_user_bookings. Nếu khách hỏi về 1 đơn cụ thể, hãy kiểm tra danh sách xem có không, nếu không có hãy yêu cầu mã đơn.\n"
+                . "Khi khách muốn tìm tour hoặc khách sạn, hãy gọi hàm search_services.\n"
+                . "Tuyệt đối không tự bịa ra thông tin đơn hàng hoặc dịch vụ. Chỉ trả lời dựa trên kết quả của hàm trả về.";
 
-            if (!$webhookUrl) {
-                Log::error("ProcessGeminiChat: N8N Chatbot Webhook URL is not configured in .env");
-                $replyText = 'Hệ thống đang bảo trì để nâng cấp kiến trúc.';
-            } else {
-                // Lấy nội dung tin nhắn mới nhất của user trong mảng history
-                $latestUserMessage = count($contents) > 0 ? end($contents)['parts'][0]['text'] : '';
+            $tools = [
+                [
+                    'name' => 'search_user_bookings',
+                    'description' => 'Tìm kiếm đơn đặt phòng/tour của khách hàng hiện tại. Sử dụng khi khách hỏi về lịch sử đặt, thời gian check-in, trạng thái đơn.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'service_type' => [
+                                'type' => 'string',
+                                'description' => 'Loại dịch vụ: "hotel", "tour", "homestay", "vehicle", hoặc "all"',
+                            ],
+                            'booking_code' => [
+                                'type' => 'string',
+                                'description' => 'Mã đơn hàng cụ thể nếu khách có cung cấp (ví dụ: BKG-1234)',
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    'name' => 'search_services',
+                    'description' => 'Tìm kiếm các dịch vụ, tour, khách sạn trên hệ thống để giới thiệu cho khách.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'keyword' => [
+                                'type' => 'string',
+                                'description' => 'Từ khóa tìm kiếm (ví dụ: "Phú Quốc", "Đà Lạt", "Khách sạn 5 sao")',
+                            ],
+                            'service_type' => [
+                                'type' => 'string',
+                                'description' => 'Loại dịch vụ cần tìm: "hotel", "tour", "homestay", "vehicle", hoặc "all"',
+                            ]
+                        ]
+                    ]
+                ]
+            ];
 
-                try {
-                    // Đặt timeout cao (60s) vì AI Agent N8N có thể mất nhiều thời gian suy nghĩ và gọi Tools
-                    $response = \Illuminate\Support\Facades\Http::timeout(60)->post($webhookUrl, [
-                        'user_id' => $this->userId,
-                        'user_name' => $user->display_name,
-                        'user_email' => $user->email,
-                        'conversation_id' => $this->conversationId,
-                        'message' => $latestUserMessage,
-                    ]);
+            $replyText = 'Xin lỗi, tôi đang gặp chút sự cố. Bạn vui lòng thử lại sau nhé.';
+            $maxLoops = 3;
+            $loopCount = 0;
 
-                    if ($response->successful()) {
-                        // N8N AI Agent trả về output mặc định nằm ở trường "output"
-                        $n8nData = $response->json();
-                        $replyText = $n8nData['output'] ?? (is_string($n8nData) ? $n8nData : json_encode($n8nData, JSON_UNESCAPED_UNICODE));
+            while ($loopCount < $maxLoops) {
+                $response = $geminiService->generateContent($systemInstruction, $contents, $tools);
+
+                if (is_array($response) && isset($response['functionCall'])) {
+                    $functionCall = $response['functionCall'];
+                    $functionName = $functionCall['name'];
+                    $functionArgs = $functionCall['args'] ?? [];
+
+                    // Thêm functionCall vào lịch sử
+                    $contents[] = [
+                        'role' => 'model',
+                        'parts' => [['functionCall' => $functionCall]]
+                    ];
+
+                    // Thực thi hàm PHP nội bộ
+                    $functionResult = [];
+                    if ($functionName === 'search_user_bookings') {
+                        $functionResult = $this->searchUserBookings($functionArgs);
+                    } elseif ($functionName === 'search_services') {
+                        $functionResult = $this->searchServices($functionArgs);
                     } else {
-                        Log::error("ProcessGeminiChat: N8N Error", ['status' => $response->status(), 'body' => $response->body()]);
-                        $replyText = 'Xin lỗi, trợ lý AI đang bị quá tải (Lỗi từ N8N). Bạn vui lòng thử lại sau nhé.';
+                        $functionResult = ['error' => 'Function not found'];
                     }
-                } catch (\Throwable $e) {
-                    Log::error("ProcessGeminiChat: N8N Timeout/Connection Error: " . $e->getMessage());
-                    $replyText = 'Xin lỗi, hệ thống máy chủ AI đang gặp sự cố kết nối. Xin vui lòng thử lại sau ít phút.';
+
+                    // Đưa kết quả vào lịch sử dưới dạng functionResponse
+                    $contents[] = [
+                        'role' => 'function',
+                        'parts' => [
+                            [
+                                'functionResponse' => [
+                                    'name' => $functionName,
+                                    'response' => [
+                                        'name' => $functionName,
+                                        'content' => $functionResult
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ];
+                    $loopCount++;
+                } elseif (is_string($response)) {
+                    $replyText = $response;
+                    break;
+                } else {
+                    break;
                 }
             }
 
@@ -146,5 +207,83 @@ class ProcessGeminiChat implements ShouldQueue
             'cancelled' => 'Đã hủy',
             default => $status
         };
+    }
+
+    /**
+     * Hàm dùng cho AI tra cứu lịch sử đơn hàng của người dùng hiện tại
+     */
+    private function searchUserBookings(array $args): array
+    {
+        $query = Booking::where('user_id', $this->userId)->with('service:id,name,type,address');
+        
+        if (!empty($args['booking_code'])) {
+            $query->where('booking_code', 'like', '%' . $args['booking_code'] . '%');
+        }
+        
+        if (!empty($args['service_type']) && $args['service_type'] !== 'all') {
+            $query->whereHas('service', function($q) use ($args) {
+                $q->where('type', $args['service_type']);
+            });
+        }
+        
+        $bookings = $query->latest()->take(5)->get();
+        
+        if ($bookings->isEmpty()) {
+            return ['message' => 'Không tìm thấy đơn hàng nào phù hợp với yêu cầu.'];
+        }
+        
+        $result = [];
+        foreach ($bookings as $b) {
+            $result[] = [
+                'booking_code' => $b->booking_code,
+                'service_name' => $b->service->name ?? 'Không xác định',
+                'service_type' => $b->service->type ?? 'Không xác định',
+                'status' => $this->getBookingStatusLabel($b->status),
+                'check_in_date' => $b->check_in_date ? $b->check_in_date->format('d/m/Y') : null,
+                'total_amount' => number_format($b->total_amount, 0, ',', '.') . ' VNĐ',
+            ];
+        }
+        
+        return ['bookings' => $result];
+    }
+
+    /**
+     * Hàm dùng cho AI tra cứu dịch vụ/tour trên hệ thống
+     */
+    private function searchServices(array $args): array
+    {
+        $query = Service::where('status', 'active');
+        
+        if (!empty($args['service_type']) && $args['service_type'] !== 'all') {
+            $query->where('type', $args['service_type']);
+        }
+        
+        if (!empty($args['keyword'])) {
+            $keyword = $args['keyword'];
+            $query->where(function($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                  ->orWhere('address', 'like', "%{$keyword}%");
+            });
+        }
+        
+        $services = $query->latest()->take(5)->get();
+        
+        if ($services->isEmpty()) {
+            return ['message' => 'Không tìm thấy dịch vụ nào phù hợp với từ khóa.'];
+        }
+        
+        $result = [];
+        foreach ($services as $s) {
+            $result[] = [
+                'id' => $s->id,
+                'name' => $s->name,
+                'type' => $s->type,
+                'price' => number_format($s->base_price, 0, ',', '.') . ' VNĐ',
+                'address' => $s->address,
+                'rating' => $s->rating_avg,
+            ];
+        }
+        
+        return ['services' => $result];
     }
 }

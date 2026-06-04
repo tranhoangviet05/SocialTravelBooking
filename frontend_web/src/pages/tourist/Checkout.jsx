@@ -317,6 +317,7 @@ const Checkout = () => {
     const [paymentData, setPaymentData] = useState(null);
     const [walletBalance, setWalletBalance] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('sepay');
+    const [paymentType, setPaymentType] = useState('full_100'); // 'full_100' | 'deposit_30'
     const [couponInput, setCouponInput] = useState('');
     const [couponApplied, setCouponApplied] = useState(null);
     const [discountAmount, setDiscountAmount] = useState(0);
@@ -598,19 +599,14 @@ const Checkout = () => {
         if (!booking) return;
         setIsProcessing(true);
         try {
-            const res = await bookingApi.initiatePayment(booking.id, paymentMethod);
+            const res = await bookingApi.initiatePayment(booking.id, paymentMethod, paymentType);
             if (res?.success) {
                 if (paymentMethod === 'wallet') {
-                    // Ví: thanh toán ngay
                     navigate('/success', {
-                        state: {
-                            booking: { ...booking, ...res.data },
-                            service,
-                        },
+                        state: { booking: { ...booking, ...res.data }, service },
                         replace: true,
                     });
                 } else {
-                    // SePay: hiện QR
                     setPaymentData(res.data);
                 }
             } else {
@@ -958,31 +954,83 @@ const Checkout = () => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Payment Type: Deposit 30% or Full 100% */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                                    <h2 className="text-base font-black text-slate-800 mb-1 flex items-center gap-2">
+                                        <Banknote size={18} className="text-indigo-500" /> Hình thức thanh toán
+                                    </h2>
+                                    <p className="text-xs text-slate-400 mb-4">Chọn thanh toán toàn bộ hoặc đặt cọc 30% trước</p>
+                                    <div className="space-y-3">
+                                        <label className={`flex items-center gap-4 p-4 border-2 rounded-2xl cursor-pointer transition-all duration-200
+                                            ${paymentType === 'full_100' ? 'border-indigo-500 bg-indigo-50/60 shadow-md shadow-indigo-100' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                                            <input type="radio" name="payment_type" className="sr-only" checked={paymentType === 'full_100'} onChange={() => setPaymentType('full_100')} />
+                                            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-indigo-100 text-indigo-600">
+                                                <CreditCard size={22} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-black text-slate-800">Thanh toán 100%</span>
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Khuyến nghị</span>
+                                                </div>
+                                                <span className="text-xs text-slate-400">Thanh toán toàn bộ {fmt(totalAmount)} ngay bây giờ</span>
+                                            </div>
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                                                ${paymentType === 'full_100' ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
+                                                {paymentType === 'full_100' && <div className="w-2 h-2 rounded-full bg-white" />}
+                                            </div>
+                                        </label>
+
+                                        <label className={`flex items-center gap-4 p-4 border-2 rounded-2xl cursor-pointer transition-all duration-200
+                                            ${paymentType === 'deposit_30' ? 'border-amber-500 bg-amber-50/60 shadow-md shadow-amber-100' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                                            <input type="radio" name="payment_type" className="sr-only" checked={paymentType === 'deposit_30'} onChange={() => setPaymentType('deposit_30')} />
+                                            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-amber-100 text-amber-600">
+                                                <Banknote size={22} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="text-sm font-black text-slate-800 block">Đặt cọc 30%</span>
+                                                <span className="text-xs text-slate-400">Cọc {fmt(Math.round(totalAmount * 0.3))}, thanh toán {fmt(Math.round(totalAmount * 0.7))} khi nhận dịch vụ</span>
+                                            </div>
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                                                ${paymentType === 'deposit_30' ? 'border-amber-500 bg-amber-500' : 'border-slate-300'}`}>
+                                                {paymentType === 'deposit_30' && <div className="w-2 h-2 rounded-full bg-white" />}
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
                             </>
                         )}
 
                         {/* STEP 2: QR Payment */}
                         {step === 2 && paymentMethod === 'sepay' && !paymentData && (
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col items-center gap-4">
-                                <div className="w-16 h-16 rounded-2xl bg-sky-100 flex items-center justify-center">
-                                    <QrCode size={32} className="text-sky-600" />
+                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${paymentType === 'deposit_30' ? 'bg-amber-100' : 'bg-sky-100'}`}>
+                                    <QrCode size={32} className={paymentType === 'deposit_30' ? 'text-amber-600' : 'text-sky-600'} />
                                 </div>
                                 <div className="text-center">
-                                    <h2 className="text-lg font-black text-slate-800 mb-1">Thanh toán qua SePay</h2>
-                                    <p className="text-sm text-slate-500">
-                                        Hệ thống sẽ tạo mã QR chuyển khoản ngân hàng và tự động xác nhận khi nhận được tiền.
-                                    </p>
+                                    <h2 className="text-lg font-black text-slate-800 mb-1">
+                                        {paymentType === 'deposit_30' ? 'Thanh toán cọc 30%' : 'Thanh toán 100% qua SePay'}
+                                    </h2>
+                                    <p className="text-sm text-slate-500">Hệ thống sẽ tạo mã QR chuyển khoản ngân hàng và tự động xác nhận khi nhận được tiền.</p>
                                 </div>
                                 <div className="w-full bg-slate-50 rounded-2xl border border-slate-200 divide-y divide-slate-200 overflow-hidden">
                                     <InfoRow label="Mã đặt chỗ" value={booking?.booking_code} />
-                                    <InfoRow label="Tổng thanh toán" value={fmt(booking?.total_amount)} highlight />
+                                    {paymentType === 'deposit_30' ? (
+                                        <>
+                                            <InfoRow label="Tiền cọc (30%)" value={fmt(Math.round((booking?.total_amount ?? 0) * 0.3))} highlight />
+                                            <InfoRow label="Còn lại khi nhận dịch vụ" value={fmt(Math.round((booking?.total_amount ?? 0) * 0.7))} />
+                                        </>
+                                    ) : (
+                                        <InfoRow label="Tổng thanh toán" value={fmt(booking?.total_amount)} highlight />
+                                    )}
                                 </div>
                                 <button
                                     onClick={handleInitiatePayment}
                                     disabled={isProcessing}
-                                    className="w-full flex items-center justify-center gap-2 py-4 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-2xl text-base transition-colors disabled:opacity-50 shadow-lg shadow-sky-200">
+                                    className={`w-full flex items-center justify-center gap-2 py-4 text-white font-black rounded-2xl text-base transition-colors disabled:opacity-50 shadow-lg
+                                        ${paymentType === 'deposit_30' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-sky-500 hover:bg-sky-600 shadow-sky-200'}`}>
                                     {isProcessing ? <Loader2 size={20} className="animate-spin" /> : <QrCode size={20} />}
-                                    {isProcessing ? 'Đang tạo mã QR...' : 'Hiển thị mã QR'}
+                                    {isProcessing ? 'Đang tạo mã QR...' : (paymentType === 'deposit_30' ? `Hiển thị QR cọc ${fmt(Math.round((booking?.total_amount ?? 0) * 0.3))}` : 'Hiển thị mã QR')}
                                 </button>
                             </div>
                         )}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import bookingApi from '../../api/bookingApi';
-import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut, Sparkles, CheckCircle } from 'lucide-react';
+import { Loader2, Calendar, CreditCard, ExternalLink, AlertCircle, MessageSquare, BedDouble, MapPin, Undo2, LogOut, Sparkles, CheckCircle, Banknote } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import echo from '../../utils/echo';
 
@@ -72,8 +72,15 @@ const MyBookings = () => {
             });
         });
 
+        // Lắng nghe cập nhật ví realtime
+        userChannel.listen('.WalletUpdated', (e) => {
+            const { wallet, message } = e;
+            showToast(message || 'Số dư ví đã được cập nhật.', 'success');
+        });
+
         return () => {
             userChannel.stopListening('.BookingStatusUpdated');
+            userChannel.stopListening('.WalletUpdated');
         };
     }, [currentUser]);
 
@@ -343,6 +350,18 @@ const MyBookings = () => {
                                                     Hủy đơn
                                                 </Button>
                                             </>
+                                        )}
+
+                                        {/* Nút thanh toán 70% còn lại cho đơn đặt cọc */}
+                                        {booking.payment_type === 'deposit_30' && booking.deposit_paid_at && !booking.remaining_paid_at && (
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => navigate(`/checkout/${booking.id}`)}
+                                                className="bg-amber-500 hover:bg-amber-600 border-amber-500 gap-1 flex items-center animate-pulse"
+                                            >
+                                                <Banknote size={14} /> Thanh toán 70% còn lại
+                                            </Button>
                                         )}
 
                                         {booking.status === 'confirmed' && (booking.service?.type === 'hotel' || booking.service?.type === 'homestay') && (

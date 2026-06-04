@@ -38,6 +38,7 @@ const providerApi = {
     getBooking: (id) => axios.get(`/provider/bookings/${id}`),
     updateBookingStatus: (id, status, cancelReason = '') =>
         axios.patch(`/provider/bookings/${id}/status`, { status, cancel_reason: cancelReason }),
+    confirmCashPayment: (id) => axios.post(`/bookings/${id}/confirm-cash-payment`),
 
     // Đánh giá
     getReviews: () => axios.get('/provider/reviews'),

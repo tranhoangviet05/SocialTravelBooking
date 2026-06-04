@@ -403,8 +403,11 @@ class BookingController extends Controller
         $userId = $request->user->id;
         $booking = Booking::where('id', $id)->where('user_id', $userId)->firstOrFail();
 
-        // Kiểm tra đơn hàng đã được thanh toán chưa
-        if ($booking->payment_status !== 'paid') {
+        // Kiểm tra đơn hàng đã được thanh toán chưa (full hoặc cọc)
+        $isFullyPaid = $booking->payment_status === 'paid';
+        $isDepositPaid = $booking->payment_type === 'deposit_30' && $booking->deposit_paid_at !== null;
+
+        if (!$isFullyPaid && !$isDepositPaid) {
             return response()->json(['success' => false, 'message' => 'Đơn hàng chưa được thanh toán, không thể check-in.'], 400);
         }
 

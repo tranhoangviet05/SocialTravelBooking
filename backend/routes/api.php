@@ -208,6 +208,10 @@ Route::middleware('firebase.auth')->group(function () {
         Route::get('/coupons', [\App\Http\Controllers\General\CouponController::class, 'myCoupons']);
         Route::post('/coupons/apply', [\App\Http\Controllers\General\CouponController::class, 'apply']);
 
+        // Withdrawal requests (Provider)
+        Route::get('/provider/withdrawal-requests', [\App\Http\Controllers\Provider\WithdrawalController::class, 'index']);
+        Route::post('/provider/withdrawal-requests', [\App\Http\Controllers\Provider\WithdrawalController::class, 'store']);
+
         // Chat routes
         Route::get('/chat/unread-count', [\App\Http\Controllers\General\ChatController::class, 'getUnreadCount']);
         Route::get('/chat/conversations', [\App\Http\Controllers\General\ChatController::class, 'getConversations']);
@@ -325,6 +329,12 @@ Route::middleware('firebase.auth')->group(function () {
         Route::post('/holidays', [HolidayController::class, 'store']);
         Route::put('/holidays/{id}', [HolidayController::class, 'update']);
         Route::delete('/holidays/{id}', [HolidayController::class, 'destroy']);
+
+        // Quản lý Ví & Yêu cầu Rút tiền
+        Route::get('/wallet', [\App\Http\Controllers\Admin\WalletController::class, 'index']);
+        Route::get('/withdrawal-requests', [\App\Http\Controllers\Admin\WalletController::class, 'withdrawalRequests']);
+        Route::patch('/withdrawal-requests/{id}/approve', [\App\Http\Controllers\Admin\WalletController::class, 'approveWithdrawal']);
+        Route::patch('/withdrawal-requests/{id}/reject', [\App\Http\Controllers\Admin\WalletController::class, 'rejectWithdrawal']);
     });
 
     // ===========================================================
@@ -377,6 +387,9 @@ Route::middleware('firebase.auth')->group(function () {
         // --- Quản lý Ví tiền & Doanh thu ---
         Route::get('/wallet', [\App\Http\Controllers\Provider\WalletController::class, 'index']);
         Route::get('/wallet/report', [\App\Http\Controllers\Provider\WalletController::class, 'report']);
+
+        // --- Xác nhận thu tiền mặt 70% còn lại ---
+        Route::post('/bookings/{id}/confirm-cash-payment', [\App\Http\Controllers\General\PaymentController::class, 'payRemainingCash']);
 
         // --- Cấu hình cửa hàng ---
         Route::get('/settings', [\App\Http\Controllers\Provider\SettingController::class, 'index']);

@@ -16,10 +16,11 @@ const bookingApi = {
      * @param {string} bookingId - UUID của booking
      * @param {string} paymentMethod - 'sepay' | 'wallet'
      */
-    initiatePayment: (bookingId, paymentMethod) =>
+    initiatePayment: (bookingId, paymentMethod, paymentType = 'full_100') =>
         axiosClient.post('/payment/initiate', {
             booking_id: bookingId,
             payment_method: paymentMethod,
+            payment_type: paymentType,
         }),
 
     /**
@@ -71,6 +72,17 @@ const bookingApi = {
     /** Quy trình Upsell sau khi đặt chỗ */
     getUpsellPreview: (id) => axiosClient.get(`/user/bookings/${id}/upsell-preview`),
     upgradeBooking: (id) => axiosClient.post(`/user/bookings/${id}/upgrade`),
+
+    /** Wallet & Withdrawal */
+    getProviderWallet: () => axiosClient.get('/provider/wallet'),
+    getWithdrawalRequests: () => axiosClient.get('/provider/withdrawal-requests'),
+    createWithdrawalRequest: (data) => axiosClient.post('/provider/withdrawal-requests', data),
+
+    /** Admin Wallet */
+    getAdminWallet: () => axiosClient.get('/admin/wallet'),
+    getAdminWithdrawalRequests: (status) => axiosClient.get('/admin/withdrawal-requests', { params: { status } }),
+    approveWithdrawal: (id, note) => axiosClient.patch(`/admin/withdrawal-requests/${id}/approve`, { admin_note: note }),
+    rejectWithdrawal: (id, note) => axiosClient.patch(`/admin/withdrawal-requests/${id}/reject`, { admin_note: note }),
 };
 
 export default bookingApi;

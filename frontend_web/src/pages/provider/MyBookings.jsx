@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useProviderData } from '../../contexts/ProviderDataContext';
 import BookingCardSkeleton from '../../components/common/BookingCardSkeleton';
 import {
-    Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle, RotateCw, Search
+    Loader2, CalendarCheck, User, Clock, CheckCircle, XCircle, Play, AlertCircle, RotateCw, Search, Banknote
 } from 'lucide-react';
 import providerApi from '../../api/providerApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -152,6 +152,27 @@ const MyBookings = () => {
         }
     };
 
+    const handleConfirmCash = async (bookingId) => {
+        if (!window.confirm("Bạn xác nhận đã nhận 70% số tiền còn lại bằng tiền mặt từ khách hàng?")) return;
+        
+        setBackgroundTasks(prev => ({ ...prev, [bookingId]: 'updating' }));
+        try {
+            const res = await providerApi.confirmCashPayment(bookingId);
+            if (res.success) {
+                showToast('Đã xác nhận nhận tiền mặt thành công!');
+                setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, remaining_paid_at: new Date().toISOString(), remaining_payment_method: 'cash' } : b));
+            }
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Lỗi khi xác nhận', 'error');
+        } finally {
+            setBackgroundTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[bookingId];
+                return newTasks;
+            });
+        }
+    };
+
     const getStatusBadge = (status) => {
         const map = {
             pending: { bg: 'bg-amber-50 text-amber-700 border border-amber-100', icon: Clock, label: 'Chờ xác nhận' },
@@ -208,16 +229,28 @@ const MyBookings = () => {
                             <User size={13} />
                             Liên hệ khách
                         </button>
+                        {booking.payment_type === 'deposit_30' && booking.deposit_paid_at && !booking.remaining_paid_at && (
+                            <button disabled={isProcessing} onClick={() => handleConfirmCash(booking.id)} className={`${btnClass} bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20`}>
+                                <Banknote size={13} /> Xác nhận đã nhận tiền mặt 70%
+                            </button>
+                        )}
                     </div>
                 );
             case 'ongoing':
                 return (
-                    <button disabled={isProcessing}
-                        onClick={() => handleStatusUpdate(booking.id, 'completed')}
-                        className={`${btnClass} bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20`}>
-                        {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={13} />}
-                        Hoàn thành
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        {booking.payment_type === 'deposit_30' && booking.deposit_paid_at && !booking.remaining_paid_at && (
+                            <button disabled={isProcessing} onClick={() => handleConfirmCash(booking.id)} className={`${btnClass} bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20`}>
+                                <Banknote size={13} /> Xác nhận đã nhận tiền mặt 70%
+                            </button>
+                        )}
+                        <button disabled={isProcessing}
+                            onClick={() => handleStatusUpdate(booking.id, 'completed')}
+                            className={`${btnClass} bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 justify-center`}>
+                            {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={13} />}
+                            Hoàn thành
+                        </button>
+                    </div>
                 );
             default:
                 return null;

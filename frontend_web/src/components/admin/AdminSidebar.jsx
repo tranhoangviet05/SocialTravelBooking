@@ -14,7 +14,8 @@ import {
     Star,
     Zap,
     Tag,
-    CalendarDays
+    CalendarDays,
+    Wallet
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../utils/ConstantSystems';
@@ -31,6 +32,7 @@ const menuItems = [
     { icon: Star, label: 'Đánh giá', path: API_ENDPOINTS.REVIEWS_ADMIN },
     { icon: Zap, label: 'Tự động hóa', path: API_ENDPOINTS.AUTOMATION_ADMIN },
     { icon: ShieldAlert, label: 'Báo cáo', path: API_ENDPOINTS.REPORTS_ADMIN },
+    { icon: Wallet, label: 'Ví & Thanh toán', path: '/admin/wallet' },
     { icon: Settings, label: 'Cài đặt', path: API_ENDPOINTS.SETTINGS_ADMIN },
 ];
 

@@ -3,7 +3,7 @@ import { useLocation, Link, Outlet } from 'react-router-dom';
 import {
     LayoutDashboard, ChevronRight, RefreshCw, Users, MapPin, 
     Compass, Hotel, Settings, LogOut, Ticket, ShieldAlert, 
-    Briefcase, Star, Zap, Tag
+    Briefcase, Star, Zap, Tag, Wallet
 } from 'lucide-react';
 import { useAdminData } from '../../contexts/AdminDataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,6 +21,7 @@ const menuItems = [
     { icon: Star, label: 'Đánh giá', path: API_ENDPOINTS.REVIEWS_ADMIN },
     { icon: Zap, label: 'Tự động hóa', path: API_ENDPOINTS.AUTOMATION_ADMIN },
     { icon: ShieldAlert, label: 'Báo cáo', path: API_ENDPOINTS.REPORTS_ADMIN },
+    { icon: Wallet, label: 'Ví & Thanh toán', path: '/admin/wallet' },
     { icon: Settings, label: 'Cài đặt', path: API_ENDPOINTS.SETTINGS_ADMIN },
 ];
 

@@ -205,6 +205,7 @@ Route::middleware('firebase.auth')->group(function () {
         Route::post('/payment/initiate', [\App\Http\Controllers\General\PaymentController::class, 'initiate']);
         Route::get('/payment/status/{bookingId}', [\App\Http\Controllers\General\PaymentController::class, 'checkStatus']);
         Route::get('/wallet/balance', [\App\Http\Controllers\General\PaymentController::class, 'walletBalance']);
+        Route::get('/coupons', [\App\Http\Controllers\General\CouponController::class, 'myCoupons']);
         Route::post('/coupons/apply', [\App\Http\Controllers\General\CouponController::class, 'apply']);
 
         // Chat routes

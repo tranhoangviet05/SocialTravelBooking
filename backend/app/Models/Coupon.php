@@ -19,6 +19,10 @@ class Coupon extends Model
         return [
             'valid_from' => 'datetime',
             'valid_until' => 'datetime',
+            'is_public' => 'boolean',
+            'max_discount' => 'decimal:2',
+            'min_order_amount' => 'decimal:2',
+            'discount_value' => 'decimal:2',
         ];
     }
 
@@ -27,5 +31,12 @@ class Coupon extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'coupon_user')
+            ->withPivot('id', 'is_used', 'used_at')
+            ->withTimestamps();
     }
 }

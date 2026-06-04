@@ -41,6 +41,11 @@ const bookingApi = {
     getWalletBalance: () => axiosClient.get('/wallet/balance'),
 
     /**
+     * Lấy danh sách mã giảm giá của người dùng
+     */
+    getMyCoupons: () => axiosClient.get('/coupons'),
+
+    /**
      * Áp dụng mã giảm giá
      * @param {string} code
      * @param {number} amount

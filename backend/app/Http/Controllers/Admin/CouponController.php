@@ -22,7 +22,7 @@ class CouponController extends Controller
             $query->where('code', 'ilike', "%{$request->search}%");
         }
 
-        $coupons = $query->orderBy('created_at', 'desc')->get();
+        $coupons = $query->with('users:id,full_name,email')->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'success' => true,
@@ -41,10 +41,14 @@ class CouponController extends Controller
             'type' => 'required|in:percent,fixed',
             'discount_value' => 'required|numeric|min:0',
             'min_order_amount' => 'nullable|numeric|min:0',
+            'max_discount' => 'nullable|numeric|min:0',
             'usage_limit' => 'nullable|integer|min:1',
             'per_user_limit' => 'nullable|integer|min:1',
             'valid_from' => 'nullable|date',
             'valid_until' => 'nullable|date|after_or_equal:valid_from',
+            'is_public' => 'boolean',
+            'assigned_users' => 'nullable|array',
+            'assigned_users.*' => 'exists:users,id'
         ]);
 
         try {
@@ -52,7 +56,19 @@ class CouponController extends Controller
             $admin = User::where('firebase_uid', $adminUid)->first();
 
             $validated['created_by'] = $admin->id ?? null;
+            $isPublic = $validated['is_public'] ?? true;
+            $validated['is_public'] = $isPublic;
+            
+            $assignedUsers = $request->input('assigned_users', []);
+            unset($validated['assigned_users']);
+
             $coupon = Coupon::create($validated);
+
+            if (!$isPublic && !empty($assignedUsers)) {
+                $coupon->users()->sync($assignedUsers);
+            }
+            
+            $coupon->load('users:id,full_name,email');
 
             return response()->json([
                 'success' => true,
@@ -87,14 +103,34 @@ class CouponController extends Controller
             'type' => 'sometimes|in:percent,fixed',
             'discount_value' => 'sometimes|numeric|min:0',
             'min_order_amount' => 'nullable|numeric|min:0',
+            'max_discount' => 'nullable|numeric|min:0',
             'usage_limit' => 'nullable|integer|min:1',
             'per_user_limit' => 'nullable|integer|min:1',
             'valid_from' => 'nullable|date',
             'valid_until' => 'nullable|date|after_or_equal:valid_from',
+            'is_public' => 'boolean',
+            'assigned_users' => 'nullable|array',
+            'assigned_users.*' => 'exists:users,id'
         ]);
 
         try {
+            $isPublic = $request->input('is_public', $coupon->is_public);
+            $validated['is_public'] = $isPublic;
+            
+            $assignedUsers = $request->input('assigned_users');
+            unset($validated['assigned_users']);
+            
             $coupon->update($validated);
+
+            if ($request->has('assigned_users')) {
+                if (!$isPublic && !empty($assignedUsers)) {
+                    $coupon->users()->sync($assignedUsers);
+                } else {
+                    $coupon->users()->detach(); // If turned public or empty array
+                }
+            }
+            
+            $coupon->load('users:id,full_name,email');
 
             return response()->json([
                 'success' => true,

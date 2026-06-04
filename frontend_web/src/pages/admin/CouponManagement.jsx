@@ -12,7 +12,10 @@ import {
     AlertCircle,
     Edit3,
     DollarSign,
-    RotateCw
+    RotateCw,
+    Users,
+    Lock,
+    Globe
 } from 'lucide-react';
 import AdminTable from '../../components/admin/AdminTable';
 import adminApi from '../../api/adminApi';
@@ -31,15 +34,25 @@ const CouponManagement = () => {
         min_order_amount: '',
         usage_limit: '',
         valid_from: '',
-        valid_until: ''
+        valid_until: '',
+        is_public: true,
+        max_discount: '',
+        assigned_users: []
     });
     const [backgroundTasks, setBackgroundTasks] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [allUsers, setAllUsers] = useState([]);
 
     const toast = useNotification();
 
     useEffect(() => {
         fetchCoupons(false, 1, { search: searchTerm });
+        // Fetch users for assignment
+        adminApi.getAllUsers({ limit: 1000 }).then(res => {
+            if (res.success && res.data && res.data.data) {
+                setAllUsers(res.data.data.filter(u => u.role === 'tourist'));
+            }
+        }).catch(err => console.error(err));
     }, [fetchCoupons]);
 
     const handleSearch = (e) => {
@@ -57,7 +70,10 @@ const CouponManagement = () => {
                 min_order_amount: coupon.min_order_amount || '',
                 usage_limit: coupon.usage_limit || '',
                 valid_from: coupon.valid_from ? coupon.valid_from.split('T')[0] : '',
-                valid_until: coupon.valid_until ? coupon.valid_until.split('T')[0] : ''
+                valid_until: coupon.valid_until ? coupon.valid_until.split('T')[0] : '',
+                is_public: coupon.is_public ?? true,
+                max_discount: coupon.max_discount || '',
+                assigned_users: coupon.users ? coupon.users.map(u => u.id) : []
             });
         } else {
             setModal({ isOpen: true, coupon: null });
@@ -68,7 +84,10 @@ const CouponManagement = () => {
                 min_order_amount: '',
                 usage_limit: '',
                 valid_from: '',
-                valid_until: ''
+                valid_until: '',
+                is_public: true,
+                max_discount: '',
+                assigned_users: []
             });
         }
     };
@@ -139,6 +158,17 @@ const CouponManagement = () => {
         return new Date(dateStr).toLocaleDateString('vi-VN');
     };
 
+    const toggleUserSelection = (userId) => {
+        setFormData(prev => {
+            const current = prev.assigned_users || [];
+            if (current.includes(userId)) {
+                return { ...prev, assigned_users: current.filter(id => id !== userId) };
+            } else {
+                return { ...prev, assigned_users: [...current, userId] };
+            }
+        });
+    };
+
     return (
         <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -204,9 +234,16 @@ const CouponManagement = () => {
                                         )}
                                     </td>
                                     <td className="px-8 py-5">
-                                        <span className="text-sm font-black text-slate-900">
-                                            {c.type === 'percent' ? `${c.discount_value}%` : formatCurrency(c.discount_value)}
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm font-black text-slate-900">
+                                                {c.type === 'percent' ? `${c.discount_value}%` : formatCurrency(c.discount_value)}
+                                            </span>
+                                            {!c.is_public && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full w-fit">
+                                                    <Lock size={10} /> Ưu đãi riêng ({c.users?.length || 0})
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-8 py-5">
                                         <span className="text-sm font-bold text-slate-600">{formatCurrency(c.min_order_amount || 0)}</span>
@@ -311,6 +348,19 @@ const CouponManagement = () => {
                                         </div>
                                     </div>
 
+                                    {formData.type === 'percent' && (
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Mức giảm tối đa (Tùy chọn)</label>
+                                            <input
+                                                type="number"
+                                                value={formData.max_discount}
+                                                onChange={(e) => setFormData({ ...formData, max_discount: e.target.value })}
+                                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none"
+                                                placeholder="Ví dụ: 100000 (Để trống nếu không giới hạn)"
+                                            />
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Đơn tối thiểu</label>
@@ -353,6 +403,63 @@ const CouponManagement = () => {
                                                 className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none"
                                             />
                                         </div>
+                                    </div>
+
+                                    <div className="space-y-3 pt-2 border-t border-gray-100">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block">Hình thức cung cấp</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, is_public: true })}
+                                                className={`flex items-center gap-2 p-4 rounded-2xl border-2 transition-all ${formData.is_public ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                                            >
+                                                <Globe size={18} />
+                                                <div className="text-left">
+                                                    <div className="font-bold text-sm">Công khai</div>
+                                                    <div className="text-[10px] opacity-80 mt-0.5">Ai cũng có thể dùng</div>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, is_public: false })}
+                                                className={`flex items-center gap-2 p-4 rounded-2xl border-2 transition-all ${!formData.is_public ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                                            >
+                                                <Lock size={18} />
+                                                <div className="text-left">
+                                                    <div className="font-bold text-sm">Riêng tư</div>
+                                                    <div className="text-[10px] opacity-80 mt-0.5">Chỉ cấp cho User được chọn</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                        
+                                        {!formData.is_public && (
+                                            <div className="mt-4 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                                                <label className="text-xs font-black text-slate-700 mb-3 flex items-center gap-2">
+                                                    <Users size={14} className="text-rose-500" /> Chọn khách hàng được nhận mã:
+                                                </label>
+                                                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar">
+                                                    {allUsers.length === 0 ? (
+                                                        <div className="text-xs text-slate-400 italic text-center py-2">Không có khách hàng nào.</div>
+                                                    ) : (
+                                                        allUsers.map(u => (
+                                                            <label key={u.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors border border-transparent hover:border-slate-100">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="w-4 h-4 rounded text-rose-500 focus:ring-rose-500 border-gray-300"
+                                                                    checked={formData.assigned_users?.includes(u.id)}
+                                                                    onChange={() => toggleUserSelection(u.id)}
+                                                                />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="font-bold text-sm text-slate-800 truncate">{u.display_name || u.full_name}</div>
+                                                                    <div className="text-xs text-slate-500 truncate">{u.email}</div>
+                                                                </div>
+                                                            </label>
+                                                        ))
+                                                    )}
+                                                </div>
+                                                <div className="mt-2 text-xs font-bold text-rose-600">Đã chọn {formData.assigned_users?.length || 0} người</div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

@@ -93,20 +93,41 @@ class BookingController extends Controller
             $discountAmount = 0;
             $appliedCoupon = null;
             if ($request->coupon_code) {
-                $coupon = Coupon::where('code', $request->coupon_code)
-                    ->where(function ($query) {
-                        $query->whereNull('valid_until')
-                              ->orWhere('valid_until', '>', now());
-                    })
-                    ->first();
+                $coupon = Coupon::where('code', $request->coupon_code)->first();
 
-                if ($coupon && (!$coupon->usage_limit || $coupon->used_count < $coupon->usage_limit)) {
-                    $coupon->increment('used_count');
-                    $appliedCoupon = $coupon;
-                    if ($coupon->type === 'percent') {
-                        $discountAmount = (int) ($subtotal * $coupon->discount_value / 100);
-                    } else {
-                        $discountAmount = (int) $coupon->discount_value;
+                if ($coupon && 
+                    (!$coupon->valid_until || $coupon->valid_until > now()) && 
+                    (!$coupon->valid_from || $coupon->valid_from <= now()) &&
+                    (!$coupon->usage_limit || $coupon->used_count < $coupon->usage_limit) &&
+                    $subtotal >= $coupon->min_order_amount
+                ) {
+                    $isAllowed = true;
+                    if (!$coupon->is_public) {
+                        $pivot = $request->user->coupons()->where('coupon_id', $coupon->id)->first();
+                        if (!$pivot || $pivot->pivot->is_used) {
+                            $isAllowed = false;
+                        }
+                    }
+
+                    if ($isAllowed) {
+                        $coupon->increment('used_count');
+                        $appliedCoupon = $coupon;
+                        
+                        if (!$coupon->is_public) {
+                            $request->user->coupons()->updateExistingPivot($coupon->id, [
+                                'is_used' => true,
+                                'used_at' => now()
+                            ]);
+                        }
+
+                        if ($coupon->type === 'percent') {
+                            $discountAmount = (int) ($subtotal * $coupon->discount_value / 100);
+                            if ($coupon->max_discount && $discountAmount > $coupon->max_discount) {
+                                $discountAmount = (int) $coupon->max_discount;
+                            }
+                        } else {
+                            $discountAmount = (int) $coupon->discount_value;
+                        }
                     }
                 }
             }

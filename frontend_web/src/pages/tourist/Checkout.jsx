@@ -9,7 +9,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import bookingApi from '../../api/bookingApi';
 import UpsellAlert from '../../components/tourist/booking/UpsellAlert';
-import { ArrowUpCircle, Gift } from 'lucide-react';
+import { ArrowUpCircle, Gift, Ticket, Calendar, AlertCircle as AlertCircleIcon } from 'lucide-react';
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n ?? 0) + 'đ';
@@ -320,6 +320,9 @@ const Checkout = () => {
     const [couponInput, setCouponInput] = useState('');
     const [couponApplied, setCouponApplied] = useState(null);
     const [discountAmount, setDiscountAmount] = useState(0);
+    const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+    const [availableCoupons, setAvailableCoupons] = useState([]);
+    const [loadingCoupons, setLoadingCoupons] = useState(false);
 
     // Kiểm tra Upsell khi thông tin phòng/dịch vụ thay đổi
     useEffect(() => {
@@ -643,6 +646,102 @@ const Checkout = () => {
 
                 <StepBar step={step} />
 
+                {/* --- COUPON MODAL --- */}
+                {isCouponModalOpen && (
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+                            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="font-black text-slate-800 flex items-center gap-2">
+                                    <Ticket size={18} className="text-emerald-500" /> Chọn mã giảm giá
+                                </h3>
+                                <button onClick={() => setIsCouponModalOpen(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-600 shadow-sm border border-slate-100">
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <div className="p-4 overflow-y-auto flex-1 space-y-3 bg-slate-50">
+                                {loadingCoupons ? (
+                                    <div className="flex justify-center items-center py-10 text-slate-400 gap-2">
+                                        <Loader2 size={18} className="animate-spin" /> Đang tải danh sách...
+                                    </div>
+                                ) : availableCoupons.length === 0 ? (
+                                    <div className="text-center py-10 text-slate-400">
+                                        Không có mã giảm giá nào.
+                                    </div>
+                                ) : (
+                                    availableCoupons.map((c) => {
+                                        // Kiểm tra thêm điều kiện đơn hàng tối thiểu
+                                        let finalAvailable = c.is_available;
+                                        let finalReason = c.unavailability_reason;
+                                        if (finalAvailable && subtotal < c.min_order_amount) {
+                                            finalAvailable = false;
+                                            finalReason = `Đơn hàng tối thiểu ${fmt(c.min_order_amount)}`;
+                                        }
+
+                                        return (
+                                            <div key={c.id} className={`p-4 rounded-2xl border-2 flex flex-col gap-3 transition-all relative overflow-hidden
+                                                ${finalAvailable ? 'border-emerald-200 bg-white hover:border-emerald-400 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-100 opacity-75 cursor-not-allowed'}`}
+                                                onClick={async () => {
+                                                    if (!finalAvailable) return;
+                                                    try {
+                                                        const res = await bookingApi.applyCoupon(c.code, subtotal);
+                                                        if (res.success) {
+                                                            setCouponApplied(res.data);
+                                                            setDiscountAmount(res.data.discount_amount);
+                                                            setCouponInput(c.code);
+                                                            setIsCouponModalOpen(false);
+                                                        }
+                                                    } catch (err) {
+                                                        alert(err.response?.data?.message || 'Không thể áp dụng mã này');
+                                                    }
+                                                }}
+                                            >
+                                                {!c.is_public && (
+                                                    <div className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-bl-lg">
+                                                        Ưu đãi riêng
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <div className="flex-1">
+                                                        <div className="font-black text-lg text-slate-800 flex items-center gap-2">
+                                                            {c.code}
+                                                        </div>
+                                                        <p className="text-sm font-bold text-emerald-600 mt-0.5">
+                                                            Giảm {c.type === 'percent' ? `${c.discount_value}%` : fmt(c.discount_value)}
+                                                            {c.type === 'percent' && c.max_discount && ` (Tối đa ${fmt(c.max_discount)})`}
+                                                        </p>
+                                                    </div>
+                                                    <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0 border border-emerald-100">
+                                                        <Gift size={24} className="text-emerald-500" />
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-4 text-[11px] text-slate-500 font-medium bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                                    {c.min_order_amount > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Banknote size={12} /> Đơn từ {fmt(c.min_order_amount)}
+                                                        </span>
+                                                    )}
+                                                    {c.valid_until && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar size={12} /> HSD: {new Date(c.valid_until).toLocaleDateString('vi-VN')}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {!finalAvailable && finalReason && (
+                                                    <div className="text-[11px] font-bold text-rose-500 flex items-center gap-1 bg-rose-50 p-1.5 rounded-lg">
+                                                        <AlertCircleIcon size={12} /> {finalReason}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* ── LEFT COLUMN ── */}
                     <div className="flex-1 space-y-5">
@@ -747,30 +846,57 @@ const Checkout = () => {
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="flex gap-2">
-                                            <input
-                                                value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())}
-                                                placeholder="Nhập mã giảm giá..."
-                                                className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-400 transition-colors uppercase tracking-wider"
-                                            />
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex gap-2">
+                                                <input
+                                                    value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                                                    placeholder="Nhập mã giảm giá..."
+                                                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-400 transition-colors uppercase tracking-wider"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        if (!couponInput) return;
+                                                        try {
+                                                            const res = await bookingApi.applyCoupon(couponInput, subtotal);
+                                                            if (res.success) {
+                                                                setCouponApplied(res.data);
+                                                                setDiscountAmount(res.data.discount_amount);
+                                                            } else {
+                                                                alert(res.message || 'Mã không hợp lệ');
+                                                            }
+                                                        } catch (err) {
+                                                            alert(err.response?.data?.message || 'Mã không hợp lệ');
+                                                        }
+                                                    }}
+                                                    className="px-4 py-2.5 bg-sky-500 text-white rounded-xl text-sm font-bold hover:bg-sky-600 transition-colors whitespace-nowrap">
+                                                    Áp dụng
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="relative flex py-2 items-center">
+                                                <div className="flex-grow border-t border-slate-100"></div>
+                                                <span className="flex-shrink-0 mx-4 text-xs font-medium text-slate-400">hoặc</span>
+                                                <div className="flex-grow border-t border-slate-100"></div>
+                                            </div>
+
                                             <button
                                                 type="button"
                                                 onClick={async () => {
-                                                    if (!couponInput) return;
+                                                    setIsCouponModalOpen(true);
+                                                    setLoadingCoupons(true);
                                                     try {
-                                                        const res = await bookingApi.applyCoupon(couponInput, subtotal);
-                                                        if (res.success) {
-                                                            setCouponApplied(res.data);
-                                                            setDiscountAmount(res.data.discount_amount);
-                                                        } else {
-                                                            alert(res.message || 'Mã không hợp lệ');
-                                                        }
+                                                        const res = await bookingApi.getMyCoupons();
+                                                        if (res.success) setAvailableCoupons(res.data);
                                                     } catch (err) {
-                                                        alert(err.response?.data?.message || 'Mã không hợp lệ');
+                                                        console.error(err);
+                                                    } finally {
+                                                        setLoadingCoupons(false);
                                                     }
                                                 }}
-                                                className="px-4 py-2.5 bg-sky-500 text-white rounded-xl text-sm font-bold hover:bg-sky-600 transition-colors whitespace-nowrap">
-                                                Áp dụng
+                                                className="w-full py-3 flex items-center justify-center gap-2 border-2 border-dashed border-emerald-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-colors"
+                                            >
+                                                <Ticket size={16} /> Xem tất cả mã ưu đãi
                                             </button>
                                         </div>
                                     )}

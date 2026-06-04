@@ -48,9 +48,9 @@ const CouponManagement = () => {
     useEffect(() => {
         fetchCoupons(false, 1, { search: searchTerm });
         // Fetch users for assignment
-        adminApi.getAllUsers({ limit: 1000 }).then(res => {
-            if (res.success && res.data && res.data.data) {
-                setAllUsers(res.data.data.filter(u => u.role === 'tourist'));
+        adminApi.getAllUsers({ per_page: 1000 }).then(res => {
+            if (res.success && Array.isArray(res.data)) {
+                setAllUsers(res.data.filter(u => u.role === 'tourist'));
             }
         }).catch(err => console.error(err));
     }, [fetchCoupons]);

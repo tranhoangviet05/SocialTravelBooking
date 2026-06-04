@@ -279,6 +279,7 @@ class PaymentController extends Controller
                 $booking->update([
                     'payment_method'  => 'sepay',
                     'deposit_paid_at' => now(),
+                    'payment_status'  => 'paid',
                     'status'          => 'confirmed',
                 ]);
                 $escrowAmount = $booking->deposit_amount;
@@ -392,6 +393,17 @@ class PaymentController extends Controller
 
             DB::statement('UPDATE wallets SET escrow_balance = COALESCE(escrow_balance, 0) + ? WHERE id = ?', [
                 $amount, $adminWallet->id
+            ]);
+
+            // Create transaction for admin history
+            WalletTransaction::create([
+                'wallet_id'      => $adminWallet->id,
+                'booking_id'     => $booking->id,
+                'type'           => 'deposit',
+                'amount'         => $amount,
+                'balance_before' => $adminWallet->balance,
+                'balance_after'  => $adminWallet->balance,
+                'note'           => "Tiền giữ trung gian từ booking #{$booking->booking_code}",
             ]);
 
             broadcast(new WalletUpdated($adminUser->id, $adminWallet->fresh()));

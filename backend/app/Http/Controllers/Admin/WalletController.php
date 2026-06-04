@@ -19,8 +19,9 @@ class WalletController extends Controller
      */
     public function index(Request $request)
     {
-        $adminUser   = $request->user;
-        $adminWallet = Wallet::where('user_id', $adminUser->id)->first();
+        // Get the primary admin (the one receiving the escrow & revenue from webhooks)
+        $primaryAdmin = User::where('role', 'admin')->first();
+        $adminWallet = $primaryAdmin ? Wallet::where('user_id', $primaryAdmin->id)->first() : null;
 
         // Tổng số tiền đang giữ trung gian trong hệ thống (admin escrow = tổng tiền đã thu về tk thật)
         $totalEscrow = $adminWallet?->escrow_balance ?? 0;

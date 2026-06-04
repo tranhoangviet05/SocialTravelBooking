@@ -835,14 +835,34 @@ const Checkout = () => {
                                         <Tag size={18} className="text-emerald-500" /> Mã giảm giá
                                     </h2>
                                     {couponApplied ? (
-                                        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                                            <div>
-                                                <p className="text-sm font-black text-emerald-700">{couponApplied.code}</p>
-                                                <p className="text-xs text-emerald-600">Giảm {fmt(discountAmount)}</p>
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                                                <div>
+                                                    <p className="text-sm font-black text-emerald-700">{couponApplied.code}</p>
+                                                    <p className="text-xs text-emerald-600">Giảm {fmt(discountAmount)}</p>
+                                                </div>
+                                                <button onClick={() => { setCouponApplied(null); setDiscountAmount(0); setCouponInput(''); }}
+                                                    className="p-1.5 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600">
+                                                    <X size={16} />
+                                                </button>
                                             </div>
-                                            <button onClick={() => { setCouponApplied(null); setDiscountAmount(0); setCouponInput(''); }}
-                                                className="p-1.5 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600">
-                                                <X size={16} />
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    setIsCouponModalOpen(true);
+                                                    setLoadingCoupons(true);
+                                                    try {
+                                                        const res = await bookingApi.getMyCoupons();
+                                                        if (res.success) setAvailableCoupons(res.data);
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                    } finally {
+                                                        setLoadingCoupons(false);
+                                                    }
+                                                }}
+                                                className="w-full py-2 flex items-center justify-center gap-2 text-sky-600 rounded-xl text-sm font-bold hover:bg-sky-50 transition-colors"
+                                            >
+                                                <Ticket size={16} /> Chọn mã giảm giá khác
                                             </button>
                                         </div>
                                     ) : (

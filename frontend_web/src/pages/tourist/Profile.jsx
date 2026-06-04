@@ -4,12 +4,16 @@ import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import authApi from '../../api/authApi';
+import bookingApi from '../../api/bookingApi';
+import { Ticket, Gift, Calendar } from 'lucide-react';
 
 const Profile = () => {
     const navigate = useNavigate();
     const { currentUser, refreshProfile } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [myCoupons, setMyCoupons] = useState([]);
+    const [loadingCoupons, setLoadingCoupons] = useState(false);
     
     // States matching 'users' table schema
     const [formData, setFormData] = useState({
@@ -27,6 +31,15 @@ const Profile = () => {
                 phone: currentUser.phone || '',
                 email: currentUser.email || ''
             });
+
+            // Fetch coupons
+            setLoadingCoupons(true);
+            bookingApi.getMyCoupons()
+                .then(res => {
+                    if (res.success) setMyCoupons(res.data);
+                })
+                .catch(err => console.error(err))
+                .finally(() => setLoadingCoupons(false));
         }
     }, [currentUser]);
 
@@ -160,6 +173,57 @@ const Profile = () => {
                     <Input type="password" label="Xác nhận mật khẩu mới" />
                     <Button variant="primary">Đổi mật khẩu</Button>
                 </div>
+            </div>
+
+            {/* Coupons Section */}
+            <h2 className="text-xl font-bold text-slate-800 mt-10 mb-4 flex items-center gap-2">
+                <Ticket className="text-emerald-500" /> Ưu đãi của tôi
+            </h2>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+                {loadingCoupons ? (
+                    <div className="text-center py-4 text-slate-400 font-medium animate-pulse">Đang tải mã giảm giá...</div>
+                ) : myCoupons.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 font-medium">Bạn chưa có mã giảm giá nào.</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {myCoupons.map(c => (
+                            <div key={c.id} className={`p-5 rounded-2xl border-2 flex flex-col gap-3 relative overflow-hidden transition-all hover:shadow-md ${c.is_available ? 'border-emerald-200 bg-gradient-to-br from-white to-emerald-50/50' : 'border-slate-200 bg-slate-50 opacity-75'}`}>
+                                {!c.is_public && (
+                                    <div className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-bl-lg">
+                                        Mã riêng
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-start gap-2">
+                                    <div className="flex-1 mt-1">
+                                        <div className="font-black text-xl text-slate-800 tracking-tight">{c.code}</div>
+                                        <p className="text-sm font-bold text-emerald-600 mt-1">
+                                            Giảm {c.type === 'percent' ? `${c.discount_value}%` : new Intl.NumberFormat('vi-VN').format(c.discount_value) + 'đ'}
+                                            {c.type === 'percent' && c.max_discount && ` (Tối đa ${new Intl.NumberFormat('vi-VN').format(c.max_discount)}đ)`}
+                                        </p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 border border-emerald-200">
+                                        <Gift size={24} className="text-emerald-600" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1.5 text-[11px] text-slate-500 font-medium mt-2 bg-white/60 p-2.5 rounded-lg border border-slate-100">
+                                    {c.min_order_amount > 0 && <span>• Đơn tối thiểu: <strong className="text-slate-700">{new Intl.NumberFormat('vi-VN').format(c.min_order_amount)}đ</strong></span>}
+                                    {c.valid_until ? (
+                                        <span className="flex items-center gap-1">
+                                            <Calendar size={12} /> HSD: <strong className="text-slate-700">{new Date(c.valid_until).toLocaleDateString('vi-VN')}</strong>
+                                        </span>
+                                    ) : (
+                                        <span>• Không giới hạn thời gian</span>
+                                    )}
+                                </div>
+                                {!c.is_available && c.unavailability_reason && (
+                                    <div className="text-[11px] font-bold text-rose-500 mt-1 bg-rose-50 border border-rose-100 p-2 rounded-lg text-center">
+                                        {c.unavailability_reason}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Quick Access Links */}

@@ -22,7 +22,7 @@ class CouponController extends Controller
             $query->where('code', 'ilike', "%{$request->search}%");
         }
 
-        $coupons = $query->with('users:id,full_name,email')->orderBy('created_at', 'desc')->get();
+        $coupons = $query->with('users:id,display_name,email')->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'success' => true,
@@ -68,7 +68,7 @@ class CouponController extends Controller
                 $coupon->users()->sync($assignedUsers);
             }
             
-            $coupon->load('users:id,full_name,email');
+            $coupon->load('users:id,display_name,email');
 
             return response()->json([
                 'success' => true,
@@ -130,7 +130,7 @@ class CouponController extends Controller
                 }
             }
             
-            $coupon->load('users:id,full_name,email');
+            $coupon->load('users:id,display_name,email');
 
             return response()->json([
                 'success' => true,
